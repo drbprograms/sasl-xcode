@@ -2,6 +2,69 @@
 <Workspace
    version = "1.0">
    <FileRef
+      location = "group:/Users/dad/Dropbox/Dev/xcode/sasl/sasl/lex.l">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/abstract.c">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/abstract.h">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/common.c">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/common.h">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/err.h">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/lex.c">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/lex.h">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/make.c">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/make.h">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/Makefile">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/parse.c">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/parse.h">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/reduce.c">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/reduce.h">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/sasl.c">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/sasl.h">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/store.c">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/store.h">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/zone.c">
+   </FileRef>
+   <FileRef
+      location = "group:../../../sasl/zone.h">
+   </FileRef>
+   <FileRef
       location = "self:sasl.xcodeproj">
    </FileRef>
 </Workspace>
