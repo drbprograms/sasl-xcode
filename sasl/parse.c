@@ -487,7 +487,7 @@ int parse_opx(char prio)
       
   /* infix */
   while (lex_looking_at_operator_fix_prio('i', prio)) { /* infix, and assert(lex_oper_prio>=prio) */
- 
+
     if (done && (p == lex_oper_prio))
       return parse_err("parse_opx","operator cannot appear together twice (not associative)","opex<=opex infix opexp");
 

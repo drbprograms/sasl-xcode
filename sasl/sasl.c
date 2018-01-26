@@ -40,7 +40,8 @@ static int getenv_int(char *var, int def)
     fprintf(stderr, "%s=%d\n", var, res);
   return res;
 }
-
+#ifdef getnenv_bool
+/*UNUSED*/
 static int getenv_bool(char *var)
 {
   int res = getenv("no_reset") ? 1 : 0;
@@ -48,6 +49,7 @@ static int getenv_bool(char *var)
     fprintf(stderr, "%s\n", var);
   return res;
 }
+#endif
 
 static int main_init()
 {

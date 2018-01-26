@@ -59,7 +59,7 @@ void new_zone_log(zone_header *z)
   return;
 }
 
-void new_zone_log_report(where)
+void new_zone_log_report(FILE *where)
 {
   /* ToDo */
   return;
@@ -188,7 +188,6 @@ zone_header *zone_new(unsigned size, struct zone_header *parent)
 {
   unsigned need = sizeof(zone_header) + size * sizeof(node);
   zone_header *z;
-  node *n;
 
   z =  malloc(debug ? need + (size * sizeof(node)) : need);
   if (z==NULL) {
@@ -260,7 +259,6 @@ void refc_free_log(pointer p)
 /*
  * freelist - linked list of nodes, linked in Hd() by strong pointer, end of list Hd==NIL
  */
-static pointer refc_root = {(node *)0,0};/* "NIL" in a way that satisfies cc() */
 static pointer refc_freelist = {(node *)0,0};/* "NIL" in a way that satisfies cc() */
 
 static int refc_free_count = 0;	/* how many nodes in the free list */
@@ -410,7 +408,7 @@ int refc_check_log6(char *msg, int result, int zone_no, int node_no, int i, int 
 int refc_check_traverse_pointers(pointer p, int s_limit, int *nil_count,  int *s_count, int *w_count, int *struct_count, int *atom_count)
 {
   zone_header *z;
-  int node_no;	/* offset of Node(p) within the zeon */
+  long int node_no;	/* offset of Node(p) within the zeon */
 
   /* pointer counts */
   if (IsNil(p)) {
@@ -580,8 +578,10 @@ int refc_check_traverse_nodes(zone_header *z, int zone_no, int *strong_refc_tota
 */
 int zone_check_do(pointer root, pointer defs, pointer freelist)
 {
+#ifdef notyet
   int free_count = 0;
   int inuse_count = 0;
+#endif
 
   if (!debug)
     return 0;

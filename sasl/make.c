@@ -15,7 +15,7 @@
  */
 
 static pointer make_err(char *f, char *msg1, int i);
-pointer make_reset();
+pointer make_reset(void);
 
 /* parse stack */
 
@@ -31,8 +31,9 @@ static pointer *sp = stack;
 #define Push(x) (sp++, *sp = (x))
 #define Pop(n)  (sp -= (n), sp[n])
 
+#ifdef unused
 /* debug: make_show - display maker stack items  */
-static void make_show()
+static void make_show(void)
 {
   pointer *spp;
 
@@ -41,6 +42,7 @@ static void make_show()
   }
   return;
 }
+#endif
 
 /* make_err() encountered a bad problem */
 static pointer make_err(char *f, char *msg1, int i)
@@ -88,7 +90,9 @@ pointer make_constant_string()
     case tok_const_string_char:
       c = *yytext;;
       break;
-    default: (void) make_err("make_constant: looking for \"\'\" at end of string, found",yytext, 0);
+    default:
+        c = *yytext;
+        (void) make_err("make_constant: looking for \"\'\" at end of string, found",yytext, 0);
       /*NOTREACHED*/
       break;
     }
@@ -132,7 +136,7 @@ pointer make_name()
 /* make_oper() */
 pointer make_oper()
 {
-  switch (lex_oper_fix[0]) {
+  switch (lex_oper_fix[0]) { /*xxx does this correctly deal with lex_oper_fix == "ip" - either infix or postfix??? */
 
   case 'p':
     switch(lex_oper) {
@@ -186,7 +190,7 @@ pointer make_oper()
 
 /* search def for definition of a name, return NIL is if not found 
    defs: (listof-names).(listof-clauses) */
-pointer make_lookup(pointer name, pointer def)
+pointer make_lookup_name(pointer name, pointer def)
 {
   pointer defs, n, d;
 
@@ -216,7 +220,7 @@ pointer make_bind(pointer defs, pointer expr)
     Tl(expr) = make_bind(defs, Tl(expr));
   } else {
     if (IsName(expr)) {
-      pointer temp = make_lookup(expr, defs); /*WIPWIP*/
+      pointer temp = make_lookup_name(expr, defs); /*WIPWIP*/
 
       if (debug) {
 	fprintf(stderr, "make_bind: ");
@@ -245,17 +249,16 @@ pointer make_bind(pointer defs, pointer expr)
 pointer make_append(pointer list, pointer tl)
 {
   pointer l = list;
-
+  
   while (IsSet(l)) {
-    if (IsSet(Tl(l)))
+    if (IsSet(Tl(l))) {
       l = Tl(l);
-    else {
-      /*new ???*/
+    } else {
+      Assert(IsNil(Tl(l)));
       Tl(l) = tl; /* was new_cons(tl,NIL);c*/
       break;
     }
   }
-  
   return list;
 }
 
@@ -278,6 +281,7 @@ pointer make_append(pointer list, pointer tl)
 */
 
 /* make_abstract() - make ([name] def) - abstract name from def */
+/* here we either carry out the abstraction (reduce_abstract) or leave a placeholder for delayed abstraction (new_abstract) */
 pointer make_abstract(pointer formal, pointer def, int r)
 {
   pointer n;
@@ -305,23 +309,25 @@ pointer make_abstract(pointer formal, pointer def, int r)
 /* parameter definition: abstract formal-names from the expr defining them */
 
 
-/* defs is pair of lists of defs ((name...).((expr:list-of formals ...)) 
+/* condexp is the expression to be reduced, using
+   defs which is pair of lists of names and expressions
+ (name ...).((expr:list-of formals) ...)
    result is
-   ([name ..] condexp) (expr ...)
+ ([name ...] condexp) (expr:list-of formals ...)
 */
 pointer make_where(pointer condexp, pointer defs)
 {
-  pointer p;
   MAKE_DEBUG("make_where ...\n");
   
   /*new ???*/
-  condexp = make_abstract(Hd(defs), condexp, 0 /*non-recursive*/); 
-
-  condexp = new_apply(condexp, Tl(defs)); Tl(defs) = NIL; /* move */
+  condexp = new_apply(make_abstract(Hd(defs), condexp, 0 /*non-recursive*/),
+                      Tl(defs));
+  Hd(defs) = NIL; /* move */
+  Tl(defs) = NIL; /* move */
+  refc_delete(&defs); /* cons no longer required */
   
-  /*was
-    refc_delete(&defs);*/		/* ((name ... ) . NIL) list no longer required */
-  				/* todo save list for debgging/ Module definition? */
+  /* todo: copy and save defs list Hd/Tl pointers for debugging/ Module definition? */
+  
   return condexp;
 }
 
@@ -434,264 +440,266 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
   
   if (no_code)
     return NIL;
-
+  
   n1 = sp[1];
   n2 = sp[2];
-    
+  
   if (debug >2)
     fprintf(stderr, "%s %d,%d\n", ruledef, rule, subrule);
   
   switch (rule) {
-  case 1:
-    /* (1)	<formal> ::= <name> | <constant> | (<namelist>) */
-    /*		formal <= name | constant | namelist */
-    switch (subrule)
-      {
-      case 1: return make_name();
-      case 2: return make_constant();
-      case 3: return n1;
-      }
-    break;
-
-  case 2:
-    /* (2) <struct> ::= (<formal>) | <formal>:<struct>
-     *	                     1           2        3
-
-     struct <= formal | listof-struct
-
-     formal may be "()" ie NIL ...
-    */
-    switch (subrule) {
-    case 1: return n1;
-    case 2: return n1;
-    case 3: return new_cons(n1,n2);
-    }
-    break;
-    
-  case 3:
-    /*
-     * (3)	<namelist> ::= <struct> | <struct>, | <struct> , . . . ,<struct>
-     *   *                            1          2                              3
-
-     namelist <= struct | listof-struct
-    */
-    switch (subrule) {
-    case 1: return n1;
-    case 2: return new_cons(n1,NIL);
-    case 3: return new_cons(n1,n2);
-    }
-    break;
-    
-  case 4:
-    /* (4)	<condexp> ::= <opexp> → <condexp>; <condexp> | <opexp>, . . . ,<opexp> | <opexp>, | <opexp> */
-    /*	re-re-written to:
-     * (4)	<condexp> ::= <opexp> → <condexp>; <condexp> | <opexp> | <opexp>, | <opexp>, <opexp> [, <opexp>]* where * means 0 or more 
-     *                           1          2          3          4        5                   6          7
-  
-srhs     condexp <= cond_op opexp condexp condexp | opexp1 | listof-opexp
-    */
-
-
-    switch (subrule) {
-    case 1: return n1; /*nop*/
-    case 2: return new_apply(new_apply(new_oper(cond_op), n1), n2);
-    case 3: return new_apply(n1, n2);
-    case 4: return n1; /*nop*/
-    case 5: return new_cons(n1, NIL);
-    case 6: return make_append(n1, new_cons(n2,NIL));
-    case 7: return make_append(n1, new_cons(n2,NIL));
-    }
-    break;
-    
-  case 5:
-    /*
-     *	<rhs> ::= <formal><rhs> | <formal> = <expr>
-     * rewritten as
-     * (5)	<rhs> ::= = <formal>* = <expr> | = <expr> + means 1 or more
-     *                                    N1
-     rhs <= [formals] expr | expr
-     
-     !! ?consider check name is not present in Lhs.formal - its an error isn't it eg sasl "f a f = a?"!! 
-    */
-    switch (subrule) {
-      
-    case 1: {
-      int i;
-      pointer expr, formals = NIL;
-      /*WIP WIP WIP */      
-      expr = sp[howmany--];
-      
-      if (howmany > 0) {
-	formals = sp[0];
-	for (i = 1; i < howmany; i++) {
-	  formals = new_apply(sp[i], formals);
-	}
-	
-	expr = make_abstract(formals, expr, 0);
-      }
-      
-      return expr;
-    }
-    }
-    
-    break;
-    
-  case 6:
-    /* 
-     * (6)	<clause> ::= <namelist> = <expr> | <name><rhs>
-     *                           1          2        3    4
-    	clause <= name|namelist : expr
-     */
-    switch (subrule) {
-    case 1: return n1; /* NB n1 is a listof-names here */
-    case 2: {
-      n2 = make_abstract(n1, n2, 0); /*non-recursive*/ /*xxx refc issue here is make_abstract copies incoming */
-      return new_cons(n1,  n2);
-    }
-    case 3: return n1; /* was make_name(); */
-    case 4: return new_cons(n1, n2);
-    }
-    break;
-      
-  case 7:
-    /* (7)	<defs> ::= <clause> [; <clause>]*	* means 0 or more
-     *                     1        2 or 3		"2" when adjacent clauses are part of a single multi-clause definition, otherwise "3"
-      defs <= (list-of name|namelist).(list-of expr)     
-     */
-    switch (subrule) {
     case 1:
-      /* first def - re-write n1 as a pair of lists */
-      H(n1) = new_cons(H(n1), NIL);
-      T(n1) = new_cons(T(n1), NIL);
-      return n1;
-      
-      /* multi-def - two clauses with same simple names (not namelist) - update the single definition */
-    case 2:
-      HT(n1) = make_multi_clause(T(n2), HT(n1), info);	T(n2) = NIL; /* move expr */
-      refc_delete(&n2);
-      return n1;
-      
-      /* else straightforward case, simply add toceach of the pair of lists */
-    case 3:
-      HH(n1) = new_cons(H(n2), HH(n1)); H(n2) = NIL; /* move name */
-      HT(n1) = new_cons(T(n2), HT(n1));	T(n2) = NIL; /* move expr */
-      refc_delete(&n2);
-      return n1;
-
-     }
-    
-    break;
-    
-  case 8:
-    /* (8)	<expr> ::= <condexp> [where <defs>]*	* means 0 or more 
-                               1            2
-     *                      condexp | [(name ...)] condexp (Y [(name ...)] (expr ...)
-
-     expr <=	make_where(condexp, defs) <= ([hd(defs)] condexp) (tl defs) <= ([listof-clause-names] condexp) (listof-clauses) | expr
-
-     *		condexp | (foreach clause.name in defs - (Y[clause.name]) condexp) defs ... repeating for each [where defs]; clear the list 
-     */
-    switch (subrule) {
-    case 1: return n1;
-    case 2: return make_where(n1, n2);
-    }
-    break;
-    
-  case 9:
-    /* (9)	<comb> ::= <simple>+	+=one or more */
-    /* 		simple | ((simple1 simple2) simple3)+ */
-    switch (subrule) {
-    case 1: return n1;
-    case 2: return new_apply(n1, n2); /* bind to left */
-    }
-    break;
-	
-  case 10:
-    /* (10)	<simple ::= <name> | <constant> | ( <expr> ) [[| <zfexpr> ]] */
-    /* 		simple or expr */
-    /* 		simple | ((simple1 simple2) simple3)+ */
-    switch (subrule)
-      {
+      /* (1)	<formal> ::= <name> | <constant> | (<namelist>) */
+      /*		formal <= name | constant | namelist */
+      switch (subrule)
+    {
       case 1: return make_name();
       case 2: return make_constant();
       case 3: return n1;
+    }
+      break;
+      
+    case 2:
+      /* (2) <struct> ::= (<formal>) | <formal>:<struct>
+       *	                     1           2        3
+       
+       struct <= formal | listof-struct
+       
+       formal may be "()" ie NIL ...
+       */
+      switch (subrule) {
+        case 1: return n1;
+        case 2: return n1;
+        case 3: return new_cons(n1,n2);
       }
-    break;
-	
-  case 11:
-    /* (11)	<opexp> ::= <opx0> [<infix> <opx0>]+ where + means one or more */
-    switch (subrule) {
-    case 1: return n1;
-    case 2: return new_apply(n1,n2);
-    }
-    break;
-
-  case 12:
-    /* 
-     * (12)	<opxN>	::= <prefixN> <opxN>| <comb> [<infixN><opxN>]* [<postfixN>]
-     *                          1        2       3      4      5             6
-     */
-    switch (subrule) {
-    case 1: return make_oper();
-    case 2: return new_apply(n1, n2);
-    case 3: return n1;
-    case 4: return new_apply(make_oper(), n1);
-    case 5: return new_apply(n1, n2);
-    case 6: return new_apply(make_oper(), n1);
-    }
-    break;
-    
-  case 13:
-    /*
-     * (13) <deflist> ::= <clause> [; <clause>]*
-     defs <= (listof-clause-names).(listof-clauses)
-     *
-     * retain listof-clauses for individual use
-     */
-    switch (subrule) {
+      break;
+      
     case 3:
-      return n1;/*todo xxx BROKEN HERE make this like case: 7 defs, but updating Global DEF list */
-
-
-    }
-    break;
-
-  case 14:
-    /* (14)	<program> ::= <expr>? | def <deflist>?
-     *                          1        2     3
-     reduce expr | save defs 
-    */
-    
-    switch (subrule) {
+      /*
+       * (3)	<namelist> ::= <struct> | <struct>, | <struct> , . . . ,<struct>
+       *   *                            1          2                              3
+       
+       namelist <= struct | listof-struct
+       */
+      switch (subrule) {
+        case 1: return n1;
+        case 2: return new_cons(n1,NIL);
+        case 3: return new_cons(n1,n2);
+      }
+      break;
       
-    case 1: 
-      /* substitute for known DEFs; check for unbound names; return pointer to-be-reduced */
-      /* n1 = make_bind(theDefs, n1); 
-         if (make_check_free(n1))
-	 return (make_reset())
-	 else 
-	 return n1;
-      */
-
+    case 4:
+      /* (4)	<condexp> ::= <opexp> → <condexp>; <condexp> | <opexp>, . . . ,<opexp> | <opexp>, | <opexp> */
+      /*	re-re-written to:
+       * (4)	<condexp> ::= <opexp> → <condexp>; <condexp> | <opexp> | <opexp>, | <opexp>, <opexp> [, <opexp>]* where * means 0 or more
+       *                           1          2          3          4        5                   6          7
+       
+       srhs     condexp <= cond_op opexp condexp condexp | opexp1 | listof-opexp
+       */
+      
+      
+      switch (subrule) {
+        case 1: return n1; /*nop*/
+        case 2: return new_apply(new_apply(new_oper(cond_op), n1), n2);
+        case 3: return new_apply(n1, n2);
+        case 4: return n1; /*nop*/
+        case 5: return new_cons(n1, NIL);
+        case 6: return make_append(n1, new_cons(n2,NIL));
+        case 7: return make_append(n1, new_cons(n2,NIL));
+      }
+      break;
+      
+    case 5:
+      /*
+       *	<rhs> ::= <formal><rhs> | <formal> = <expr>
+       * rewritten as
+       * (5)	<rhs> ::= = <formal>* = <expr> | = <expr> + means 1 or more
+       *                                    N1
+       rhs <= [f1 ...] expr | expr
+       
+       !! ?consider check name is not present in Lhs.formal - its an error isn't it eg sasl "f a f = a?"!!
+       */
+      switch (subrule) {
+          
+        case 1: {
+          int i;
+          pointer expr, formals = NIL;
+          /*WIP WIP WIP */
+          expr = sp[howmany--];
+          
+          if (howmany > 0) {
+            formals = sp[0];
+            for (i = 1; i < howmany; i++) {
+              formals = new_apply(sp[i], formals);
+            }
+            expr = make_abstract(formals, expr, 0);
+          }
+          
+          return expr;
+        }
+      }
+      
+      break;
+      
+    case 6:
+      /*
+       * (6)	<clause> ::= <namelist> = <expr> | <name><rhs>
+       *                           1          2        3    4
+       clause <= name|namelist : expr
+       */
+      switch (subrule) {
+        case 1: return n1; /* NB n1 is a listof-names here */
+        case 2: {
+          n2 = make_abstract(n1, n2, 0); /*non-recursive*/ /*xxx refc issue here is make_abstract copies incoming */
+          return new_cons(n1,  n2);
+        }
+        case 3: return n1; /* was make_name(); */
+        case 4: return new_cons(n1, n2);
+      }
+      break;
+      
+    case 7:
+      /* (7)	<defs> ::= <clause> [; <clause>]*	* means 0 or more
+       *                     1        2 or 3		"2" when adjacent clauses are part of a multi-clause definition of the same name, otherwise "3"
+       defs <= (list-of name|namelist).(list-of expr)
+       */
+      switch (subrule) {
+        case 1:
+          /* first def - re-write n1 as a pair of lists */
+          H(n1) = new_cons(H(n1), NIL);
+          T(n1) = new_cons(T(n1), NIL);
+          return n1;
+          
+          /* multi-def - two clauses with same simple names (ie not namelist) - update the single definition */
+        case 2:
+          HT(n1) = make_multi_clause(T(n2), HT(n1), info);	T(n2) = NIL; /* move expr */
+          refc_delete(&n2);
+          return n1;
+          
+          /* else straightforward case, simply add each of the pair of lists */
+        case 3:
+          HH(n1) = new_cons(H(n2), HH(n1));
+          HT(n1) = new_cons(T(n2), HT(n1));
+          
+          H(n2) = NIL; /* move name */
+          T(n2) = NIL; /* move expr */
+          refc_delete(&n2);
+          return n1;
+          
+      }
+      
+      break;
+      
+    case 8:
+      /* (8)	<expr> ::= <condexp> [where <defs>]*	* means 0 or more
+       1            2
+       *                      condexp | [(name ...)] condexp (Y [(name ...)] (expr ...)
+       
+       expr <=	make_where(condexp, defs) <= ([hd(defs)] condexp) (tl defs) <= ([listof-clause-names] condexp) (listof-clauses) | expr
+       
+       *		condexp | (foreach clause.name in defs - (Y[clause.name]) condexp) defs ... repeating for each [where defs]; clear the list
+       */
+      switch (subrule) {
+        case 1: return n1;
+        case 2: return make_where(n1, n2);
+      }
+      break;
+      
+    case 9:
+      /* (9)	<comb> ::= <simple>+	+=one or more */
+      /* 		simple | ((simple1 simple2) simple3)+ */
+      switch (subrule) {
+        case 1: return n1;
+        case 2: return new_apply(n1, n2); /* bind to left */
+      }
+      break;
+      
+    case 10:
+      /* (10)	<simple ::= <name> | <constant> | ( <expr> ) [[| <zfexpr> ]] */
+      /* 		simple or expr */
+      /* 		simple | ((simple1 simple2) simple3)+ */
+      switch (subrule)
+    {
+      case 1: return make_name();
+      case 2: return make_constant();
+      case 3: return n1;
+    }
+      break;
+      
+    case 11:
+      /* (11)	<opexp> ::= <opx0> [<infix> <opx0>]+ where + means one or more */
+      switch (subrule) {
+        case 1: return n1;
+        case 2: return new_apply(n1,n2);
+      }
+      break;
+      
+    case 12:
+      /*
+       * (12)	<opxN>	::= <prefixN> <opxN>| <comb> [<infixN><opxN>]* [<postfixN>]
+       *                          1        2       3      4      5             6
+       */
+      switch (subrule) {
+        case 1: return make_oper();
+        case 2: return new_apply(n1, n2);
+        case 3: return n1;
+        case 4: return new_apply(make_oper(), n1);
+        case 5: return new_apply(n1, n2);
+        case 6: return new_apply(make_oper(), n1);
+      }
+      break;
+      
+    case 13:
+      /*
+       * (13) <deflist> ::= <clause> [; <clause>]*
+       defs <= (listof-clause-names).(listof-clauses)
+       *
+       * retain listof-clauses for individual use
+       */
+      switch (subrule) {
+        case 3:
+          return n1;/*todo xxx BROKEN HERE make this like case: 7 defs, but updating Global DEF list */
+          
+          
+      }
+      break;
+      
+    case 14:
+      /* (14)	<program> ::= <expr>? | def <deflist>?
+       *                          1        2     3
+       reduce expr | save defs
+       */
+      
+      switch (subrule) {
+          
+        case 1:
+          /* substitute for known DEFs; check for unbound names; return pointer to-be-reduced */
+          /* n1 = make_bind(theDefs, n1);
+           if (make_check_free(n1))
+           return (make_reset())
+           else
+           return n1;
+           */
+          
 #ifdef notyet      
-      n1 = make_where(n1, defs);
+          n1 = make_where(n1, defs);
 #endif
-      return n1;
-    case 2: return n1;
-    case 3: {
-      /* check for unbound names; save defs */
-      /*todo check for unbound ... */
-      /*todo successive "def deflist?" adds to/updates "defs" */
-      n1 = new_def(new_name("<TopDefs>"), n1);
-      
-      return n1; /*todo record the defs */
-      
-    }
-      break;
-      
-    default:
-      break;
-    }
+          return n1;
+        case 2: return n1;
+        case 3: {
+          /* check for unbound names; save defs */
+          /*todo check for unbound ... */
+          /*todo successive "def deflist?" adds to/updates "defs" */
+          n1 = new_def(new_name("<TopDefs>"), n1);
+          
+          return n1; /*todo record the defs */
+          
+        }
+          break;
+          
+        default:
+          break;
+      }
   }
   
   (void) make_err("got unrecognised rule", ruledef, rule);
@@ -705,9 +713,9 @@ srhs     condexp <= cond_op opexp condexp condexp | opexp1 | listof-opexp
 int maker(int howmany, char *ruledef, int rule, int subrule, int info)
 {
   pointer n;
-
+  
   Pop(howmany);
-
+  
   if (debug > 2) {
     int i;
     for (i=1; i<=howmany; i++)
@@ -715,14 +723,14 @@ int maker(int howmany, char *ruledef, int rule, int subrule, int info)
   }
   
   n = maker_do(howmany, ruledef, rule, subrule, info, sp);
-
+  
   Push(n);
   
   if(debug){
     fprintf(stderr, "%s %d,%d,%d,%d (Depth=%ld) <= ", ruledef, rule, subrule, info, howmany, Depth);
     out_debug_limit(sp[0], Limit);
   }
-
+  
   return 1;
 }
 
@@ -733,6 +741,6 @@ pointer make_result()
   (void) make_err("program", "stack alignment problem", (int)Depth);
   return NIL;
 }
-		   
+
 
 /*maker*maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker*/

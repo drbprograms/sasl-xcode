@@ -61,7 +61,7 @@ static int tag_reductions[TagCount];
 static void indent(FILE *where, long int n)
 {
   static char b[] = "                ";
-  static int max;
+  static long int max;
 
   max = strlen(b);
 

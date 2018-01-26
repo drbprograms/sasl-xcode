@@ -10,25 +10,9 @@
 
 #include "reduce.h"
 
-/* helper functions to deal with SASL repeated formals eg "same x x = TRUE; same x y = FALSE" */
-/* count occurences of name in p which are NOT of form (MATCH anything) */
-
-#define Matched(p) (IsSet(p) && IsSet(Hd(p)) && (Tag(Hd(p)) == MATCH_comb))
-
-
-/* 
-   compile(formal1, formal2, ….formaln E) →
-
-  (MATCH test-for-formal1) compile(formal2, …. [formal1] E) →
-    (MATCH test-for-formal1 [formal1]E) 
-      (MATCH test-for-formal2 [formal2][formal1]E)
-         … (MATCH test-for-formaln […][formaln]E)
-*/
-
-
-
-/* looks for name in p 
+/* looks for name in p
    return 1 if name is present, otherwise 0
+   NB compare text string stored in the names for equality (ie *not* for identical name nodes).
 */
 static int got_name(pointer name, pointer p)
 {
@@ -81,83 +65,130 @@ static int got_name(pointer name, pointer p)
 */
 
 /* [x] E - helper function, with optimisation - only to be called from reduce_abstract1() below */
+/* this is the engine room of the abstrsaction process */
 /* got - how nmany 'free' instances of name have been found */
 /* Delays placing 'cancellator' combinators K, B, C etc */
+
+/* Abstraction rules */
+/* [x] x ==> I  ||  *got++ */
+
+/* [x] E1 E2 ==>  S E1 E2   || if x occurs in E1 and E2 */
+/* [x] E1 E2 ==>  C E1 E2   || if x occurs in E1 and not E2 */
+/* [x] E1 E2 ==>  B E1 E2   || if x occurs in E2 and not E1 */
+/* [x] E1 E2 ==>    E1 E2   || if x occurs in neither E1 nor E2 (got==0) */
+
+/* [x] E1:E2 ==>  Sp E1 E2  || if x occurs in E1 and E2 */
+/* [x] E1:E2 ==>  Cp E1 E2  || if x occurs in E1 and not E2 */
+/* [x] E1:E2 ==>  Bp E1 E2  || if x occurs in E2 and not E1 */
+/* [x] E1:E2 ==>     E1 E2  || if x occurs in neither E1 nor E2 (got==0) */
+
+/* [x] other ==> other      || (got==0) */
+
+
+/* implementation: */
+
+/* do[x] x => I x */
+/* do[x] simple ==> simple */
+
+/* do[x] f g      => S f g x                {=> (f x) (g x)} */
+/* do[x] f:g      => Sc f g x               {=> (f x):(g x)} */
+
+/* do[x] f g0     => S f (K g)  => C f g x  {=> f x g} */
+/* do[x] f:g0     => Sp f (K g) => Cp f g x {=> f x:g} */
+
+/* do[x] f0 g     => S (K f) g  => B f g x  {=> f (g x)} */
+/* do[x] f0 g     => S (K f) g  => Bp f g x {=> f:(g x)} */
+
+/* do[x] f0 g0    => f0 g0 (got==0) */
+/* do[x] f0:g0    => f0:g0 (got==0) */
+
 static pointer reduce_abstract_do(pointer name, pointer n, int *got)
 {
-  pointer h, t;
-  int hgot = 0, tgot = 0;
-  int ap = 0;
-    
+  int hgot = 0, tgot = 0; /* counts how many occurences of x in Hd(n), Tl(n) */
+  int ap; /* IsApply(n) - used to determine S vs Sp etc */
+  
+  if (debug > 1) {
+    fprintf(stderr, "%s[%s] (got==%d)", "recursive_abstract_do", IsNil(name)?"NIL":Name(name), *got);
+    out_debug(n);
+  }
+  
   if (IsNil(n))
     return n;	/* do[x] NIL => NIL */ /*assert((*got)==0)*/
-
-  if (IsName(n) && EqName(name, n)) {
-    		/* do[x] x => Ix */
-    /* update in place */
-    Tag(n) = I_comb;
-    Hd(n) = name; /*was refc_copy(name);*/
-    Tl(n) = NIL;	/* safety */
+  
+  if (IsName(n) && EqName(name, n))   {
+    /* do[x] x => I x */
     (*got)++;
+    return new_apply(new_comb(I_comb), n);
+  }
+  
+  if (IsAtom(n)) {
+    /* do[x] simple ==> simple */
     return n;
   }
-
-  if (IsApply(n))
-    ap = 1;
-  else if ( !IsCons(n)) 
-    return n;	/* do[x] other => other */ /*assert((*got)==0)*/
   
   /*new update(n, reduce_abstract_do(name, H, &hgot), reduce_abstract_do(name, Tl, &tgot))*/
-  h = reduce_abstract_do(name, Hd(n), &hgot);  
-  t = reduce_abstract_do(name, Tl(n), &tgot);      
+  Hd(n) = reduce_abstract_do(name, Hd(n), &hgot);
+  Tl(n) = reduce_abstract_do(name, Tl(n), &tgot);
+  
   *got += hgot + tgot;
-
-  if (*got && !ap)
-    Tag(n) = apply_t; /* we are going apply a combinator */
+  
+  if (IsApply(n)) {
+    ap = 1;
+  } else {
+    Assert(IsCons(n));
+    ap = 0;
+    
+    /* if we are about to apply a combinator (got!=0), n must be apply (not cons) */
+    if (*got > 0)
+      Tag(n) = apply_t;
+  }
   
   /*new update(n, new_apply(new_comb(ap?S_comb:Sc_comb), H), T) */
-
-
+  
   if (hgot) {
-    if (tgot) {	/* do[x] f g			=> S f g x	=> (f x) (g x)*/
-      		/* do[x] f:g			=> Sc f g x	=> (f x):(g x)*/
-      Hd(n) = new_apply(new_comb(ap ? S_comb : Sc_comb), h);
-    } else {	/* do[x] f g0	=> S f (K g)	=> C f g x	=> f x g */
-      Hd(n) = new_apply(new_comb(ap ? C_comb : Cc_comb), h);
+    if (tgot) {
+      Hd(n) = new_apply(new_comb(ap ? S_comb : Sc_comb), Hd(n));
+    } else {
+      Hd(n) = new_apply(new_comb(ap ? C_comb : Cc_comb), Hd(n));
     }
   } else {
-    if (tgot) {	/* do[x] f0 g	=> S (K f) g	=> B f g x	=> f (g x) */
-      		/* todo
-		   do[x] f0 x	=> S (K f) I	=> x */
-      Hd(n) = new_apply(new_comb(ap ? B_comb : Bc_comb), h);
-    } else { 	/* do[x] f0 g0	=> S (K f)(K g)	=> f g */
-      Hd(n) = h;/* nop */
+    if (tgot) {
+      /* todo
+       do[x] f0 x	=> S (K f) I	=> x */
+      Hd(n) = new_apply(new_comb(ap ? B_comb : Bc_comb), Hd(n));
+    } else {
+      /* do[x] f0 g0	=> S (K f)(K g)	=> f g */
+      /* nop */
     }
   }
-  Tl(n) = t;
-
+  
   return n;
 }
 
 
-/* abstract [name] exp - a single name */
-/* if "r then recursive abstract Y ... */
+/* abstract1 [name] exp - worker functions to abstract a single name (or NIL) */
+
+/* [x] E => K abstract_do(x, E)   || if x is *not* present in E (got == 1)*/
+/* [x] E =>   abstract_do(x, E)   || otherwise */
+
+/* deprecated: if "r then recursive abstract Y ... */
 static pointer reduce_abstract1(pointer name, pointer exp, int r)
 {
-  int got = 0;
-
+  int got = 0; /* counts how many occurences of name in exp */
+  Assert(IsName(name) || IsNil(name));
+  
   if (debug)
     fprintf(stderr, "%s[%s] ", (r?"recursive_abstract1":"abstract1"), IsNil(name)?"NIL":Name(name)); out_debug(exp);
 
-  exp = reduce_abstract_do(name, exp, &got);      /* [x] exp */
+  exp = reduce_abstract_do(name, exp, &got);
 
+#ifndef possiblytooclever
   if (got == 0)
     exp = new_apply(new_comb(K_comb), exp);
   
   if (r)
     exp = new_apply(new_comb(Y_comb), exp);
-  
-#ifdef possiblytooclever
+#else
   if (r == 0) {
     /* Let */
     if (got == 0)
@@ -176,64 +207,72 @@ static pointer reduce_abstract1(pointer name, pointer exp, int r)
   return exp;
 }
 
+/* top level abstraction function */
 /* abstract a name or pattern (a possibly recursive list of names) from an exp */
 /* if r then recursive abstract Y ... */
 /* [pattern1] ([pattern2] ([pattern3] .... exp))*/
 
+/* [const] E => MATCH const E */
+/* [NIL]   E => MATCH NIL   E */
+/* [name] E => abstract1(name, E) */
+/* [x ... x ...] E => [ ... x ...] MATCH (eq x) E */
+/* [a b] E => [a] ([b] E) */
+/* [x:NIL] E => U ([x] (K_nil E)) */
+/* [x : ... x ...] E => [ ... x ...] MATCH (eq x) E */  /* xxx TO DO TO DO */
 
 pointer reduce_abstract(pointer pattern, pointer exp, int r)
 {
-  /* [const] E => MATCH const E */
-  /* [NIL]   E => MATCH NIL   E */
-  /* [x ... x ...] E => [ ... x ...] MATCH (eq x) E */
-  /* [x : ... x ...] E => [ ... x ...] MATCH (eq x) E */  /* xxx TO DO TO DO */
-
   if (debug > 1) {
     fprintf(stderr, "%s[", (r?"recursive_abstract":"abstract"));
     out_debug1(pattern);
     fprintf(stderr, "] ");
     out_debug(exp);
   }
-
+  
   if (IsNil(pattern) || IsConst(pattern)) {
+    /* [const] E => MATCH const E */
+    /* [NIL]   E => MATCH NIL   E */
     exp = new_apply(new_apply(new_comb(MATCH_comb),
-			      new_apply(new_comb(equal_op), pattern)), /*was refc_copy(pattern)*/
-		    exp);
+                              new_apply(new_comb(equal_op), pattern)), /*was refc_copy(pattern)*/
+                    exp);
   } else if (IsName(pattern)) {
     /* [name] E => abstract1(name, E) */
     exp = reduce_abstract1(pattern, exp, 0); /* nb bug was 1; todo remove "r" parameter from abstract1() */
   } else if (IsApply(pattern)) {
-    /* [a ... a...] E => [... a ...] MATCH (eq x) E */
-    /* [a b] E => [a] ([b] E) */
     if (IsName(Hd(pattern)) && got_name(Hd(pattern), Tl(pattern))) {
+      /* [x ... x ...] E => [ ... x ...] MATCH (eq x) E */
       exp = new_apply(new_apply(new_comb(MATCH_comb),
-				new_apply(new_comb(equal_op), Hd(pattern))),
-		      exp);
-      exp = reduce_abstract(T(pattern), exp, 0/*nb*/);
-    } else
-      exp = reduce_abstract(H(pattern),
-			    reduce_abstract(T(pattern), exp, 0/*nb*/), 0/*nb*/);
+                                new_apply(new_comb(equal_op), Hd(pattern))),
+                      exp);
+      exp = reduce_abstract(Tl(pattern), exp, 0/*nb*/);
+    } else {
+      /* [a b] E => [a] ([b] E) */
+      exp = reduce_abstract(Hd(pattern),
+                            reduce_abstract(Tl(pattern),
+                                            exp, 0/*nb*/), 0/*nb*/);
+    }
   } else if (IsNil(Tl(pattern))) {
     Assert(IsCons(pattern));
-    /* [x:NIL] E => U ([x] (K_nil E)) */	
+    /* [x:NIL] E => U ([x] (K_nil E)) */
     exp = new_apply(new_comb(U_comb),
-		    reduce_abstract(Hd(pattern),
-				    new_apply(new_comb(K_nil_comb), exp),
-				    0/*nb*/));
-  }
-  else {
+                    reduce_abstract(Hd(pattern),
+                                    new_apply(new_comb(K_nil_comb),
+                                              exp),
+                                    0/*nb*/));
+  } else {
+    Assert(IsCons(pattern));
     /* [x:y] E => U ([x] ([y] E)) */
-
-    /* TO DO TO DO */
+    
+    /* xxx TO DO TO DO */
     /*
-      [x : ... x ...] E => ??? ???
+     [x : ... x ...] E => ??? ???
      */
     
     exp = new_apply(new_comb(U_comb),
-		    reduce_abstract(Hd(pattern),
-				    reduce_abstract(Tl(pattern), exp, 0/*nb*/),
-				    0/*nb*/));
-  } 
+                    reduce_abstract(Hd(pattern),
+                                    reduce_abstract(Tl(pattern), exp, 0/*nb*/),
+                                    0/*nb*/));
+  }
   
   if (r)
     exp = new_apply(new_comb(Y_comb), exp);

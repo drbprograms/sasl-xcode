@@ -1,0 +1,522 @@
+2018-01-26
+moved to xcode + github
+need to sort out make_clause
+    currently generating make_abstract() for "rhs" which obscures the formal list ... which is needed in the multi-clause case
+    solution
+        deliver rhs as (list-of names . rhs) || list possibly NIL
+        add make_clause() which abstract the list-of names from the rhs
+        AND modify make_multi_clause accordingly to match
+
+
+compilation of sasl is giving refc errors.
+-> fix refc checks to independetly identify roots (AllRefc == 0) && (IsSet(Hd(x) || IsSet(Tl(x)))) - and then compare against 'correct' root of the graph & freelist.
+
+2017-12-21
+working on make and abstract_get_name() to make 46.sasl work
+some error where "same" being treated as Formal when should be "name"
+...
+
+2017-10-23-2
+46.2 gettig there
+MATCH being gnereatesd for "same 1 1' but no being taked up and use
+das the "condictional guard" for TRY to use - clausese are herefore
+not guarded at all -WRONG!
+
+masses of refc errs (sigh)
+
+- add body to parse_check_defs to make sure everyinthg is corect
+- before make
+- ... and generate appropriate warnings
+- ReDefined - suprsesible warning so that it works for globals defs
+- that are continuallly updated in an interactive session
+- (?INTERACTIVE flag?)
+
+2017-10-23  
+
+f
+change way defs are made
+
+ok- note #formals  for "this" and "prev' def
+ok- detect *in the parser* when its a multi-def
+ok- signal multi-def to maker by Maker2i("def<=multidef def", 7, 2, #formals)
+- add body to parse_check_defs to make sure everyinthg is corect
+- before make
+- ... and generate appropriate warnings
+- ReDefined - suprsesible warning so that it works for globals defs
+- that are continuallly updated in an interactive session
+- (?INTERACTIVE flag?)
+
+2017-10-12
+debugging last big set of changes (never again!)
+21.2 reduces I 12 -> 12 -> FAIL
+WHY??
+refc errors probs TT(def) not being deleted properly....
+
+2017-10-10
+make_abstract 21.2 not doing all its work!  why? - A: it's in Rule 5,3
+- where is MATCH added - its in reduce_abstract_main()
+NO >>> chang make_formals to leave umber of formals in the list-of
+NO struct; that way no need to "calculate" length of list later ;-)
+
+
+then check TRYn works for 44.sasl
+
+
+2017-09-18
+DEFs into program's
+44 has refc errorsinsertion-sort ditto [not and 44a (simplified version)]
+multi-clause definitions ...
+insertion-sort ditto
+as below but now
+- see Paper note "formals and how to compile them" items 1,2,3,4,5
+- restest
+DEFs into programe's
+
+2017-09-07
+tests 4?.sasl fail - need to complete the process of substituting for
+DEFs into program's
+44 has refc errors and 44a (simplified version)
+MATCH_comb insufficient args => points to Bad Code being generated for
+these are the *only* refc errors though ;-)
+
+then complete lookup for unbound variables and bind them in
+(recursively) to complete the implmentation of DEF
+
+next: compile and run the rest of the sasl Excercisese after insertion-sort
+
+2017-08-28  
+41.sasl passes = first succes of "DEF"
+42, 42 fails though - related to some other problems
+refc errs induced partly by persistent global "defs"
+->need to rework zone.c to identify <potential roots> for comparison
+with defs/root, parse stack.
+
+2017-08-28  
+persistent store for def_t ?at the top of the parse stack?  add named
+
+DEFs
+some refc errs "err *.2" shows them - fix!
+insertion-sort still broken!
+
+2017-08-24
+ok DEF needs to be made properly
+- store (named/anonymous) list-of-clauses
+ok - bind DEFs into exprs where needed!
+
+insertion-sort problematic.... check the sasl then investigage more (Again)
+
+
+2017-08-21
+done 29.sasl dumps core when too many arguments - must be s stupid limit
+somewhere!!
+done 29a.sasl prints out %f%a%b should be fab
+26.sasl dumps core *after* printing correct answer
+"err *.2" show lots - mainly due to TRY combinator non-hack!
+
+25.sasl 26.sasl showing store '!!' errors; but pass the test its TRY
+thats broken
+this is the clue to whyinsertion sort is also failing
+is it when a IsComb() combinator is Arg1?
+
+or is it "/*TODO UNDO THIS HACK!!! */ Tl(Top)" in TRY_comb
+implementation reduce.c
+
++grep for '!!' so tests do not PASS when present
++ simpify zone-info a la IsName()
+
+2017-08-09
+fix loop weakness problem with H /t combinators
+"loop not freed" = possibly red herring or else need to moidufy
+algoruthm
+
+
+
+2017-08-08
+check why Cc comb being planted in fact1
+check 211.red the (H (T ... sequence not selecting corct part of the list!
+
+
+or P "pair" combinator
+
+[a] (x:y) => P ([a] x)([a] y)
+
+or K (a:x) -> a
+
+
+2017-08-07
+by comparison with other compiler sasl.c
+[[NO make U strict in FIRST arg and]] at the same time new combs hd tl
+U a b => (reduce a) (hd b)(tl b)
+
+ie change reduction U to mathc the oter compiler!!!
+
+
+2017-07-25
+Use of U (non-U) where I've put in forloops to avoid it - review and
+possibly review and simplify
+
+recheck '!!' refc errors when all settlyed
+
+need to add makec checker when there are duplicates in formals
+DEF  same x x = TRUE; same x y = FALSE?
+
+need to add make.c checker that there are not dupicates in defs
+f x = 1
+g x = 1
+f y = 2 <<<---
+
+2017-07-22
+Match/Try now working
+
+
+f () = 1 fails as we confused list nil with unset pointer in the machine!
+
+test 26 - need to sort out 'ownership' of those deflists passed to abstract, so they work for partial_compile=[0|1]
+
+
+.14	7,1
+.28	7,2 last const before deletion, prev: TRY app app then this cons
+.42	7,2 ditto
+
+its the listof defs cons nodes - the defs themselves are used but the node are freed
+
+
+float_type operations
+make code for prelude
+create test cases from Turners "SASL Excercises"
+
+2017-07-19
+prelude parses now ;-)
+done 30th Jun stuff
+Next
+
+Match/Try to handle multi-clause definitions ... and thier
+implementations
+	T pattern arg => arg | FAIL
+	T const const => const
+	T cons x y => if T x Hd(arg) then T y Tl(arg) else FAIL
+	T name ... match for "f x x = 'same; f x y = 'different""
+
+	simplify / re-use cons cells in creating formals list
+	consider re-write syntax clause <= name formals = expr | namelist = expr
+	which make disambiguation simpler in parse_clause() and corresponding make() more uniform 
+
+change reduce() to incorpoate new work done in Scotland
+
+re-review parse_opx() checking use of 'prio' 'p' and 'lex_oper_prio'
+review lex.l remove redundant stuff
+       simplify function names - and document them now that they work!
+
+2017-06-30
+
+reduce: add C/B comb Cp Bp !
+fix '?' being offside and not seen
+lex_got_offside() not working properly for pesludec concat offside
+
+done Add Knil_comb to follow Tuener79definition of U absatraction for lists
+- checks second arg is in fact NIL.
+
+check:
+
+[x,] a  => [x:NIL] a => [x] (Knil a) => (S (K Knil) (K a))
+
+defs<- list of clauses = need to add MATCH/TRY combinators so that a
+"WHERE a=3?" executes correctly, scanning through th elist of defs
+
+prase_defs () looks for an offside in loop;  but in prelude.sasl have
+got "double offside" where two offsides terminate at once - need to
+enhance offside processing eg by passing "prev" offside setting into parse_defs????
+
+2017-06-25
+parse: wherever make() has IsNil/IsSet, change parse to conditionally make
+7 2
+12 5
+
+
+make: recheck stack is 'balanced' - instances where it goes 0 or negative (0)(-xxx) in ',=' outputs on *.2
+
+2017-05-24
+unary op prioirities - fix em in lookin_at - if op decared unary then prio diff from binary
+	test -3-2 => -5 (currently bug gives -1)
+add make_reset() to refc_delete() all stacked noded when parse fail; check no '!!' in *.2 after ;-)
+     simplify whole of parse_ removing visible n, n1, n2
+
+2017-03-22
+Introduce I-nodes to supersede refc_update() which is an update-in-place frig
+Need to also add elision of (I x) 
+	if (I x) is top of stack then free top of stack cell and return x from reduce()
+	if (I x) is not top of stack then Do Nothing!
+
+And reduce (K x y) => (I y)update
+
+2016-12-23
+refc not correct during reductions; not ok for newly created programs.
+needs drins up work on how to set and manage refc!!
+
+
+2016-12-14
+...add printout which shows refcs/a dns/w for me to debug
+....refc_ponters add comb_count argument to explicitly count combinator+name pairs - make sure zones value for node-in-us matches poitner traverss one - latter currently yoo HIGH
+refc\-traverse odes combine into one printf - any mismatch-> rint tag s/w x2
+refc_check add freelist checking
+refc-check explore name_t contents-as-struct-in-Hd
+
+2016-12-12
+traverse1 /*WIP ignore IsStrong and comapre anyway; DONT follow Weaks */
+... traverse2 ignore pointers entirely and scan zones for correct refc
+
+2016-12-11
+refc_delete (HD) all need to change to HD = refc_delete HD, to ensure pointers are correctly set to NIL!
+
+Check throughout!
+
+
+2016-12-06
+refc: update trying to make constant with Wrefc>0 I[(K[fact] I[n])]
+NB NB the [... ] above is WRONG WRONG WRONG!
+
+
+2016-11-28
+... change new_node() to bulk-allocate "PageSize" nodes at a time and track their use and get more pages as required.  Add SamePage() which uses master list of pages to track when pages are wholly 'free'.
+
+  ... "got" "last" optimiseation variables - break if sp move upwards and above 'last'.  CHANGE to instead record stack depth in int last; rather than as a pointer; got then ::== (last<depth?depth-last:0)
+
+
+2016-11-20
+
+... change reduce() to use 
+    1. pointer DUP (increase refc) and FREE (decrease refc0 per paper definition of each combinator (fixed forever
+    2. "make_apply" to re-cycle stacked nodes eg S needs two new nodes, but frees two nodes onthe stack;  is any of those stack nodes have refc=1 (=Srefc+Wrefc) they can be re-cycled 
+
+--- in middle of re-writing refc_update to take *pp pointer by reference; need to make correcponing change to refc_convert_xxx
+    may as well make them all (void) functions too, makes more sens as passing-by-reference ensuser the updae
+
+- add "refc_check" fsck-style checker to verifyxs refc and add associated logging too
+- cetch Segmentation Fault and print error reports before exiting (no reductions, fsck ...)
+- refc_delete is switched off; then all tests gve correct final answer!
+- all tests are Fully Bracketed - otherwise won`t parse (operator priority not implemented!)
+- test/ add Expected Results and auto check (diff?) they are achieved
+- add FILE *stdlog, *stdbug for loggin and debugggin outputs  and option to write to file? or sasl 3>file.log? plus main() checks if fd is OPEN then enable logging, ditto debug - seems nniceres and less faff!
+
+
+Done
+x change struct node and its accessor #defines to contain union { ... all possoble data ...} and then can reliably update-in-place by copying that data, rather than case-by-case; also, reduces sizeof nod considerably!
+
+x add counter "N" reductions to give some idea of reductions/sec as time mounts up!
+
+----
+pointer parse_SOMETHING()
+{
+	pointer n;
+==>
+pointer parse_SOMETING(pointer VAR)
+{
+----
+NB parse_opexp already has a parameter
+parse clause has clause not n
+parse expr has n1 not n
+parse simple has n1 not n
+
+----
+pointer make_SOMETHING(...
+{
+	pointer n;
+==>
+pointer make_SOMETHING(pointer n...
+{
+----
+NB lots of specials...
+
+----
+pointer new_SOMETHING(pointer n
+{
+	pointer n = ...
+==>
+pointer new_SOMETHING(
+{
+	n = ...
+----
+EXCEPT, ONLY new_node() -treat separately
+----
+new_node(tag t)
+{
+	pointer 
+==>
+new_node(pointer n, tag t)
+{
+	pointer p;
+if (IsNil(n)
+----
+JDI!
+
+
+maker() needs to use 'n' at every call - make stuff in place!
+----
+return make_cons(...);
+==>
+return make_cons(n,...);
+----
+
+BUT nested make_SOMETHING(
+----
+make_SOMETHING(...)
+==>
+make_SOMETHING(NIL...)
+----
+
+refc_append - special case?
++++ needs some thought!
+
+
+pointer refc_SOMETHING
+only ones required are 
+
+refc_delete
+
+
+----
+pointer update_apply(pointer where, pointer hd, pointer tl)
+{
+	Tag(where) = apply_t;
+	Hd (where) = hd;
+	Tl (where) = tl;
+
+	return where; /* is it that easy? */
+}
+pointer update(pointer where, pointer what)
+{
+	Tag(where)	= Tag(what);
+	Contents(where)	= Contents(what); /* XXX "Contents" is the union{} containing the value(s) for that type of node */
+	return where;
+}
+pointer reuse(pointer p)
+{
+#ifdef notdef
+  if (ALLrefc(p) == 1)
+#endif
+    if (CanOptimise)
+      return p;
+    else
+      return NIL
+}
+/* get a pointer to an argument by deferencing the stack */
+
+pointer getarg(int i)
+{
+  if (CanOptimse)
+    return Tl(sp[-i]);
+  else
+    return refc_copy(Tl[sp-i]);
+}
+
+#define droparg() refc_delete()
+
+pointer make_applyX(pointer where, pointer hd, pointer tl)
+{
+}
+----
+Nargs == 3:
+S:  
+/* perform reduction in place, re-cycling apply nodes where possible and adjust non-stack references */
+S: Stack3 = make_updateinplace(Stack3, make_apply(reuse(Stack1), Arg1, Arg3),
+                            make_apply(reuse(Stack2), Arg2, refc_copy(Arg3)))
+B: Stack3 = make_updateimplace(Stack3,Arg1,
+			    make_apply(reuse(Stack1), Arg2, Arg3)); refc_delete(Stack2);
+C: Stack3 = make_udteinplace(Stack3,make_apply(reuse(Stack1), Arg1, Arg2),
+                            Arg3); refc_delete xxxx
+... refc_delete(Top); Pop(2); X*Xbelow
+----
+Nargs ==2
+K: Stack2 = make_updateinplace(Stack2,Arg1); refc_delete(Arg2); 
+    refc_discard(Stack1);ref_discard(Top);  WIPWIPWIP /* free up the spare apply cells - is not reused  */
+IE
+xxxK: Stack2 = make_updateinplace(Stack2,Arg1); refc_delete(Stack2);/*frees spare stacked node and its pointed to things inclding combinator */???
+----
+plus_op: Stack2 = make_intinplace(Stack2, reduce_get_int_discard_rest(Arg1) + reducde_get_int_discard_rest(Arg2))
+OR
+/* better because centralises pointer deletion here - reduce_get_int does tag check but leaves results in place for now */
+plus_op: Stack2 = make_intinplace(Stack2, reduce_get_int(Arg1) + reduce_get_int(arg2)); refc_delete(Arg1); refc_delete(Arg2);
+...
+Pop(2);
+----
+nargs==1
+I: Stack1 = make_updateinplace(Stack1,Arg1); /* no deletion */
+refc_discard(Arg1) /* also discards (TOP) */)
+
+----------------------------------------------------------------
+X*X to do - junk comb_t 'S' nodes all over the place
+
+how about make_apply(n, hd,tl) where n node is [x,NIL] simply apply resulting in [x,y]
+start building S_comb as [S,NIL] then when make_apply([S,NIL].hl,tl) is called it delivers [[S,hd],tl]
+
+
+
+-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?
+
+1 update in place, reusing as possible
+2 Stacks not attempted to be reused (refc >1, or not needed - 2 cases)
+*only* need to dela with latter case, others take care of themselves
+  delete but only "locally" - this and other SPINE elements including the (silly) cominator-in-a-node; TAKING CARE to not delete ones that were reused!!!
+refc_discard(){ travels down spine freein as necessary, never goes to tl elelmenets; only called for node not reuses with noe reused nodes below them.} THATs IT!
+
+either apply node has been re cycled (and its refc will be 1), or its not recycled and either refc>1 OR not needed for recycling
+so, knowing how many are needed for recycling, ...
+-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?-?
+
+
+New Start
+=========
+    /*
+    each time we PUSH onto the stack, check if ALLrefc == 1 (assert(Srefc==1) by definition of string/weak)
+    accumulate count of "willfree nodes" which are candidates for reuse.
+    When it comes to making a reduction (found a 'leafl' node):
+    Can optimise ::== willfree >= Nargs [from the reduction table]
+    */
+      for (i 1 .. Needs New) /*NeedsNew from the reduction table assert(NeedsNew < Nargs) by inspection of table */
+	if (CanOptimise)
+	  new[i] = Stack[i];
+	else
+	  new[i] = make_apply(NIL,NIL);
+
+
+    /* OR OR 
+       do optimise in the build: */
+    reuse(x)
+  {
+    if (Canoptimse) x; make_apply
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+static node *new_page(unsigned size)
+{
+	 = size
+	n = malloc (size * sizeof(node))
+	log(added 'size' nodes)
+	/* avoid initiaising whole page to avoid real-time delays */
+	return n
+}
+
+static node *new_page_node(tag t)
+{
+  if count < page size
+  
+}
+	
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+refc_update(pointer n, pointer new)
+{
+  if (Allrefc(new) == 1) { /* optimise */
+    /* copy contents withouth refc manipulation */
+    Val(n) = Val(new);
+    if (IsStruct(new))
+      Hd(new) = Tl(new) = NIL;
+  }
+  else {
+    if (IsStruct(new)) {
+      Hd(n) = refc_copy(Hd(new));
+      Tl(n) = refc_copy(Tl(new));
+    }
+    else
+      Val(n) = Val(new);
+  }
+  /**/
+}
