@@ -201,6 +201,7 @@ typedef struct node
 #define IsApply(p)	(IsSet(p) && IsApplyTag(Tag(p)))
 #define IsCons(p)	(IsSet(p) && IsConsTag(Tag(p)))
 #define IsStruct(p)	(IsSet(p) && IsStructTag(Tag(p)))
+#define IsAtom(p)   (!IsStruct(p))
 #define HasPointers(p)	(IsSet(p) && HasPointersTag(Tag(p)))
 #define IsTernaryOp(p)	(IsSet(p) && IsTernaryOpTag(Tag(p)))
 #define IsBinaryOp(p)	(IsSet(p) && IsBinaryOpTag(Tag(p)))

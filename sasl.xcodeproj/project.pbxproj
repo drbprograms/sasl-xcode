@@ -36,7 +36,7 @@
 		0F7E6543201A4BFD001A6B3C /* make.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = make.h; sourceTree = "<group>"; };
 		0F7E6544201A4BFD001A6B3C /* common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = common.c; sourceTree = "<group>"; };
 		0F7E6545201A4BFE001A6B3C /* reduce.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = reduce.c; sourceTree = "<group>"; };
-		0F7E6546201A4BFE001A6B3C /* abstract.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = abstract.c; sourceTree = "<group>"; };
+		0F7E6546201A4BFE001A6B3C /* abstract.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 2; lastKnownFileType = sourcecode.c.c; path = abstract.c; sourceTree = "<group>"; };
 		0F7E6547201A4BFE001A6B3C /* common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = common.h; sourceTree = "<group>"; };
 		0F7E6548201A4BFE001A6B3C /* lex.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lex.h; sourceTree = "<group>"; };
 		0F7E654A201A4BFE001A6B3C /* store.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = store.h; sourceTree = "<group>"; };
@@ -44,13 +44,13 @@
 		0F7E654C201A4BFE001A6B3C /* sasl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sasl.c; sourceTree = "<group>"; };
 		0F7E654D201A4BFE001A6B3C /* abstract.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = abstract.h; sourceTree = "<group>"; };
 		0F7E654E201A4BFE001A6B3C /* sasl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sasl.h; sourceTree = "<group>"; };
-		0F7E654F201A4BFF001A6B3C /* err.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = err.h; sourceTree = "<group>"; };
-		0F7E6550201A4BFF001A6B3C /* make.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = make.c; sourceTree = "<group>"; };
+		0F7E6550201A4BFF001A6B3C /* make.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 2; lastKnownFileType = sourcecode.c.c; path = make.c; sourceTree = "<group>"; };
 		0F7E6551201A4BFF001A6B3C /* parse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = parse.h; sourceTree = "<group>"; };
 		0F7E6552201A4BFF001A6B3C /* reduce.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = reduce.h; sourceTree = "<group>"; };
 		0F7E6553201A4BFF001A6B3C /* parse.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = parse.c; sourceTree = "<group>"; };
 		0F7E6554201A4BFF001A6B3C /* store.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = store.c; sourceTree = "<group>"; };
 		0F7E655F201A4C8F001A6B3C /* lex.l */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.lex; name = lex.l; path = /Users/dad/Dropbox/Dev/xcode/sasl/sasl/lex.l; sourceTree = "<absolute>"; };
+		0F7E6561201B75DD001A6B3C /* ToDo.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ToDo.txt; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -83,12 +83,12 @@
 		0F7E6539201A31AD001A6B3C /* sasl */ = {
 			isa = PBXGroup;
 			children = (
+				0F7E6561201B75DD001A6B3C /* ToDo.txt */,
 				0F7E655F201A4C8F001A6B3C /* lex.l */,
 				0F7E6546201A4BFE001A6B3C /* abstract.c */,
 				0F7E654D201A4BFE001A6B3C /* abstract.h */,
 				0F7E6544201A4BFD001A6B3C /* common.c */,
 				0F7E6547201A4BFE001A6B3C /* common.h */,
-				0F7E654F201A4BFF001A6B3C /* err.h */,
 				0F7E6548201A4BFE001A6B3C /* lex.h */,
 				0F7E6550201A4BFF001A6B3C /* make.c */,
 				0F7E6543201A4BFD001A6B3C /* make.h */,
