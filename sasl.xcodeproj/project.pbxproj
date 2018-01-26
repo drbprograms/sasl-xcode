@@ -11,7 +11,6 @@
 		0F7E6557201A4BFF001A6B3C /* common.c in Sources */ = {isa = PBXBuildFile; fileRef = 0F7E6544201A4BFD001A6B3C /* common.c */; };
 		0F7E6558201A4BFF001A6B3C /* reduce.c in Sources */ = {isa = PBXBuildFile; fileRef = 0F7E6545201A4BFE001A6B3C /* reduce.c */; };
 		0F7E6559201A4BFF001A6B3C /* abstract.c in Sources */ = {isa = PBXBuildFile; fileRef = 0F7E6546201A4BFE001A6B3C /* abstract.c */; };
-		0F7E655A201A4BFF001A6B3C /* Makefile in Sources */ = {isa = PBXBuildFile; fileRef = 0F7E6549201A4BFE001A6B3C /* Makefile */; };
 		0F7E655B201A4BFF001A6B3C /* sasl.c in Sources */ = {isa = PBXBuildFile; fileRef = 0F7E654C201A4BFE001A6B3C /* sasl.c */; };
 		0F7E655C201A4BFF001A6B3C /* make.c in Sources */ = {isa = PBXBuildFile; fileRef = 0F7E6550201A4BFF001A6B3C /* make.c */; };
 		0F7E655D201A4BFF001A6B3C /* parse.c in Sources */ = {isa = PBXBuildFile; fileRef = 0F7E6553201A4BFF001A6B3C /* parse.c */; };
@@ -40,7 +39,6 @@
 		0F7E6546201A4BFE001A6B3C /* abstract.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = abstract.c; sourceTree = "<group>"; };
 		0F7E6547201A4BFE001A6B3C /* common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = common.h; sourceTree = "<group>"; };
 		0F7E6548201A4BFE001A6B3C /* lex.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lex.h; sourceTree = "<group>"; };
-		0F7E6549201A4BFE001A6B3C /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		0F7E654A201A4BFE001A6B3C /* store.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = store.h; sourceTree = "<group>"; };
 		0F7E654B201A4BFE001A6B3C /* zone.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = zone.h; sourceTree = "<group>"; };
 		0F7E654C201A4BFE001A6B3C /* sasl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sasl.c; sourceTree = "<group>"; };
@@ -94,7 +92,6 @@
 				0F7E6548201A4BFE001A6B3C /* lex.h */,
 				0F7E6550201A4BFF001A6B3C /* make.c */,
 				0F7E6543201A4BFD001A6B3C /* make.h */,
-				0F7E6549201A4BFE001A6B3C /* Makefile */,
 				0F7E6553201A4BFF001A6B3C /* parse.c */,
 				0F7E6551201A4BFF001A6B3C /* parse.h */,
 				0F7E6545201A4BFE001A6B3C /* reduce.c */,
@@ -173,7 +170,6 @@
 				0F7E6558201A4BFF001A6B3C /* reduce.c in Sources */,
 				0F7E655E201A4BFF001A6B3C /* store.c in Sources */,
 				0F7E6557201A4BFF001A6B3C /* common.c in Sources */,
-				0F7E655A201A4BFF001A6B3C /* Makefile in Sources */,
 				0F7E6555201A4BFF001A6B3C /* zone.c in Sources */,
 				0F7E655D201A4BFF001A6B3C /* parse.c in Sources */,
 			);
