@@ -47,7 +47,7 @@
 		0F7E6550201A4BFF001A6B3C /* make.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 2; lastKnownFileType = sourcecode.c.c; path = make.c; sourceTree = "<group>"; };
 		0F7E6551201A4BFF001A6B3C /* parse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = parse.h; sourceTree = "<group>"; };
 		0F7E6552201A4BFF001A6B3C /* reduce.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = reduce.h; sourceTree = "<group>"; };
-		0F7E6553201A4BFF001A6B3C /* parse.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = parse.c; sourceTree = "<group>"; };
+		0F7E6553201A4BFF001A6B3C /* parse.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 2; lastKnownFileType = sourcecode.c.c; path = parse.c; sourceTree = "<group>"; };
 		0F7E6554201A4BFF001A6B3C /* store.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = store.c; sourceTree = "<group>"; };
 		0F7E655F201A4C8F001A6B3C /* lex.l */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.lex; name = lex.l; path = /Users/dad/Dropbox/Dev/xcode/sasl/sasl/lex.l; sourceTree = "<absolute>"; };
 		0F7E6561201B75DD001A6B3C /* ToDo.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ToDo.txt; sourceTree = "<group>"; };

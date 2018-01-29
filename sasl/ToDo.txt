@@ -1,3 +1,25 @@
+2018-01-29
+new plan of action - spec i "formals amnd how to compile them"
+Build plan
+1. pattern matching within a clause
+    - MATCH
+    - make_unique() used in namelist and in rhs_formals
+    - namelist
+    - rhs
+        use stack N reverse order of SASL text
+    - clause
+        use stack N lexical order of SASL text
+    - defs
+++ free formals at abstract ?or not! may be used in Ix stlye labelling - sort-it
+++ new definition of MATCH
+++  MATCH const E x => x=const -> E; FAIL
+
+2. multi-clause
+    - TRY
+    - TRYn
+    - clause
+    - clause_check() for duplicated simple name in names, called when defs parse completes
+
 2018-01-26
 moved to xcode + github
 need to sort out make_clause

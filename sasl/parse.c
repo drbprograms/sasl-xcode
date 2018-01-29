@@ -194,26 +194,28 @@ int parse_condexp()
 /*
  *	<rhs> ::= <formal><rhs> | <formal> = <expr>
  * rewritten as
- * (5)	<rhs> ::= = <formal>* = <expr> * means 0 or more
- *                                N1
+ * (5)	<rhs> ::= = <formal>* = <expr>      * means 0 or more
+ *                            1    2
  */
 
 int parse_rhs()
 {
-  int formals;
+  int count;
   
   Parse_Debug("parse_rhs");
-
-  for (formals = 0; !lex_looking_at_operator(op_equal); formals++)
+  
+  for (count = 0; !lex_looking_at_operator(op_equal); count++)
     parse_formal();
- 
+  
+  MakerN(count, "rhs<=[formal]* = ...",5,1);
+  
   lex_offside();
   parse_expr();
   lex_onside();
-
-  MakerN(formals + 1 /*expr*/, "rhs<=[formal]* = expr",5,1);
-
-  return formals;
+  
+  Maker2i("rhs<=[formal]* = expr",5,2,count);
+  
+  return count;
 }
 
 /*
@@ -258,27 +260,6 @@ int parse_clause()
  *                     1        2 or 3		"2" when adjacent clauses are part of a single multi-clause definition, otherwise "3"
  */
 
-int parse_defsOLD()
-{
-  int d = 0;
-  Parse_Debug("parse_defs");
-  
-  parse_clause(); d++;
-  Maker1("defs<=clause",7,1);
-	 
-  for (d = 0; lex_looking_at_or_onside_newline(tok_semicolon); d++) {
-    /* if looking_at(tok_semicolon) must have another clause
-     * if newline then clause is optional - if next token is onside then clause else not 
-     */
-    Parse_Debug("defs2");
-    parse_clause();
-  }
-  
-  MakerN(d, "defs<=clause [';' clause]*",7,3);
-	 
-  return 1;
-}
-
 
 /*
  * helper function - check names used in defs
@@ -292,56 +273,27 @@ int parse_defsOLD()
  *
  * NB a namelist may validly contain reperated names eg "l, x, x = L" [1983 SASL Manual], or simply "match (a:a:x) = TRUE"
  */
-int parse_defs_check(int howmany, int f1, int f2)
-{
-
-  /*
-
- int n = list_length(TT(def)); 
-
-  */
-  /* note length before using up formals */
-
-  /*WIPWIP todo here*/
-
-
-
-
-
-  return 1; /* ok */  
-}
 
 /* return number of clauses (counting multi-clause definitions as one clause) */
 int parse_defs_do(int rule, char *rule_name)
 {
-  int d;
-  int f1, f2; /* running count fo number-of formals in clauses */
-  Parse_Debug(rule_name);
-  
-  /* always at least one clause */
-  f1 = parse_clause();
-  d = 1;
-  Maker1(rule_name, rule, 1);
-  
-  while (lex_looking_at_or_onside_newline(tok_semicolon)) {
-    /* if looking_at(tok_semicolon) must have another clause
-     * if newline then clause is optional - if the next token is onside then clause else not 
-     */
-    Parse_Debug("defs2"); /* temp */
-
-    f2 = parse_clause();
-    if ( ! parse_defs_check(d, f1, f2))
-      return 0;
+    int d;
+      Parse_Debug(rule_name);
     
-    if (f1 > 0 && f1 == f2) /* multi-clause */
-      Maker2i(rule_name, rule, 2, f2);
-    else {
-      Maker2(rule_name, rule, 3);
-      d++;
+    /* always at least one clause */
+    parse_clause();
+    d = 1;
+    Maker1(rule_name, rule, 1);
+    
+    for (/**/ ; lex_looking_at_or_onside_newline(tok_semicolon); d++) {
+        /* if looking_at(tok_semicolon) must have another clause
+         * if newline then clause is optional - there another clause only if the next token is onside
+         */
+        Parse_Debug("defs2"); /* temp */
+        parse_clause();
+        Maker2i(rule_name, rule, 2, d);
     }
-    f1 = f2;
-  }
-  return d;
+    return d;
 }
 
 int parse_defs()

@@ -114,6 +114,22 @@ char *err_tag_name(tag t)
     return tag_name_unknown;
 }
 
+/* looks for name in p, matches textually the name itself
+ return 1 if name is present, otherwise 0
+ */
+int got_name(pointer name, pointer p)
+{
+    /*temp*/
+    fprintf(stderr,"got_name: "); out_debug1(name); out_debug(p);
+    
+    Assert(IsName(name));
+    if (IsSet(p) && IsName(p) && EqName(p, name))
+        return 1;
+    if (IsStruct(p)) {
+        return got_name(name, Hd(p)) || got_name(name, Tl(p));
+    }
+    return 0;
+}
 
 
 /*

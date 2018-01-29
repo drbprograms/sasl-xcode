@@ -10,24 +10,6 @@
 
 #include "reduce.h"
 
-/* looks for name in p
-   return 1 if name is present, otherwise 0
-   NB compare text string stored in the names for equality (ie *not* for identical name nodes).
-*/
-static int got_name(pointer name, pointer p)
-{
-  /*temp*/
-  fprintf(stderr,"got_name: "); out_debug1(name); out_debug(p);
-
-  Assert(IsName(name));
-  if (IsSet(p) && IsName(p) && EqName(p, name))
-    return 1;
-  if (IsStruct(p)) {
-    return got_name(name, Hd(p)) || got_name(name, Tl(p));
-  }
-  return 0;
-}
-
 /*
   [Turner 1979]
   combinator
@@ -72,10 +54,10 @@ static int got_name(pointer name, pointer p)
 /* Abstraction rules */
 /* [x] x ==> I  ||  *got++ */
 
-/* [x] E1 E2 ==>  S E1 E2   || if x occurs in E1 and E2 */
-/* [x] E1 E2 ==>  C E1 E2   || if x occurs in E1 and not E2 */
-/* [x] E1 E2 ==>  B E1 E2   || if x occurs in E2 and not E1 */
-/* [x] E1 E2 ==>    E1 E2   || if x occurs in neither E1 nor E2 (got==0) */
+/* [x] E1 E2 ==>  S E1 E2   || if x occurs in E1 and E2     (hgot&&tgot)*/
+/* [x] E1 E2 ==>  C E1 E2   || if x occurs in E1 and not E2 (hgot&&!tgot) */
+/* [x] E1 E2 ==>  B E1 E2   || if x occurs in E2 and not E1 (!hgot&&tgot)*/
+/* [x] E1 E2 ==>    E1 E2   || if x occurs in neither E1 nor E2 (!hgot&&!tgot) or (got==0) */
 
 /* [x] E1:E2 ==>  Sp E1 E2  || if x occurs in E1 and E2 */
 /* [x] E1:E2 ==>  Cp E1 E2  || if x occurs in E1 and not E2 */
@@ -115,7 +97,7 @@ static pointer reduce_abstract_do(pointer name, pointer n, int *got)
   if (IsNil(n))
     return n;	/* do[x] NIL => NIL */ /*assert((*got)==0)*/
   
-  if (IsName(n) && EqName(name, n))   {
+  if (IsSameName(name, n))   {
     /* do[x] x => I x */
     (*got)++;
     return new_apply(new_comb(I_comb), n);
@@ -210,15 +192,14 @@ static pointer reduce_abstract1(pointer name, pointer exp, int r)
 /* top level abstraction function */
 /* abstract a name or pattern (a possibly recursive list of names) from an exp */
 /* if r then recursive abstract Y ... */
-/* [pattern1] ([pattern2] ([pattern3] .... exp))*/
 
-/* [const] E => MATCH const E */
-/* [NIL]   E => MATCH NIL   E */
-/* [name] E => abstract1(name, E) */
-/* [x ... x ...] E => [ ... x ...] MATCH (eq x) E */
-/* [a b] E => [a] ([b] E) */
-/* [x:NIL] E => U ([x] (K_nil E)) */
-/* [x : ... x ...] E => [ ... x ...] MATCH (eq x) E */  /* xxx TO DO TO DO */
+/* [const] E   => MATCH const E */
+/* [NIL]   E   => MATCH NIL   E */
+/* [name] E    => abstract1(name, E) */
+/* [MATCH n] E => MATCH n E */
+/* [a b] E     => [a] ([b] E) */
+/* [x:NIL] E   => U ([x] (K_nil E)) */
+/* [x:y] E     => U ([x] ([y] E)) */
 
 pointer reduce_abstract(pointer pattern, pointer exp, int r)
 {
@@ -232,25 +213,18 @@ pointer reduce_abstract(pointer pattern, pointer exp, int r)
   if (IsNil(pattern) || IsConst(pattern)) {
     /* [const] E => MATCH const E */
     /* [NIL]   E => MATCH NIL   E */
-    exp = new_apply(new_apply(new_comb(MATCH_comb),
-                              new_apply(new_comb(equal_op), pattern)), /*was refc_copy(pattern)*/
+    exp = new_apply(new_apply(new_comb(MATCH_comb), pattern), /*was refc_copy(pattern)*/
                     exp);
   } else if (IsName(pattern)) {
     /* [name] E => abstract1(name, E) */
     exp = reduce_abstract1(pattern, exp, 0); /* nb bug was 1; todo remove "r" parameter from abstract1() */
+  } else if (IsMatchName(pattern)) {
+    exp = new_apply(pattern, exp);
   } else if (IsApply(pattern)) {
-    if (IsName(Hd(pattern)) && got_name(Hd(pattern), Tl(pattern))) {
-      /* [x ... x ...] E => [ ... x ...] MATCH (eq x) E */
-      exp = new_apply(new_apply(new_comb(MATCH_comb),
-                                new_apply(new_comb(equal_op), Hd(pattern))),
-                      exp);
-      exp = reduce_abstract(Tl(pattern), exp, 0/*nb*/);
-    } else {
       /* [a b] E => [a] ([b] E) */
       exp = reduce_abstract(Hd(pattern),
                             reduce_abstract(Tl(pattern),
                                             exp, 0/*nb*/), 0/*nb*/);
-    }
   } else if (IsNil(Tl(pattern))) {
     Assert(IsCons(pattern));
     /* [x:NIL] E => U ([x] (K_nil E)) */

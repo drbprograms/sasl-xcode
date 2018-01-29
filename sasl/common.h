@@ -208,6 +208,11 @@ typedef struct node
 #define IsUnaryOp(p)	(IsSet(p) && IsUnaryOpTag(Tag(p)))
 #define IsComb(p)	(IsSet(p) && IsCombTag(Tag(p)))
 
+/* has a name be replaced by (MATCH name) for de-duplication */
+#define IsMatchName(p) ((IsSet(p) && IsComb(Hd(p)) && (Tag(Hd(p)) == MATCH_comb)) && \
+     (IsName(Tl(p))))
+
+
 #define IsNilList(p)	IsNilListTag(Tag(p)))/*deprecated*/
 
 #define IsNum(p)	(IsSet(p) && IsNumTag(Tag(p)))
@@ -256,8 +261,9 @@ typedef struct node
 #define TH(x) T(H(x))
 #define TT(x) T(T(x))
 
-
-#define EqName(n1, n2)	(!strcmp(Name(n1), Name(n2)))
+#include <string.h>
+#define EqName(n1, n2)	(!strcmp(Name(n1), Name(n2)))   /* textual equality of the names */
+#define IsSameName(n1,n2) (IsName(n1) && IsName(n2) && EqName(n1,n2)) /* are both arugments names and the same */
 
 /*
  * error handling - err...
@@ -301,6 +307,8 @@ extern int reduce_optimise;
 
 extern char *err_tag_name(tag t);
 
+extern int got_name(pointer name, pointer p);
+
 extern int out_tag(tag t);
 extern pointer out(pointer n);
 extern pointer out_debug(pointer n);
@@ -308,7 +316,7 @@ extern pointer out_debug_limit(pointer n, int limit);
 extern pointer out_debug1(pointer n);
 extern pointer out_debug_limit1(pointer n, int limit);
 
-extern int count_name(pointer name, pointer p);
+extern int got_name(pointer name, pointer p);
 extern int is_duplicate_name(pointer name, pointer p);
 
 /*

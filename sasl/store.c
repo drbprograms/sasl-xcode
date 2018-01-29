@@ -425,9 +425,7 @@ char *refc_pointer_info(pointer p)
  */
 void refc_log_report(FILE *where)
 {
-  int i, check=0;
-
-  /* first report on storage */
+   /* first report on storage */
   new_log_report(where);
 
   (void) fprintf(where,"%s\t%s\n","What","count");
