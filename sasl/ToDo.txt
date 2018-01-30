@@ -1,5 +1,5 @@
 2018-01-29
-new plan of action - spec i "formals amnd how to compile them"
+new plan of action - spec in "formals amd how to compile them"
 Build plan
 1. pattern matching within a clause
     - MATCH

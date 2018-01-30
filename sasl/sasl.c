@@ -73,6 +73,8 @@ static int main_init()
   return 0;
 }
 
+/* *** test *** test *** test *** test *** test *** test *** test *** test */
+/* *** test *** test *** test *** test *** test *** test *** test *** test */
 
 /*
  * main
@@ -86,11 +88,39 @@ int main(int argc, char **argv)
   
   if(debug)
     fprintf(stderr, "sizeof(node) %lu\n", sizeof(node));
-
+  
   (void) main_init();
   
   (void) fprintf(stderr, "hello from %s\n", argv[0]);
 
+  
+  /* *** test *** test *** test *** test *** test *** test *** test *** test */
+#define name(n) new_name(n)
+#define cons(h,t) new_cons((h),(t))
+#define ap(h,t) new_apply((h),(t))
+
+  
+#define x name("x")
+#define y name("y")
+#define z name("z")
+#define yx cons(cons(y,x),NIL)
+#define zyx cons(z,yx)
+  {
+    extern pointer de_dup(pointer n, pointer o);
+    fprintf(stderr, "*test start*\n");
+#define new y
+#define old ap(yx,zyx)
+    out_debug(new);
+    out_debug(old);
+    out_debug(de_dup(x,old));
+    out_debug(de_dup(y,old));
+    out_debug(de_dup(z,old));
+    out_debug(de_dup(NIL,old));
+    fprintf(stderr, "*test done*\n");
+  }
+  /* *** test *** test *** test *** test *** test *** test *** test *** test */
+  
+  
   err = setjmp(jmpbuffer);
   if (err != 0) {
     /* arrived here from a longjmp() call */

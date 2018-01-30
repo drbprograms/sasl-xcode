@@ -317,11 +317,6 @@ pointer make_abstract(pointer formal, pointer def, int r)
   return n;
 }
 
-/* NB for "f a b c = E" formals are reverese order (c,b,a) to ensure innermost is abstracted first */
-
-/* parameter definition: abstract formal-names from the expr defining them */
-
-
 /* condexp is the expression to be reduced, using
  defs which is pair of lists of names and expressions
  (name ...).((expr:list-of formals) ...)
@@ -410,6 +405,51 @@ static pointer make_unique(pointer p)
   return make_unique1(p, p);
 }
 
+/* worker for de_dup() */
+/* de-duplicate a single given "atom", possibly a name */
+pointer de_dup1(pointer name, pointer old)
+{
+  Assert(!IsAtom(name));
+  
+  if (IsNil(old))
+    return old;
+  
+  if (IsMatchName(old))
+    return old;
+  
+  if (IsStruct(old)) {
+    H(old) = de_dup1(name, H(old));
+    T(old) = de_dup1(name, T(old));
+    return old;
+  }
+  
+  if (IsSameName(name, old))
+    return new_apply(new_comb(MATCH_comb), old);
+  
+  return old;
+}
+
+/* de-duplicate new names
+ for every new name "n", replace instances of that name in old by (MATCH "n")
+ */
+
+pointer de_dup(pointer new, pointer old)
+{
+ 
+  if (IsNil(new))
+    return old;
+  
+  if (IsMatchName(new))
+    return old;
+  
+  if (IsStruct(new)) {
+    old = de_dup(H(new), old);
+    old = de_dup(T(new), old);
+    return old;
+  }
+    
+  return de_dup1(new, old);
+}
 
 /*maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker*/
 
