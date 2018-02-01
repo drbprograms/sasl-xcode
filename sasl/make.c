@@ -321,15 +321,15 @@ pointer make_abstract(pointer formal, pointer def, int r)
  defs which is pair of lists of names and expressions
  (name ...).((expr:list-of formals) ...)
  result is
- ([name ...] condexp) (expr:list-of formals ...)
+ ([name ...] condexp) (Y expr)
+ formals are no longer required
  */
 pointer make_where(pointer condexp, pointer defs)
 {
   MAKE_DEBUG("make_where ...\n");
   
-  /*new ???*/
   condexp = new_apply(make_abstract(Hd(defs), condexp, 0 /*non-recursive*/),
-                      Tl(defs));
+                      new_apply(new_comb(Y_comb), Tl(defs)));
 /*  Hd(defs) = NIL; / * move *//*xxx*/
   Tl(defs) = NIL; /* move */
   refc_delete(&defs); /* no longer required */
@@ -339,27 +339,24 @@ pointer make_where(pointer condexp, pointer defs)
   return condexp;
 }
 
-/* make an additional definition def with same name as previous
- Sp TRY def prev			|| one formal
- Sp (Sp TRY)) def prev	 	|| two formals
- Sp (Sp (... (Sp TRY))) def prev 	|| three etc ...
- 
- */
-
-pointer make_multi_clause(pointer def, pointer prev, int n)
+/* make a multi-cluase definition */
+/* multi def1 def2 n <= TRYn n def1 def2 */
+/*def1: name def1 which has n formals */
+/*def2: name def2 */
+/* Note def1 and def1 will always be created as recursive */
+pointer make_multi_clause(pointer def1, pointer def2, int n)
 {
   MAKE_DEBUG("make_multi_clause ...");
   
-  def = new_apply(
+  Assert(IsThisComb(H(def1), Y_comb));
+  Assert(IsThisComb(H(def2), Y_comb));
+  /* re-write "(Y d1)" "(Y d2)" as (Y (TRYn d1 d2)) */
+  
+  return new_apply(
                   new_apply(
-                            new_apply(new_comb(Sp_comb), new_comb(TRY_comb)),
-                            def),
-                  prev);
-  
-  for (/**/; n > 1; n--)
-    HH(def) = new_apply(new_comb(Sp_comb), HH(def));
-  
-  return def;
+                            new_apply(new_comb(TRYn_comb), new_int(n)),
+                            def1),
+                  def2);
 }
 
 #ifdef notdef
@@ -559,15 +556,15 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
        */
       switch (subrule) {
         case 1: return n1;
-        case 2: return new_cons(n1, make_abstract(n1, n2, 1 /*recursive*/));
+        case 2: return new_cons(n1, make_abstract(n1, n2, 0 /*nonrecursive*/));
         case 3: return n1;
-        case 4: return new_cons(n1, make_abstract(n1, n2, 1 /*recursive*/));
+        case 4: return new_cons(n1, make_abstract(n1, n2, 0 /*nonrecursive*/));
       }
       break;
       
     case 7:
       /* (7)	<defs> ::= <clause> [; <clause>]*	* means 0 or more
-       *                      1           2
+       *                      1           2      3
        defs <= (list-of (name|namelist)).(list-of expr
        || defs == (list-of names):(list-of expr)
        */
@@ -582,7 +579,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           /* || clause == names:expr */
           if (IsSameName(HH(n1), H(n2))) {
             /*multi-clause definition */
-            T(n1) = new_cons(make_multi_clause(T(n2), HT(n1), info), T(n1));
+            HT(n1) = make_multi_clause(HT(n1), T(n2), info);
             T(n2) = NIL; /*move*/ /* H(n2) is surplus to requirements, delete below */
           } else {
             /* single clause definition, so far */
@@ -593,7 +590,8 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           refc_delete(&n2); /* surplus cons node, possibly with contents */
           return n1;
         }
-      }
+          
+       }
       break;
       
     case 8:

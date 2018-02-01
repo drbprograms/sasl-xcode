@@ -730,7 +730,29 @@ pointer reduce(pointer n)
                         Pop(3);
                         continue;
                     }
-#endif  
+#endif
+                    case TRYn_comb: {
+                        /* TRYn 0 f g x => FAIL       || should never happen! */
+                        /* TRYn 1 f g x => TRY        (f x) (g x) */
+                        /* TRYn n f g x => TRYn (n-1) (f x) (g x)*/
+                        if (!IsNum(Arg1) || (Num(Arg1) < 1)) {
+                            Stack3 = refc_update_to_fail(Stack3);
+                        } else if (Num(Arg1) == 1) {
+                            Stack3 = refc_update_hdtl(Stack3,
+                                                      new_apply(new_comb(TRY_comb),
+                                                                new_apply(refc_copy(Arg2), refc_copy(Arg4))),
+                                                      new_apply(refc_copy(Arg3), refc_copy(Arg4)));
+                        } else {
+                            Stack3 = refc_update_hdtl(Stack3,
+                                                      new_apply(new_apply(new_comb(TRYn_comb), new_int(Num(Arg1) - 1)),
+                                                                new_apply(refc_copy(Arg2), refc_copy(Arg4))),
+                                                      new_apply(refc_copy(Arg3), refc_copy(Arg4)));
+                            
+                        }
+                        Pop(3);
+                        continue;
+                    }
+                        
                     default:
                         ;	/*FALLTHRU*/
                 }

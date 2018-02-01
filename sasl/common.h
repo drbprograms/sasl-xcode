@@ -208,6 +208,9 @@ typedef struct node
 #define IsUnaryOp(p)	(IsSet(p) && IsUnaryOpTag(Tag(p)))
 #define IsComb(p)	(IsSet(p) && IsCombTag(Tag(p)))
 
+/* is a particular combinator */
+#define IsThisComb(p,t) (IsComb(p) && (Tag(p) == (t))
+
 /* has a name be replaced by (MATCH name) for de-duplication */
 #define IsMatchName(p) ((IsSet(p) && IsComb(Hd(p)) && (Tag(Hd(p)) == MATCH_comb)) && \
      (IsName(Tl(p))))

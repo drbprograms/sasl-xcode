@@ -269,7 +269,7 @@ int parse_clause()
  *	<defs> ::= <clause> ; <defs> | <clause>
  *	re-written to:
  * (7)	<defs> ::= <clause> [; <clause>]*	* means 0 or more
- *                     1        2
+ *                     1        2         3
  */
 
 
@@ -286,7 +286,7 @@ int parse_clause()
  * NB a namelist may validly contain reperated names eg "l, x, x = L" [1983 SASL Manual], or simply "match (a:a:x) = TRUE"
  */
 
-/* return number of clauses (counting multi-clause definitions as one clause) */
+/* return number of clauses (not counting multi-clause definitions as one clause) */
 int parse_defs_do(int rule, char *rule_name)
 {
   int d; /* how many defs */
@@ -309,6 +309,7 @@ int parse_defs_do(int rule, char *rule_name)
     Maker2i(rule_name, rule, 2, f); /* maker needs number of formals in *previous* clause */
     f = new_f;
   }
+
   return d;
 }
 
