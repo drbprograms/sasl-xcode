@@ -8,10 +8,14 @@
 
 #include "store.h"
 
+#define Limit 6 /* keep low for brevity */
+
 void store_log(char *s, pointer p)
 {
-  if (debug)
-    (void) fprintf(stderr, "%s%s\n", s, zone_pointer_info(p));
+  if (debug) {
+    (void) fprintf(stderr, "%s%s ", s, zone_pointer_info(p));
+    out_debug_limit(p, Limit);
+  }
 }
 
 void store_log_new(pointer p)
@@ -323,77 +327,77 @@ void refc_delete(pointer *pp)
   
   if (IsNil(*pp))
     return;
-
+  
   *pp = NIL;	/* really delete the pointer in situ */
-
+  
   if (debug)
     (void) fprintf(stderr,"refc_delete%s\n", zone_pointer_info(p));
-
+  
   /* adjust reference counts, free the node if appropriate */
   if (IsWeak(p)) {
     if (Wrefc(p) == 0) {
       (void) err_refc("delete: pointer is weak but Wrefc==0");
       return; /*NOTREACHED*/
     }
-
+    
     Wrefc(p)--;
   }
   else {
     if (Srefc(p) == 0) {
       (void) err_refc("delete: pointer is strong but Srefc==0");
-      return; /*NOTREACHED*/ 
+      return; /*NOTREACHED*/
     }
     
     Srefc(p)--;
-  } 
-
+  }
+  
   if (Srefc(p) == 0) {
-
+    
     if (Wrefc(p) == 0) { /* not in a loop */
-
+      
       if (HasPointers(p)) {
-	refc_delete(&Hd(p));
-	refc_delete(&Tl(p));
+        refc_delete(&Hd(p));
+        refc_delete(&Tl(p));
       }
-
+      
       refc_delete_post_delete_log(p); /* assert(ALLRefc(p) == 0) after this deletion */
       
-      free_node(p); /* pointed-to node is free for re-use */ 
+      free_node(p); /* pointed-to node is free for re-use */
     }
     else { /* is in a loop */
-
+      
       if (!HasPointers(p)) {
-	if (IsStrong(p))
-	  (void) err_refc("constant has weak references (deleting strong pointer)");
-	else
-	  (void) err_refc("constant has weak references (deleting weak pointer)");
-	return; /*NOTREACHED*/
+        if (IsStrong(p))
+          (void) err_refc("constant has weak references (deleting strong pointer)");
+        else
+          (void) err_refc("constant has weak references (deleting weak pointer)");
+        return; /*NOTREACHED*/
       }
-
+      
       /* invert pointers */
       refc_delete_flip_count++;
-
+      
       NodeBit(p) = !NodeBit(p);	/* "an essential implementation trick" */
       Srefc(p) = Wrefc(p);	/* !!! was this done correctly in 1985? */
       Wrefc(p) = 0;		/* !!! was this done correctly in 1985? */
-    
+      
       /* recursive search */
       refc_search(p, &Hd(p));
       refc_search(p, &Tl(p));
       
       refc_delete_post_search_log(p);
-
+      
       /* Srefc(p) and/or Wrefc(p) may be changed by the searches */
       if (Srefc(p) == 0) {
-      	refc_delete(&Hd(p));
-	refc_delete(&Tl(p));
-
+        refc_delete(&Hd(p));
+        refc_delete(&Tl(p));
+        
 #if toocautious
-	/* assert(IsFree(p)) - has been freed above */
-	if ( !refc_isfree(p))
-	  (void) err_refc("loop not freed");
+        /* assert(IsFree(p)) - has been freed above */
+        if ( !refc_isfree(p))
+          (void) err_refc("loop not freed");
 #else
-	store_log("loop not freed", p);
+        store_log("loop not freed", p);
 #endif
       }
     }
@@ -504,13 +508,13 @@ pointer refc_update_to_double(pointer n, double d)
     (void) err_refc("refc_update_to_double");
     return NIL; /*NOTREACHED*/
   }
-
+  
   refc_delete(&Hd(n));
   refc_delete(&Tl(n));
-
+  
   Tag(n) = floating_t;
   Dbl(n) = d;
-
+  
   return n;
 }
 

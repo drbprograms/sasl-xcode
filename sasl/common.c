@@ -205,21 +205,22 @@ int out_tag(tag t)
 
 static int out_out(FILE *where, pointer n);
 
+/* change to use "*" which some text editors will display a italic */
 int out_comb_name(FILE *where, pointer n)
 {
   if (IsSet(Hd(n))) {
-    /*    (void) fprintf(where, "[");*/
+    fprintf(where, "*");
     (void) out_out(where, Hd(n));
-    /*    return fprintf(where, "]");   */
+    fprintf(where, "*");
   }
   
   return 0;
 }
 
 /* out_out 
-   pretty-print pointer n on channel s, global "budget" used to control monster outputs -1 is infinite!
-   used by out() and out_debug() only
-*/
+ pretty-print pointer n on channel s, global "budget" used to control monster outputs -1 is infinite!
+ used by out() and out_debug() only
+ */
 
 static int budget = -1;
 

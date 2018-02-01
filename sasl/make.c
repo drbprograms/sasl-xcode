@@ -330,9 +330,9 @@ pointer make_where(pointer condexp, pointer defs)
   /*new ???*/
   condexp = new_apply(make_abstract(Hd(defs), condexp, 0 /*non-recursive*/),
                       Tl(defs));
-  Hd(defs) = NIL; /* move */
+/*  Hd(defs) = NIL; / * move *//*xxx*/
   Tl(defs) = NIL; /* move */
-  refc_delete(&defs); /* cons no longer required */
+  refc_delete(&defs); /* no longer required */
   
   /* todo: copy and save defs list Hd/Tl pointers for debugging/ Module definition? */
   
@@ -362,6 +362,7 @@ pointer make_multi_clause(pointer def, pointer prev, int n)
   return def;
 }
 
+#ifdef notdef
 /* looks for name in p, matches textually the name itself *excluding* (MATCH name) instances
  returns count of times name present in p
  */
@@ -379,31 +380,7 @@ static int count_name(pointer name, pointer p)
   
   return 0;
 }
-
-/* worker function for make_unique() */
-static pointer make_unique1(pointer here, pointer p)
-{
-  /* avoid re-work! */
-  if (IsMatchName(here))
-    return here;
-  
-  if (IsStruct(here)) {
-    H(here) = make_unique1(H(here), p);
-    T(here) = make_unique1(T(here), p);
-    return here;
-  }
-  
-  if (IsName(here) && (count_name(here, p) > 1))
-    return new_apply(new_comb(MATCH_comb), here);
-  
-  return here;
-}
-
-/* de-duplicate names: traverse list replacing all but one occurence of each name n with (MATCH n) */
-static pointer make_unique(pointer p)
-{
-  return make_unique1(p, p);
-}
+#endif
 
 /* worker for de_dup() */
 /* de-duplicate a single given "atom", possibly a name */
@@ -460,7 +437,7 @@ pointer de_dup(pointer new, pointer old)
  * (2)	<struct> ::= <formal>:<struct> | (<formal>)
  * (3)  <namelist> ::= <struct> , . . . ,<struct> | <struct>, | <struct>
  * (4)	<condexp> ::= <opexp> → <condexp>; <condexp> | <opexp>, . . . ,<opexp> | <opexp>, | <opexp>
- * (5)	<rhs> ::= <formal>* = <expr>	* means 0 or more
+ * (5)  <rhs> ::= = <formal>+ = <expr> | <expr>    * means 1 or more
  * (6)	<clause> ::= <name><rhs> | <namelist> = <expr>
  * (7)	<defs> ::= <clause> [; <clause>]*	* means 0 or more
  * (8)	<expr> ::= <condexp> [where <defs>]*	* means 0 or more
@@ -509,7 +486,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
       switch (subrule) {
         case 1: return n1;
         case 2: return n1;
-        case 3: return new_cons(n1,n2);
+        case 3: return new_cons(n1, de_dup(n1,n2));
       }
       break;
       
@@ -518,12 +495,12 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
        * (3)	<namelist> ::= <struct> | <struct>, | <struct> , . . . ,<struct>
        *   *                            1          2                              3
        
-       namelist <= struct | listof-struct
+       namelist <= struct|listof-struct
        */
       switch (subrule) {
         case 1: return n1;
         case 2: return new_cons(n1,NIL);
-        case 3: return new_cons(n1,n2);
+        case 3: return new_cons(n1, de_dup(n1,n2));
       }
       break;
       
@@ -552,31 +529,25 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
       /*
        *	<rhs> ::= <formal><rhs> | <formal> = <expr>
        * rewritten as
-       * (5)	<rhs> ::= = <formal>* = <expr>  * means 0 or more
-       *                                    N1
-       *    rhs <= list-of formals . expr || list may be empty
+       * (5)  <rhs> ::= = <formal>+ = <expr> | <expr>    + means 1 or more
+       *                      1          2        3
+       *    || rhs <= expr
        !! ToDo consider check "name" is not present in Lhs.formal - its an error isn't it eg sasl "f a f = a?"!!
        */
       switch (subrule) {
-          
         case 1: {
-          pointer formals = NIL;
-          
-          if (howmany > 0) {
-            /* use stack N reverse order of SASL text - abstract "rightmost" formal first */
-            /* "f x y = E compiles to [x] ([y] E) where the innermost abstraction is performed first" [Turner] */
-            int i;
-            formals = sp[howmany];
-            for (i = howmany - 1; i >= 1; i--)
-              formals = new_apply(sp[i], formals);
-            return make_unique(formals);
-          }
-          return NIL;
+          /* use stack N reverse order of SASL text - abstract "rightmost" formal first */
+          /* "f x y = E compiles to [x] ([y] E) where the innermost abstraction is performed first" [Turner] */
+          /* this ensures correct de-dup'ing */
+          pointer formals = sp[howmany];
+          int i;
+          for (i = howmany - 1; i > 0; i--)
+            formals = new_apply(sp[i], de_dup(sp[i], formals));
+          return formals;
         }
-          
-        case 2: {
-          return new_cons(new_int(info), make_abstract(n2, n1, 0)); /*nonrecursive*//* TODO free formals */
-        }
+        case 2: return make_abstract(n1, n2, 0); /*nonrecursive*/
+          /* TODO free formals */
+        case 3: return n1;
       }
       break;
       
@@ -584,21 +555,21 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
       /*
        * (6)	<clause> ::= <namelist> = <expr> | <name><rhs>
        *                          1          2        3    4
-       clause == names:count:expr  || names may be simple name (rhs) or list-of names (namelist)
+       clause == names:expr  || names may be simple name (rhs) or list-of names (namelist)
        */
       switch (subrule) {
-        case 1: return n1; /* Subsequently, the test "IsName(Hd(p))" tells if the clause is namelist (or else name) */
-        case 2: return new_cons(n1, new_cons(new_int(0),
-                                             make_abstract(make_unique(n2), n1, 0/*nonrecursive*/)));
+        case 1: return n1;
+        case 2: return new_cons(n1, make_abstract(n1, n2, 1 /*recursive*/));
         case 3: return n1;
-        case 4: return new_cons(n1, n2);                /* list-of formals already in place (NB may itself be NIL) */
+        case 4: return new_cons(n1, make_abstract(n1, n2, 1 /*recursive*/));
       }
       break;
       
     case 7:
       /* (7)	<defs> ::= <clause> [; <clause>]*	* means 0 or more
        *                      1           2
-       defs <= (list-of (name|namelist)).(list-of expr)
+       defs <= (list-of (name|namelist)).(list-of expr
+       || defs == (list-of names):(list-of expr)
        */
       switch (subrule) {
         case 1:
@@ -607,57 +578,27 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           T(n1) = new_cons(T(n1), NIL);
           return n1;
           
-        case 2:
-          /*
-           n1: defs:  (nameN . (list-of (name|namelist)) . (expr1 : list-of expr)
-           n2: clause: nameN . (list-of formals|NIL)     .  expr2                        || expr1 is previous definition of n1
-           
-           so for completeness
-           name1 == HH(n1) and
-           expr1 == HT(n1)
-           
-           (name|namelist) == H(n2)
-           list-of formals|NIL == HT(n2)
-           expr2 == TT(n2)
-           */
-          /*
-           HERE IT IS!!
-           ==> Sp TRY def prev      || one formal
-           ==> Sp (Sp TRY)) def prev     || two formals
-           ==> Sp (Sp (... (Sp TRY))) def prev   || three etc ...
-           */
-          if (IsSameName(H(n2), HH(n1))) {
-            /* multi-def - two clauses with same simple names (ie not namelist) - update the previous definition */
-            /*TODO FIX XXX */
-            HT(n1) = make_multi_clause(T(n2), HT(n1), info);
-            T(n2) = NIL; /* move expr */
-            refc_delete(&n2);
-            return n1;
-            /*END*/
+        case 2: {
+          /* || clause == names:expr */
+          if (IsSameName(HH(n1), H(n2))) {
+            /*multi-clause definition */
+            T(n1) = new_cons(make_multi_clause(T(n2), HT(n1), info), T(n1));
+            T(n2) = NIL; /*move*/ /* H(n2) is surplus to requirements, delete below */
           } else {
-            /* abstract (list-of-formals|NIL) from expr2 */
-            TT(n2) = make_abstract(HT(n2), TT(n2), 0); /*non-recursive*/
-            
-            /* abstract (name|namelist) from result */
-            TT(n2) = make_abstract(HH(n2), TT(n2), 1); /*recursive*/
-            
-            HH(n1) = new_cons(H(n2), HH(n1));
-            HT(n1) = new_cons(T(n2), HT(n1));
-            
-            H(n2) = NIL; /* move name */
-            TT(n2) = NIL; /* move expr */
-            /* HT(n2) to be deleted */
-            refc_delete(&n2);
-            
-            return n1;
+            /* single clause definition, so far */
+            H(n1) = new_cons(H(n2), H(n1));
+            T(n1) = new_cons(T(n2), T(n1));
+            H(n2) = T(n2) = NIL; /*move*/
           }
+          refc_delete(&n2); /* surplus cons node, possibly with contents */
+          return n1;
+        }
       }
-      
       break;
       
     case 8:
-      /* (8)	<expr> ::= <condexp> [where <defs>]*	* means 0 or more
-       1            2
+          /* (8)	<expr> ::= <condexp> [where <defs>]*	* means 0 or more
+           1            2
        *                      condexp | [(name ...)] condexp (Y [(name ...)] (expr ...)
        
        expr <=	make_where(condexp, defs) <= ([hd(defs)] condexp) (tl defs) <= ([listof-clause-names] condexp) (listof-clauses) | expr
@@ -698,7 +639,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
         case 2: return new_apply(n1,n2);
       }
       break;
-      
+
     case 12:
       /*
        * (12)	<opxN>	::= <prefixN> <opxN>| <comb> [<infixN><opxN>]* [<postfixN>]
@@ -709,7 +650,17 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
         case 2: return new_apply(n1, n2);
         case 3: return n1;
         case 4: return new_apply(make_oper(), n1);
-        case 5: return new_apply(n1, n2);
+        case 5:
+          /* consify - elide colon_op re-write (: a b) as (a:b) */
+          if (IsApply(n1) && IsSet(Hd(n1)) && (Tag(Hd(n1)) == colon_op)) {
+            refc_delete(&Hd(n1));
+            Tag(n1) = cons_t;
+            Hd(n1) = Tl(n1);
+            Tl(n1) = n2;
+            return n1;
+          } else {
+            return new_apply(n1, n2);
+          }
         case 6: return new_apply(make_oper(), n1);
       }
       break;

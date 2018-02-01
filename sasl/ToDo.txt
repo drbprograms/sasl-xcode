@@ -1,18 +1,44 @@
+2018-02-01
+U_comb "old" definition is RIGHT but needs to be mad NON-stict
+U f (a:x) => f a x
+[Turner79]
+and check K_nil which isn't being used correctly ...
+
+---
+---
+2018-01-31
+freelist        /s (s/w 1/0) [1.13] cons_t [1.14].[0.0]
+defs pointer is nil
+nil pointers    14
+strong pointers 21
+weak pointers   0
+struct nodes    17
+atom nodes      4
+freelist nodes  3
+!!free structures:2 but free count:3
+!!free nil count:2 but expecting:4
+!!leaked/s (s/w 1/0) [1.3] name_t "f"
+!!store/s (s/w 1/0) [1.14] cons_t [1.14].[0.0]  <<<<<<----- What!!!
+!!debug/s (s/w 2/0) [1.14] cons_t [0.0].[0.0]
+strong ref counts       24
+weak ref counts 0
+reference count check ok        (24+0)==(24+0)==24
+
 2018-01-29
 new plan of action - spec in "formals amd how to compile them"
 Build plan
 1. pattern matching within a clause
     - MATCH
-    - make_unique() used in namelist and in rhs_formals
-    - namelist
-    - rhs
+    OK make_unique() used in namelist and in rhs_formals
+    OK namelist
+    OK rhs
         use stack N reverse order of SASL text
-    - clause
+    OK ?clause
         use stack N lexical order of SASL text
-    - defs
+    OK ?defs
+OK fix "If" as (I f) combinator labelling!!
 ++ free formals at abstract ?or not! may be used in Ix stlye labelling - sort-it
-++ new definition of MATCH
-++  MATCH const E x => x=const -> E; FAIL
+OK new definition of MATCH const E x => x=const -> E; FAIL
 
 2. multi-clause
     - TRY

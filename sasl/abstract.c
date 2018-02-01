@@ -90,17 +90,18 @@ static pointer reduce_abstract_do(pointer name, pointer n, int *got)
   int ap; /* IsApply(n) - used to determine S vs Sp etc */
   
   if (debug > 1) {
-    fprintf(stderr, "%s[%s] (got==%d)", "recursive_abstract_do", IsNil(name)?"NIL":Name(name), *got);
+    fprintf(stderr, "%s[%s] (got==%d) ", "recursive_abstract_do", IsNil(name)?"NIL":Name(name), *got);
     out_debug(n);
   }
   
   if (IsNil(n))
     return n;	/* do[x] NIL => NIL */ /*assert((*got)==0)*/
   
-  if (IsSameName(name, n))   {
-    /* do[x] x => I x */
+  if (IsSameName(name, n)) {
+    /* combinator "labelling" do[x] x => Ix */
+    /* was - update in place */
     (*got)++;
-    return new_apply(new_comb(I_comb), n);
+    return new_comb_name(I_comb, n);
   }
   
   if (IsAtom(n)) {
@@ -220,32 +221,30 @@ pointer reduce_abstract(pointer pattern, pointer exp, int r)
     exp = reduce_abstract1(pattern, exp, 0); /* nb bug was 1; todo remove "r" parameter from abstract1() */
   } else if (IsMatchName(pattern)) {
     exp = new_apply(pattern, exp);
-  } else if (IsApply(pattern)) {
+  } else {
+    if (IsApply(pattern)) {
       /* [a b] E => [a] ([b] E) */
       exp = reduce_abstract(Hd(pattern),
                             reduce_abstract(Tl(pattern),
                                             exp, 0/*nb*/), 0/*nb*/);
-  } else if (IsNil(Tl(pattern))) {
-    Assert(IsCons(pattern));
-    /* [x:NIL] E => U ([x] (K_nil E)) */
-    exp = new_apply(new_comb(U_comb),
-                    reduce_abstract(Hd(pattern),
-                                    new_apply(new_comb(K_nil_comb),
-                                              exp),
-                                    0/*nb*/));
-  } else {
-    Assert(IsCons(pattern));
-    /* [x:y] E => U ([x] ([y] E)) */
-    
-    /* xxx TO DO TO DO */
-    /*
-     [x : ... x ...] E => ??? ???
-     */
-    
-    exp = new_apply(new_comb(U_comb),
-                    reduce_abstract(Hd(pattern),
-                                    reduce_abstract(Tl(pattern), exp, 0/*nb*/),
-                                    0/*nb*/));
+    } else if (IsNil(Tl(pattern))) {
+      Assert(IsCons(pattern));
+      /* [x:NIL] E => U ([x] (K_nil E)) */
+      exp = new_apply(new_comb(U_comb),
+                      reduce_abstract(Hd(pattern),
+                                      new_apply(new_comb(K_nil_comb),
+                                                exp),
+                                      0/*nb*/));
+    } else {
+      Assert(IsCons(pattern));
+      /* [x:y] E => U ([x] ([y] E)) */
+      exp = new_apply(new_comb(U_comb),
+                      reduce_abstract(Hd(pattern),
+                                      reduce_abstract(Tl(pattern), exp, 0/*nb*/),
+                                      0/*nb*/));
+    }
+    Hd(pattern) = Tl(pattern) = NIL;
+    refc_delete(&pattern);
   }
   
   if (r)

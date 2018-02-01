@@ -537,18 +537,15 @@ pointer reduce(pointer n)
                         
                         /* comb arg1 arg2 */
                     case K_nil_comb:
-#ifdef notneeded
-                        if (IsSet(Arg2)
-                            && !IsCons(Arg2))
+                        if (IsCons(Arg2))
                             err_reduce("K_nil_comb - non-list second arg");
-#endif
                     case K_comb:
                         /* K x y => I x  [i node] */
                         Stack2 = refc_update_hdtl(Stack2, new_comb(I_comb), refc_copy(Arg1));
                         
                         Pop(2);
                         continue;
-                        
+#ifdef incorrect
                     case U_comb:
                         /*  U f g => f (H g) (T g) */
                         Stack2 = refc_update_hdtl(Stack2,
@@ -556,10 +553,10 @@ pointer reduce(pointer n)
                                                   new_apply(new_comb(T_comb),  refc_copy(Arg2)));
                         Pop(2);
                         continue;
-                        
+#endif
                     case TRY_comb: {
                         /* TRY FAIL y => y
-                         TRY x    y = x */
+                           TRY x    y => x */
                         Arg1 = reduce(Arg1);
                         if (IsFail(Arg1)) {
                             Stack2 = refc_update(Stack2, refc_copy(Arg2));
@@ -570,19 +567,17 @@ pointer reduce(pointer n)
                         continue;
                     }
                         
-#ifdef old
                     case U_comb:
                         /*  U f (x:y) => (f x) y */
                         /*  U f other => FAIL */
-                        Arg2 = reduce(Arg2);
                         if (IsCons(Arg2)) {
                             Stack2 = refc_update_hdtl(Stack2, new_apply(refc_copy(Arg1), refc_copy(Hd(Arg2))), refc_copy(Tl(Arg2)));
                         }
-                        else
+                        else {
                             Stack2 = refc_update_to_fail(Stack2);
+                        }
                         Pop(2);
                         continue;
-#endif
                         
                     default:
                         ;	/*FALLTHRU*/
@@ -601,7 +596,17 @@ pointer reduce(pointer n)
                         Pop(3);
                         continue;
                     }
-                        
+                    case MATCH_comb: {
+                        /* MATCH const E x => const = x -> E; FAIL*/
+                        if (reduce_is_equal(Arg1, Arg3)) {
+                            Stack3 = refc_update_hdtl(Stack3, new_comb(I_comb), refc_copy(Arg2));
+                        } else {
+                            Stack3 = refc_update_to_fail(Stack3);
+                        }
+                        Pop(3);
+                        continue;
+                    }
+#ifdef match_with_test
                     case MATCH_comb: {
                         /* MATCH test E x => (test x)= FALSE -> FAIL; E */
                         pointer res = new_apply(refc_copy(Arg1), refc_copy(Arg3));
@@ -616,7 +621,7 @@ pointer reduce(pointer n)
                         Pop(3);
                         continue;
                     }
-                        
+#endif
                         /*[x] f g			=> S f g x	=> (f x) (g x)*/
                         /*[x] f g0	=> S f (K g)	=> C f g x	=> f x g */
                         /*[x] f0 g	=> S (K f) g	=> B f g x	=> f (g x) */

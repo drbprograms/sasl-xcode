@@ -73,56 +73,62 @@ int parse_formal()
 /*
  * (2)	<struct> ::= <struct> ::= (<formal>) | <formal> [:<struct> ]* where * means 0 or more NB this differes from the grammar in [Tuenr 1983] - otherwise can't parse "1 WHERE f (a:x) = ..."
  *	                              1           2        3
- * return(size-of struct)
+ * return length of list of structs or else 1 for (<formal>)
  */
 int parse_struct()
 {
   int s;
-
+  
   Parse_Debug("parse_struct");
-
+  
   if (lex_looking_at(tok_left_paren)) {
-    s = parse_formal();
     Maker1("struct<= ( formal )", 2,1);
+    parse_formal();
     if (lex_looking_at(tok_right_paren)) {
-      return s;
+      return 1;
     }
     else
       return parse_err("parse_stuct","expecting \')\' got:","<struct> ::= (<formal>)");
   }
   
-  s = parse_formal();
+  parse_formal();
+  s = 1;
   Maker1("struct<= formal ...", 2,2);
+  
   while (lex_looking_at_operator(op_colon)) {
-    s += parse_struct();
+    s++;
+    (void) parse_struct();
     Maker2("struct<= formal : struct", 2,3);
   }
+  
   return s;
 }
 
 /*
  * (3)	<namelist> ::= <struct> | <struct>, | <struct> , . . . ,<struct>
  *                        1          2                              3
- * return(size-of namelist)
+ * return(length-of structlist)
  */
 int parse_namelist()
 {
   int s;
-
+  
   Parse_Debug("parse_namelist");
-
-  s = parse_struct();
+  
+  parse_struct();
+  s = 1;
   Maker1("namelist<= struct,", 3,1);
-
-
+  
   if (lex_looking_at(tok_comma)) {
     Maker1("namelist<=struct,", 3,2);
     if (lex_peeking_at_simple()) {
-      s += parse_struct();
-      Maker2("namelist<=struct,struct", 3,3);	
+      parse_struct();
+      s++;
+      Maker2("namelist<=struct,struct", 3,3);
       while (lex_looking_at(tok_comma)) {
-	s += parse_struct();
-	Maker2("namelist<=struct,struct", 3,3);
+        s++;
+        parse_struct();
+        Maker2("namelist<=struct,struct", 3,3);
       }
     }
   }
@@ -194,8 +200,9 @@ int parse_condexp()
 /*
  *	<rhs> ::= <formal><rhs> | <formal> = <expr>
  * rewritten as
- * (5)	<rhs> ::= = <formal>* = <expr>      * means 0 or more
- *                            1    2
+ * (5)  <rhs> ::= = <formal>+ = <expr> | <expr>    + means 1 or more
+ *                      1          2        3
+ * returns how many formals (>=0)
  */
 
 int parse_rhs()
@@ -207,13 +214,17 @@ int parse_rhs()
   for (count = 0; !lex_looking_at_operator(op_equal); count++)
     parse_formal();
   
-  MakerN(count, "rhs<=[formal]* = ...",5,1);
+  if (count > 0)
+    MakerN(count, "rhs<=[formal]+ = ...",5,1);
   
   lex_offside();
   parse_expr();
   lex_onside();
   
-  Maker2i("rhs<=[formal]* = expr",5,2,count);
+  if (count > 0)
+    Maker2i("rhs<=[formal]+ = expr",5,2,count);
+  else
+    Maker1("rhs<=expr",5,3);
   
   return count;
 }
@@ -221,7 +232,7 @@ int parse_rhs()
 /*
  * (6)	<clause> ::= <namelist> = <expr> | <name><rhs>
  *                       1          2         3    4
- * returns number-of-formalsin rhs, if any
+ * returns number-of-formals in rhs (>=0)
  */
 int parse_clause()
 {
@@ -238,26 +249,27 @@ int parse_clause()
       parse_expr();
       lex_onside();
       Maker2("clause<=namelist = expr",6,2);
-      return 0; 
+      return 0; /* no formals */
     } else
       return parse_err("parse_clause","expecting \'=\' to follow namelist","clause<=namelist = expr");
   } 
 
   if (s == 1) { /* name */
+    int f;
     Maker1("clause<=name...",6,3);
-    s = parse_rhs();
+    f = parse_rhs();  /* how many formals */
     Maker2("clause<=name rhs ",6,4);
-    return s;
+    return f;
   }
 
   return parse_err("parse_clause","expecting name","clause<=namelist = expr | clause <= name rhs");
 }
- 
+
 /*
  *	<defs> ::= <clause> ; <defs> | <clause>
  *	re-written to:
-  * (7)	<defs> ::= <clause> [; <clause>]*	* means 0 or more
- *                     1        2 or 3		"2" when adjacent clauses are part of a single multi-clause definition, otherwise "3"
+ * (7)	<defs> ::= <clause> [; <clause>]*	* means 0 or more
+ *                     1        2
  */
 
 
@@ -277,23 +289,27 @@ int parse_clause()
 /* return number of clauses (counting multi-clause definitions as one clause) */
 int parse_defs_do(int rule, char *rule_name)
 {
-    int d;
-      Parse_Debug(rule_name);
-    
-    /* always at least one clause */
-    parse_clause();
-    d = 1;
-    Maker1(rule_name, rule, 1);
-    
-    for (/**/ ; lex_looking_at_or_onside_newline(tok_semicolon); d++) {
-        /* if looking_at(tok_semicolon) must have another clause
-         * if newline then clause is optional - there another clause only if the next token is onside
-         */
-        Parse_Debug("defs2"); /* temp */
-        parse_clause();
-        Maker2i(rule_name, rule, 2, d);
-    }
-    return d;
+  int d; /* how many defs */
+  int f; /* how many formals in clause */
+  int new_f;
+  
+  Parse_Debug(rule_name);
+  
+  /* always at least one clause */
+  f = parse_clause();
+  d = 1;
+  Maker1(rule_name, rule, 1);
+  
+  for (/**/ ; lex_looking_at_or_onside_newline(tok_semicolon); d++) {
+    /* if looking_at(tok_semicolon) must have another clause
+     * if newline then clause is optional - there another clause only if the next token is onside
+     */
+    Parse_Debug("defs2"); /* temp */
+    new_f = parse_clause();
+    Maker2i(rule_name, rule, 2, f); /* maker needs number of formals in *previous* clause */
+    f = new_f;
+  }
+  return d;
 }
 
 int parse_defs()

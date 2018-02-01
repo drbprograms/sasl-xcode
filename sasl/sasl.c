@@ -93,7 +93,7 @@ int main(int argc, char **argv)
   
   (void) fprintf(stderr, "hello from %s\n", argv[0]);
 
-  
+#ifdef unitest
   /* *** test *** test *** test *** test *** test *** test *** test *** test */
 #define name(n) new_name(n)
 #define cons(h,t) new_cons((h),(t))
@@ -105,21 +105,18 @@ int main(int argc, char **argv)
 #define z name("z")
 #define yx cons(cons(y,x),NIL)
 #define zyx cons(z,yx)
+#define test(n,o) {out_debug1(n);out_debug1(o);out_debug(cons(n,de_dup(n,o)));}
   {
     extern pointer de_dup(pointer n, pointer o);
     fprintf(stderr, "*test start*\n");
-#define new y
+
+#define new NIL
 #define old ap(yx,zyx)
-    out_debug(new);
-    out_debug(old);
-    out_debug(de_dup(x,old));
-    out_debug(de_dup(y,old));
-    out_debug(de_dup(z,old));
-    out_debug(de_dup(NIL,old));
+    test(new, old);
     fprintf(stderr, "*test done*\n");
   }
   /* *** test *** test *** test *** test *** test *** test *** test *** test */
-  
+#endif
   
   err = setjmp(jmpbuffer);
   if (err != 0) {
