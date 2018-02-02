@@ -1,7 +1,7 @@
 2018-02-01
 Design question (25.sasl)
-Back round conexp WHERE defs -> [defs] condexp (Y defs) per Turner = but first U_cmb fails of counse WHAT NOW?
-Second Q: does each clause need its own "Y" or is the defs-wide Y suffcient???
+OK Back round conexp WHERE defs -> [defs] condexp (Y defs) per Turner = but first U_cmb fails of counse WHAT NOW?
+++ Second Q: does each clause NOT need its own "Y" AND is the defs-wide Y suffcient - reduces no of recursive abstracts to 1-per "defs"
 
 
 2018-02-01

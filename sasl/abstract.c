@@ -221,6 +221,10 @@ pointer reduce_abstract(pointer pattern, pointer exp, int r)
     exp = reduce_abstract1(pattern, exp, 0); /* nb bug was 1; todo remove "r" parameter from abstract1() */
   } else if (IsMatchName(pattern)) {
     exp = new_apply(pattern, exp);
+   
+   /*xxx bug need to AVOID putting (K ) around this */
+   
+    
   } else {
     if (IsApply(pattern)) {
       /* [a b] E => [a] ([b] E) */

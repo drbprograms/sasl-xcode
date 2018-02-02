@@ -366,8 +366,15 @@ pointer reduce(pointer n)
                     case bool_t:
                     case name_t:
                     case fail_t:  /* FAIL anything => FAIL */
+                    {
+                        pointer here = Top;
+                        Pop(Stacked);
+                        return here;
+                    }
+#ifdef old
                         sp = base;
                         return sp[1]; /* assert sp[1] == n */
+#endif
                         break;	/* ??? */
                         
                     case abstract_t:
@@ -570,6 +577,7 @@ pointer reduce(pointer n)
                     case U_comb:
                         /*  U f (x:y) => (f x) y */
                         /*  U f other => FAIL */
+                        Arg2 = reduce(Arg2);
                         if (IsCons(Arg2)) {
                             Stack2 = refc_update_hdtl(Stack2, new_apply(refc_copy(Arg1), refc_copy(Hd(Arg2))), refc_copy(Tl(Arg2)));
                         }

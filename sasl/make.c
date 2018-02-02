@@ -347,11 +347,7 @@ pointer make_where(pointer condexp, pointer defs)
 pointer make_multi_clause(pointer def1, pointer def2, int n)
 {
   MAKE_DEBUG("make_multi_clause ...");
-  
-  Assert(IsThisComb(H(def1), Y_comb));
-  Assert(IsThisComb(H(def2), Y_comb));
-  /* re-write "(Y d1)" "(Y d2)" as (Y (TRYn d1 d2)) */
-  
+    
   return new_apply(
                   new_apply(
                             new_apply(new_comb(TRYn_comb), new_int(n)),
