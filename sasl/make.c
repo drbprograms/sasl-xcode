@@ -221,6 +221,7 @@ pointer make_lookup_name(pointer name, pointer def)
   return NIL;
 }
 
+#ifdef deprecated
 /* search expr for unbound names and substitute from definitions in defs */
 pointer make_bind(pointer defs, pointer expr)
 {
@@ -251,7 +252,7 @@ pointer make_bind(pointer defs, pointer expr)
   }
   return expr;
 }
-
+#endif
 
 /* helper function */
 /*
@@ -328,10 +329,13 @@ pointer make_where(pointer condexp, pointer defs)
 {
   MAKE_DEBUG("make_where ...\n");
   
-  condexp = new_apply(make_abstract(Hd(defs), condexp, 0 /*non-recursive*/),
-                      new_apply(new_comb(Y_comb), Tl(defs)));
+  pointer a1 = make_abstract(Hd(defs), condexp, 0/*non-recursive*/);
+  pointer a2 = make_abstract(Hd(defs), Tl(defs), 1/*recursive*/);
+
+  condexp = new_apply(a1, a1);
+  
 /*  Hd(defs) = NIL; / * move *//*xxx*/
-  Tl(defs) = NIL; /* move */
+  Tl(defs) = NIL; /* move *//*defs are copied when used in abstract() */
   refc_delete(&defs); /* no longer required */
   
   /* todo: copy and save defs list Hd/Tl pointers for debugging/ Module definition? */
@@ -341,9 +345,6 @@ pointer make_where(pointer condexp, pointer defs)
 
 /* make a multi-cluase definition */
 /* multi def1 def2 n <= TRYn n def1 def2 */
-/*def1: name def1 which has n formals */
-/*def2: name def2 */
-/* Note def1 and def1 will always be created as recursive */
 pointer make_multi_clause(pointer def1, pointer def2, int n)
 {
   MAKE_DEBUG("make_multi_clause ...");
@@ -538,7 +539,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
             formals = new_apply(sp[i], de_dup(sp[i], formals));
           return formals;
         }
-        case 2: return make_abstract(n1, n2, 0); /*nonrecursive*/
+        case 2: return make_abstract(n1, n2, 0/*nonrecursive*/);
           /* TODO free formals */
         case 3: return n1;
       }
@@ -552,9 +553,9 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
        */
       switch (subrule) {
         case 1: return n1;
-        case 2: return new_cons(n1, make_abstract(n1, n2, 0 /*nonrecursive*/));
+        case 2: return new_cons(n1, n2);
         case 3: return n1;
-        case 4: return new_cons(n1, make_abstract(n1, n2, 0 /*nonrecursive*/));
+        case 4: return new_cons(n1, n2);
       }
       break;
       
