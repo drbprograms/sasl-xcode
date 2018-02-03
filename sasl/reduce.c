@@ -552,7 +552,7 @@ pointer reduce(pointer n)
                         
                         Pop(2);
                         continue;
-#ifdef incorrect
+
                     case U_comb:
                         /*  U f g => f (H g) (T g) */
                         Stack2 = refc_update_hdtl(Stack2,
@@ -560,7 +560,7 @@ pointer reduce(pointer n)
                                                   new_apply(new_comb(T_comb),  refc_copy(Arg2)));
                         Pop(2);
                         continue;
-#endif
+
                     case TRY_comb: {
                         /* TRY FAIL y => y
                            TRY x    y => x */
@@ -574,6 +574,7 @@ pointer reduce(pointer n)
                         continue;
                     }
                         
+#ifdef incorrect
                     case U_comb:
                         /*  U f (x:y) => (f x) y */
                         /*  U f other => FAIL */
@@ -586,7 +587,8 @@ pointer reduce(pointer n)
                         }
                         Pop(2);
                         continue;
-                        
+#endif
+
                     default:
                         ;	/*FALLTHRU*/
                 }

@@ -332,7 +332,7 @@ pointer make_where(pointer condexp, pointer defs)
   pointer a1 = make_abstract(Hd(defs), condexp, 0/*non-recursive*/);
   pointer a2 = make_abstract(Hd(defs), Tl(defs), 1/*recursive*/);
 
-  condexp = new_apply(a1, a1);
+  condexp = new_apply(a1, a2);
   
 /*  Hd(defs) = NIL; / * move *//*xxx*/
   Tl(defs) = NIL; /* move *//*defs are copied when used in abstract() */
