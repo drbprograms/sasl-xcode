@@ -1,3 +1,8 @@
+2018-02-02
+38.sasl "expecting int"
+++"<" opertor needs to be polymorphic (like nto =)
+26.sasl fatal refc error - fixing refc will fix prob
+
 2018-02-01
 Design question (25.sasl)
 OK Back round conexp WHERE defs -> [defs] condexp (Y defs) per Turner = but first U_cmb fails of counse WHAT NOW?

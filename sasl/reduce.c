@@ -741,6 +741,14 @@ pointer reduce(pointer n)
                         continue;
                     }
 #endif
+                    default:
+                        ;	/*FALLTHRU*/
+                }
+            
+            if (Stacked >= 5)
+            /* quaternary: op arg1 arg2 arg3 arg4 => res */
+                switch (Tag(Top)) {
+                        
                     case TRYn_comb: {
                         /* TRYn 0 f g x => FAIL       || should never happen! */
                         /* TRYn 1 f g x => TRY        (f x) (g x) */
@@ -753,23 +761,16 @@ pointer reduce(pointer n)
                                                                 new_apply(refc_copy(Arg2), refc_copy(Arg4))),
                                                       new_apply(refc_copy(Arg3), refc_copy(Arg4)));
                         } else {
+                            /*TODO re-use ARG1 setting it to -= 1 */
                             Stack3 = refc_update_hdtl(Stack3,
                                                       new_apply(new_apply(new_comb(TRYn_comb), new_int(Num(Arg1) - 1)),
                                                                 new_apply(refc_copy(Arg2), refc_copy(Arg4))),
                                                       new_apply(refc_copy(Arg3), refc_copy(Arg4)));
                             
                         }
-                        Pop(3);
+                        Pop(4);
                         continue;
                     }
-                        
-                    default:
-                        ;	/*FALLTHRU*/
-                }
-            
-            if (Stacked >= 5)
-            /* quaternary: op arg1 arg2 arg3 arg4 => res */
-                switch (Tag(Top)) {
                         
                     case Sp_comb:	{
                         /* Sp f g h x => f (g x) (h x) */

@@ -302,7 +302,9 @@ extern int reduce_optimise;
 /*
  * assertions
  */
-#define Assert(x) 
+#include <assert.h>
+#define Assert(x) assert(x)
+
 
 /*
  * outputting

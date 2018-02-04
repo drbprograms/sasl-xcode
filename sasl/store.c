@@ -281,31 +281,32 @@ static void refc_search(pointer start, pointer *pp)
 {
   if (IsNil(*pp))
     return;
-
+  
   refc_search_log(start, *pp);
-
+  
   /* weak pointer to start === BUG  search "/w .... *" */
   
   if (IsStrong(*pp) && HasPointers(*pp)) {
     if (Node(*pp) == Node(start) || Srefc(*pp) > 1) {
       /* make strong pointer weak */
-	
+      
       if (Node(*pp) == Node(start))
-	refc_search_start_count++;
+        refc_search_start_count++;
       else
-	refc_search_strong_count++;
-	
+        refc_search_strong_count++;
+      
       Wrefc(*pp)++;
       Srefc(*pp)--;
       PtrBit(*pp) = !NodeBit(*pp); /* Was: PtrBit(p) = !PtrBit(p); */
     } else {
-      /* assert(Srefc(*pp) == 1); strong pointer stays strong: recurse (if node contains pointers) */
+      /* strong pointer stays strong: recurse (if node contains pointers) */
+      Assert(Srefc(*pp) == 1);
       refc_search(start, &Hd(*pp));
-      refc_search(start, &Tl(*pp)); 
+      refc_search(start, &Tl(*pp));
     }
   }
   /* if p points to constant or is weak, do nothing */
-
+  
   return;
 }
 

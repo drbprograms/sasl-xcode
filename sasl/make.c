@@ -380,9 +380,7 @@ static int count_name(pointer name, pointer p)
 /* de-duplicate a single given "atom", possibly a name */
 pointer de_dup1(pointer name, pointer old)
 {
-  Assert(!IsAtom(name));
-  
-  if (IsNil(old))
+   if (IsNil(old))
     return old;
   
   if (IsMatchName(old))
@@ -539,7 +537,11 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
             formals = new_apply(sp[i], de_dup(sp[i], formals));
           return formals;
         }
-        case 2: return make_abstract(n1, n2, 0/*nonrecursive*/);
+        case 2: {
+          pointer result = make_abstract(n1, n2, 0/*nonrecursive*/);
+          refc_delete(&n1); /* assume not needed xxx tidy whether to delete in make_abstract (code/no-code)) */
+          return result;
+        }
           /* TODO free formals */
         case 3: return n1;
       }

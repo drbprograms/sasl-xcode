@@ -3,7 +3,11 @@
 %{
 #include <math.h>	/* need this for the call to atof() below */
 #include <string.h>	/* need this for strchr() */
+
 #include "lex.h"	/* token definitions etc */
+#include "common.h" /* Assert() etc */
+
+#define Max 1000
 %}
 
 SIGN	 [+-]
@@ -19,7 +23,7 @@ NAME       [A-Za-z][A-Za-z0-9_]*
 	int lex_col = 0;	/* current column (fixed width character set ;-), source program columns are numbered 1..  */
 	int lex_margin = 0;	/* offside column, token is offside when (col <= margin), initially 0 */
 	int lex_got_newline = 0;	/* 1 iff current token is preceded by newline (since previous token) */
-	static int margins[1000] = {0};
+	static int margins[Max] = {0};
 	static int m = 0;	 /* margins[m] is current offside setting */
 
 	tok_const lex_tc;	/* indicator set when tok_constant found - indicates which constant is found */
@@ -31,7 +35,8 @@ NAME       [A-Za-z][A-Za-z0-9_]*
 
 	void lex_offside() /* set current column as limit of offside */
 	{
-	  m++; /* assert(m<max) */
+      Assert(m < Max);
+	  m++;
 	  margins[m] = lex_margin = lex_col;
 	  if (debug>1)
 	    fprintf(stderr,"offside:%d\n", lex_margin);
@@ -40,7 +45,8 @@ NAME       [A-Za-z][A-Za-z0-9_]*
 	static void scan();
 	void lex_onside()
 	{
-	  m--; /* assert(m>=0) */
+      Assert(m>0);
+      m--;
 	  lex_margin = margins[m];
 	  if (debug>1)
 	    fprintf(stderr,"onside:%d\n", lex_margin);

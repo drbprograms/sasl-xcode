@@ -441,7 +441,8 @@ int parse_opx(char prio)
   Parse_Debug("parse_opx");
 
   /* prefix */
-  if (lex_looking_at_operator_fix_prio('p', prio)) { /* prefix, and assert(lex_oper_prio>=prio) */
+  if (lex_looking_at_operator_fix_prio('p', prio)) { /* prefix */
+    Assert(lex_oper_prio>=prio);
     Maker0("opx<=prefix ...", 12,1);
     if (parse_comb())
       Maker2("opx<=prefix comb", 12,2);
@@ -453,10 +454,10 @@ int parse_opx(char prio)
     else
       return 0; /* <comb> is optional */
   }
-      
+  
   /* infix */
-  while (lex_looking_at_operator_fix_prio('i', prio)) { /* infix, and assert(lex_oper_prio>=prio) */
-
+  while (lex_looking_at_operator_fix_prio('i', prio)) { /* infix */
+   Assert(lex_oper_prio>=prio);
     if (done && (p == lex_oper_prio))
       return parse_err("parse_opx","operator cannot appear together twice (not associative)","opex<=opex infix opexp");
 
