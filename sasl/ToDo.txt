@@ -1,3 +1,7 @@
+2018-02-05
+DEFs working (still debugging)
+44: reached first 'f' of output 'fine' then Assertion failed ((sp-base) == 1)
+
 2018-02-02
 38.sasl "expecting int"
 ++"<" opertor needs to be polymorphic (like nto =)
@@ -579,3 +583,8 @@ refc_update(pointer n, pointer new)
   }
   /**/
 }
+
+------
+/* leak - not pointed to but refc >  zero */
+/* orphan - is pointed-to but refc == zero */
+

@@ -509,7 +509,7 @@ int parse_opexp()
  */
 int parse_deflist()
 {
-  return parse_defs_do(13, "deflist<=clause+");
+  return parse_defs_do(7,/*!!!!*/ "deflist<=clause+");
 }
 
 /*

@@ -366,16 +366,13 @@ pointer reduce(pointer n)
                     case bool_t:
                     case name_t:
                     case fail_t:  /* FAIL anything => FAIL */
+
                     {
                         pointer here = Top;
+                        Assert(Stacked == 1);
                         Pop(Stacked);
                         return here;
                     }
-#ifdef old
-                        sp = base;
-                        return sp[1]; /* assert sp[1] == n */
-#endif
-                        break;	/* ??? */
                         
                     case abstract_t:
                         sp = base;
@@ -754,15 +751,15 @@ pointer reduce(pointer n)
                         /* TRYn 1 f g x => TRY        (f x) (g x) */
                         /* TRYn n f g x => TRYn (n-1) (f x) (g x)*/
                         if (!IsNum(Arg1) || (Num(Arg1) < 1)) {
-                            Stack3 = refc_update_to_fail(Stack3);
+                            Stack4 = refc_update_to_fail(Stack4);
                         } else if (Num(Arg1) == 1) {
-                            Stack3 = refc_update_hdtl(Stack3,
+                            Stack4 = refc_update_hdtl(Stack4,
                                                       new_apply(new_comb(TRY_comb),
                                                                 new_apply(refc_copy(Arg2), refc_copy(Arg4))),
                                                       new_apply(refc_copy(Arg3), refc_copy(Arg4)));
                         } else {
                             /*TODO re-use ARG1 setting it to -= 1 */
-                            Stack3 = refc_update_hdtl(Stack3,
+                            Stack4 = refc_update_hdtl(Stack4,
                                                       new_apply(new_apply(new_comb(TRYn_comb), new_int(Num(Arg1) - 1)),
                                                                 new_apply(refc_copy(Arg2), refc_copy(Arg4))),
                                                       new_apply(refc_copy(Arg3), refc_copy(Arg4)));

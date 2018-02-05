@@ -53,7 +53,7 @@ static int getenv_bool(char *var)
 
 static int main_init()
 {
-  debug 		= getenv_int("debug", 2);	/* default on and high */
+  debug 		= getenv_int("debug", 1);	/* default on and low */
   partial_compile 	= getenv_int("partial_compile", 0); /* default off */
   reduce_optimise 	= getenv_int("reduce_optimise", 0); /* default off */
   no_code		= getenv_int("no_code", 0); /* default off */
@@ -99,20 +99,35 @@ int main(int argc, char **argv)
 #define cons(h,t) new_cons((h),(t))
 #define ap(h,t) new_apply((h),(t))
 
+#define def(n, expr) ap(name(n), name(expr))
+
+#define add_def(name, expr, list) \
+    cons(cons(name, H(list)), \
+         cons(expr, T(list)))
+    
+#define list1 add_def(name("firstname"), name("firstdef"),cons(NIL,NIL))
+#define list2 add_def(name("2name"), name("2def"),list1)
+#define list3 add_def(name("firstname"), name("redfined"),cons(NIL,NIL))
+
   
 #define x name("x")
 #define y name("y")
 #define z name("z")
 #define yx cons(cons(y,x),NIL)
 #define zyx cons(z,yx)
-#define test(n,o) {out_debug1(n);out_debug1(o);out_debug(cons(n,de_dup(n,o)));}
-  {
-    extern pointer de_dup(pointer n, pointer o);
-    fprintf(stderr, "*test start*\n");
-
-#define new NIL
+#define new1 NIL
 #define old ap(yx,zyx)
-    test(new, old);
+#ifdef test_de_dup
+  extern pointer de_dup(pointer n, pointer o);
+#define test(n,o) {out_debug1(n);out_debug1(o);out_debug(cons(n,de_dup(n,o)));}
+#endif
+  
+ #define test(new, old)  {out_debug(new);out_debug(old);out_debug(make_defs(new,old));}
+  
+  {
+    extern pointer make_defs(pointer n, pointer o);
+    fprintf(stderr, "*test start*\n");
+    test(list3, list2);
     fprintf(stderr, "*test done*\n");
   }
   /* *** test *** test *** test *** test *** test *** test *** test *** test */
@@ -141,29 +156,29 @@ int main(int argc, char **argv)
     }
     resetting = 0;
   }
-
+  
   while (1) {
-    root = parse();
-    if (IsSet(root)) {
+    pointer p = parse();
+
+    
+    if (IsSet(p)) {
       
       if (debug) {
-	out_debug(root);
-	(void) reduce_log_report(stderr);
-	fprintf(stderr, " ==>\n");
+        fprintf(stderr, "program ==>\n");
+        out_debug(p);
+        (void) reduce_log_report(stderr);
       }
-
-      if (IsDef(root)) {
-	defs = root; root = NIL; /*move*/
-      } else {
-	reduce_print(root);
-	printf("\n");
-	refc_delete(&root);
+      
+      if (!IsDef(root)) {
+        reduce_print(root);
+        printf("\n");
+        refc_delete(&root);
       }
       
       if (debug)
-	(void) reduce_log_report(stderr);
-    }      
+        (void) reduce_log_report(stderr);
+    }
     fprintf(stderr, "\nwhat next?\n");
-  } 
+  }
   return(0);
 }

@@ -300,7 +300,7 @@ pointer make_abstract(pointer formal, pointer def, int r)
 {
   pointer n;
   
-  if (debug>1) {
+  if (debug > 1) {
     fprintf(stderr, "%s[", (r?"make_recursive_abstract":"make_abstract"));
     out_debug1(formal);
     fprintf(stderr, "] ");
@@ -312,7 +312,7 @@ pointer make_abstract(pointer formal, pointer def, int r)
   else
     n = reduce_abstract(formal, def, r);
   
-  if (debug)
+  if (debug > 1)
     fprintf(stderr, "%s--> ", (r?"make_recursive_abstract":"make_abstract")); out_debug(n);
   
   return n;
@@ -343,6 +343,36 @@ pointer make_where(pointer condexp, pointer defs)
   return condexp;
 }
 
+/* get the definition for a given name in a defslist */
+pointer def_for(pointer name, pointer defs)
+{
+  pointer n, d;
+
+  if (IsNil(defs) || IsNil(name))
+    return NIL;
+
+  for (n = H(defs), d = T(defs); IsSet(n)/* && IsSet(d)*/; n = T(n), d = T(d)) {
+    if (IsSameName(name, H(d)))
+      return (Tl(d));
+  }
+  
+  return NIL;
+}
+
+/* add new defs to existing defs in old
+   new defintions supersede old (which are deleted)
+  (1) delete superseded old definitions
+  (2) add new definitions to front of what remains
+ */
+pointer make_defs(pointer new, pointer old)
+{
+   
+  if (IsNil(old))
+    return new;
+
+  /*WIP xxx*/
+  return new;
+}
 /* make a multi-cluase definition */
 /* multi def1 def2 n <= TRYn n def1 def2 */
 pointer make_multi_clause(pointer def1, pointer def2, int n)
@@ -694,19 +724,32 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
            return n1;
            */
           
-#ifdef notyet      
-          n1 = make_where(n1, defs);
-#endif
+          /* ||defs == name:deflist */
+          
+          if (IsSet(root))
+            refc_delete(&root);
+
+          if (IsSet(defs))
+            n1 = make_where(n1, refc_copy(Tl(defs)));
+
+          root = n1;
+          
           return n1;
+
         case 2: return n1;
         case 3: {
           /* check for unbound names; save defs */
           /*todo check for unbound ... */
-          /*todo successive "def deflist?" adds to/updates "defs" */
-          n1 = new_def(new_name("<TopDefs>"), n1);
+          /* todo make_defs(n1, defs) merging previous definitions with new */
+
+          if (IsSet(defs))
+            refc_delete(&defs);
           
-          return n1; /*todo record the defs */
+          if (IsSet(root))
+            refc_delete(&root); /* housekeeping for safety */
           
+          defs = n1 = new_def(new_name("<Top>"), n1);
+          return n1;
         }
           break;
           

@@ -160,7 +160,7 @@ static pointer reduce_abstract1(pointer name, pointer exp, int r)
   int got = 0; /* counts how many occurences of name in exp */
   Assert(IsName(name) || IsNil(name));
   
-  if (debug)
+  if (debug > 1)
     fprintf(stderr, "%s[%s] ", (r?"recursive_abstract1":"abstract1"), IsNil(name)?"NIL":Name(name)); out_debug(exp);
 
   exp = reduce_abstract_do(name, exp, &got);
@@ -184,7 +184,7 @@ static pointer reduce_abstract1(pointer name, pointer exp, int r)
   }
 #endif
   
-  if (debug)
+  if (debug > 1)
     fprintf(stderr, "%s[%s] --> ", (r?"recursive_abstract1":"abstract1"), IsNil(name)?"NIL":Name(name)); out_debug(exp);
     
   return exp;
@@ -204,7 +204,7 @@ static pointer reduce_abstract1(pointer name, pointer exp, int r)
 
 pointer reduce_abstract(pointer pattern, pointer exp, int r)
 {
-  if (debug > 1) {
+  if (debug) {
     fprintf(stderr, "%s[", (r?"recursive_abstract":"abstract"));
     out_debug1(pattern);
     fprintf(stderr, "] ");
