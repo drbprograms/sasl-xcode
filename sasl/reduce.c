@@ -49,6 +49,11 @@ static pointer *sp = stack;
 #define Arg3	Tl(Stack3)
 #define Arg4	Tl(Stack4)
 
+#define A1 refc_copy(Arg1)
+#define A2 refc_copy(Arg2)
+#define A3 refc_copy(Arg3)
+#define A4 refc_copy(Arg4)
+
 #define	Stacked	(sp-base)
 #define Pop(n)	(sp -= (n)) /* assert(sp>=base) */
 
@@ -220,18 +225,20 @@ pointer reduce_cons(pointer n)
  1 ∼= false	%A ∼= %a
  (1,2,3) = (1,1+1,1+1+1)
  */
-char reduce_is_equal(pointer n1, pointer n2)
+char reduce_is_equal(pointer *nn1, pointer *nn2)
 {
+    pointer n1 = *nn1, n2 = *nn2;
+    
     if (IsCons(n1))
         return (IsCons(n2) &&
-                reduce_is_equal(Hd(n1), Hd(n2)) &&
-                reduce_is_equal(Tl(n1), Tl(n2)));
+                reduce_is_equal(&Hd(n1), &Hd(n2)) &&
+                reduce_is_equal(&Tl(n1), &Tl(n2)));
     
-    n1 = reduce(n1);
+    *nn1 = n1 = reduce(n1); /* update in place */
     
     if (IsNil(n1) || IsConst(n1)) {
         
-        n2 = reduce(n2);
+        *nn2 = n2 = reduce(n2); /* update in place */
         
         if (IsNil(n1))
             return (IsNil(n2)); /* NIL == NIL and NIL != non-nil */
@@ -366,10 +373,9 @@ pointer reduce(pointer n)
                     case bool_t:
                     case name_t:
                     case fail_t:  /* FAIL anything => FAIL */
-
                     {
                         pointer here = Top;
-                        Assert(Stacked == 1);
+                        Assert( Stacked == 1 || Tag(Top) == fail_t);
                         Pop(Stacked);
                         return here;
                     }
@@ -521,7 +527,7 @@ pointer reduce(pointer n)
                     case greater_equal_op:
                         Stack2 = refc_update_to_bool(Stack2, reduce_int(Arg1) >= reduce_int(Arg2));	Pop(2);	continue;
                     case equal_op:
-                        Stack2 = refc_update_to_bool(Stack2, reduce_is_equal(Arg1, Arg2));
+                        Stack2 = refc_update_to_bool(Stack2, reduce_is_equal(&Arg1, &Arg2));
                         Pop(2);	continue;
                         
                     case not_equal_op:	Stack2 = refc_update_to_bool(Stack2, reduce_int(Arg1) != reduce_int(Arg2));	Pop(2);	continue;
@@ -541,7 +547,10 @@ pointer reduce(pointer n)
                         
                         /* comb arg1 arg2 */
                     case K_nil_comb:
-                        if (IsCons(Arg2))
+                        if ( ! (IsCons(Arg2) || (IsApply(Arg2) &&
+                                                 ((Tag(Hd(Arg2)) == H_comb) ||
+                                                  (Tag(Hd(Arg2)) == T_comb))) /* allow "lazy" lists */
+                                ))
                             err_reduce("K_nil_comb - non-list second arg");
                     case K_comb:
                         /* K x y => I x  [i node] */
@@ -563,9 +572,9 @@ pointer reduce(pointer n)
                            TRY x    y => x */
                         Arg1 = reduce(Arg1);
                         if (IsFail(Arg1)) {
-                            Stack2 = refc_update(Stack2, refc_copy(Arg2));
+                            Stack2 = refc_update_hdtl(Stack2, new_comb(I_comb), refc_copy(Arg2));
                         } else {
-                            Stack2 = refc_update(Stack2, refc_copy(Arg1));
+                            Stack2 = refc_update_hdtl(Stack2, new_comb(I_comb), refc_copy(Arg1));
                         }
                         Pop(2);
                         continue;
@@ -605,7 +614,7 @@ pointer reduce(pointer n)
                     }
                     case MATCH_comb: {
                         /* MATCH const E x => const = x -> E; FAIL*/
-                        if (reduce_is_equal(Arg1, Arg3)) {
+                        if (reduce_is_equal(&Arg1, &Arg3)) {
                             Stack3 = refc_update_hdtl(Stack3, new_comb(I_comb), refc_copy(Arg2));
                         } else {
                             Stack3 = refc_update_to_fail(Stack3);
@@ -792,6 +801,7 @@ pointer reduce(pointer n)
         }
         return ((void)(err_reduce("unimplemented tag")), /*NOTREACHED*/ (pointer) NIL);
     }
+    fprintf(stderr, "reduce done Stacked=%ld",  Stacked);/*XXX*/
     sp = base;
     return *base;	/* assert *base==n */
 }

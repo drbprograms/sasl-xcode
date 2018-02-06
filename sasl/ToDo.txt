@@ -1,3 +1,8 @@
+2018-02-06
+44.sasl refc errors - everything else clean for refc
+- clean for assert
+- NOT clean for "Loop not freed"
+
 2018-02-05
 DEFs working (still debugging)
 44: reached first 'f' of output 'fine' then Assertion failed ((sp-base) == 1)
