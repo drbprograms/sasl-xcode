@@ -367,6 +367,7 @@ void refc_delete(pointer *pp)
     }
     else { /* is in a loop */
       
+      /* Assert(HasPointer(p)); */
       if (!HasPointers(p)) {
         if (IsStrong(p))
           (void) err_refc("constant has weak references (deleting strong pointer)");
@@ -393,6 +394,8 @@ void refc_delete(pointer *pp)
         refc_delete(&Hd(p));
         refc_delete(&Tl(p));
         
+        
+        refc_delete_post_delete_log(p);
 #if toocautious
         /* assert(IsFree(p)) - has been freed above */
         if ( !refc_isfree(p))
