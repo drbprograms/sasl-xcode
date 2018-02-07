@@ -367,6 +367,29 @@ pointer reduce(pointer n)
                 switch (Tag(Top)) {
                         /* nothing to do */
                     case cons_t:
+                        /* WIP WIP xxx TODO */
+                       
+                        
+                        if (Stacked > 1 && IsNum(Arg1) && Num(Arg1) > 0) {
+                            /* (list n) - return nth element of list numbered from 1 */
+                            int i;
+                            for (i = Num(Arg1); i > 1 ; i--) {
+                                /* n-1 tails */
+                                Arg1 = reduce(Top);
+                                if (IsCons(Top))
+                                    Top = refc_update_hdtl(Stack1, new_comb(I_comb), refc_copy(Tl(Top)));
+                                else
+                                    Stack1 = refc_update_to_fail(Top);
+                                Pop(1);
+                                Stack1 = reduce(Stack1);
+                            }
+                            /* .. and head */
+                            Stack1 = refc_update_hdtl(Stack1, new_comb(I_comb), H(Arg1));
+                        }
+
+                   
+                   
+                   
                     case int_t:
                     case floating_t:
                     case char_t:
@@ -443,7 +466,7 @@ pointer reduce(pointer n)
                         
                         /* this code is refc_update() */
                         if (HasPointers(Arg1)) {/*WIPWIP */
-                            Stack1 = refc_update_hdtl(Stack1, refc_copy(Hd(Arg1)), refc_copy(Tl(Arg1)));
+                            Stack1 = refc_update_hdf(Stack1, refc_copy(Hd(Arg1)), refc_copy(Tl(Arg1)));
                         } else { /*todo wrap this all in simpler update-in-place refc_update() */
                             union val v = Val(Arg1);
                             Stack1 = refc_update_hdtl(Stack1, NIL, NIL);
