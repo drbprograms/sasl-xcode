@@ -1,3 +1,8 @@
+2018-01-07
+Seeing "26.2:refc_delete_post_delete/s (s/w 1/0) [1.128] cons_t"
+For several including prelude - it's always cons_t
+26 35 35a 36 36a 37 fact fact[123] fib prelude
+
 2018-02-06
 44.sasl refc errors - everything else clean for refc
 - clean for assert

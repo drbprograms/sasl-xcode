@@ -394,11 +394,10 @@ void refc_delete(pointer *pp)
         refc_delete(&Hd(p));
         refc_delete(&Tl(p));
         
-        
         refc_delete_post_delete_log(p);
-#if toocautious
         /* assert(IsFree(p)) - has been freed above */
         if ( !refc_isfree(p))
+#if toocautious
           (void) err_refc("loop not freed");
 #else
         store_log("loop not freed", p);

@@ -122,12 +122,14 @@ int main(int argc, char **argv)
 #define test(n,o) {out_debug1(n);out_debug1(o);out_debug(cons(n,de_dup(n,o)));}
 #endif
   
- #define test(new, old)  {out_debug(new);out_debug(old);out_debug(make_defs(new,old));}
+#define test(new, old)  {out_debug(new);out_debug(old);out_debug(reduce(new));}
+  
+#define Itest ap(new_comb(I_comb), NIL)
   
   {
     extern pointer make_defs(pointer n, pointer o);
     fprintf(stderr, "*test start*\n");
-    test(list3, list2);
+    test(Itest, NIL);
     fprintf(stderr, "*test done*\n");
   }
   /* *** test *** test *** test *** test *** test *** test *** test *** test */
