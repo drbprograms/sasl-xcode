@@ -161,7 +161,7 @@ int parse_namelist()
 int parse_condexp()
 {
   Parse_Debug("parse_condexp");
-
+  
   /* opexp */
   parse_opexp();
   Maker1("condexp<=opexp",4,1);
@@ -173,8 +173,8 @@ int parse_condexp()
       parse_opexp();
       Maker2("condexp<=opexp,opexp",4,6);
       while (lex_looking_at(tok_comma)) {
-	parse_condexp();
-	Maker2("condexp<=opexp,opexp,opexp",4,7);
+        parse_opexp();
+        Maker2("condexp<=opexp,opexp,opexp",4,7);
       }
     }
   } else if (lex_looking_at(tok_then)) {
@@ -509,7 +509,7 @@ int parse_opexp()
  */
 int parse_deflist()
 {
-  return parse_defs_do(7,/*!!!!*/ "deflist<=clause+");
+  return parse_defs_do(7/*!!*/, "deflist<=clause+");
 }
 
 /*

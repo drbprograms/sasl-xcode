@@ -364,22 +364,25 @@ pointer reduce(pointer n)
             
             if (Stacked >= 1)
             /* constants -  no further reductions here */
-                switch (Tag(*sp)) {
+                switch (Tag(Top)) {
                         /* nothing to do */
                     case cons_t:
                     case int_t:
                     case floating_t:
                     case char_t:
                     case bool_t:
-                    case name_t:
-                    case fail_t:  /* FAIL anything => FAIL */
-                    {
+                    case name_t: {
                         pointer here = Top;
-                        Assert( Stacked == 1 || Tag(Top) == fail_t);
+                        Assert(Stacked == 1);
                         Pop(Stacked);
                         return here;
                     }
-                        
+                    case fail_t:  {/* FAIL anything => FAIL */
+                        pointer here = refc_copy(Top);
+                        Pop(Stacked);
+                        refc_delete(sp+1);  /* delete "FAIL anything" */
+                        return here; /* return FAIL */
+                    }
                     case abstract_t:
                         sp = base;
                         (void) err_reduce("abstract_t unexpected");
@@ -459,8 +462,16 @@ pointer reduce(pointer n)
                 }
 #endif 
                 case I_comb:
-                    /* I x => x*/
-                    Stack1 = refc_update(Stack1, Arg1);
+                    /* I x => x */
+                    if (IsNil(Arg1)) {
+                        fprintf(stderr,"I_comb NIL case\n");/*XXX*/
+                        Assert(Stacked == 2);
+                        refc_delete(&Stack1);
+                        Pop(Stacked);
+                        return NIL;
+                    }
+                    else
+                        Stack1 = refc_update(Stack1, Arg1);
                     Pop(1);
                     continue;
                     
