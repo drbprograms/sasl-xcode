@@ -35,6 +35,7 @@
 static pointer stack[STACK_SIZE];
 static pointer *sp = stack;
 #define Depth	(sp-stack)
+#define Stacked (sp-base)
 
 /* reduce: local shortcuts to make reduce() 'clearer' to read */
 #define Top	sp[0]
@@ -54,7 +55,6 @@ static pointer *sp = stack;
 #define A3 refc_copy(Arg3)
 #define A4 refc_copy(Arg4)
 
-#define	Stacked	(sp-base)
 #define Pop(n)	(sp -= (n)) /* assert(sp>=base) */
 
 /*
@@ -80,6 +80,7 @@ static void indent(FILE *where, long int n)
 }
 
 #define Limit 24
+#define ArgLimit 6
 void reduce_log(pointer *base, pointer *sp)
 {
     reductions++;
@@ -87,16 +88,13 @@ void reduce_log(pointer *base, pointer *sp)
     
     if (debug) {
         int i = 0;
-        long int height = sp - stack;
-        long int stacked = sp - base;
-        long int frame = base - stack;
+       
+        fprintf(stderr, "reduction %d: %s (%ld/%ld Depth/Stacked)\n",  reductions, refc_pointer_info(*sp), Depth, Stacked);
         
-        fprintf(stderr, "reduction %d: %s (Stacked=%ld Stack height %ld)\n",  reductions, refc_pointer_info(*sp), stacked, height);
-        
-        indent(stderr, frame);
+        indent(stderr, Depth);
         out_debug_limit1(sp[0], Limit); /*arbitrary limit to output */
         fprintf(stderr, " ");
-        for (i=1; i<5 && i < stacked; i++) {
+        for (i=1; i < ArgLimit && i < Stacked; i++) {
             out_debug_limit1(Tl(sp[-i]), Limit); /*arbitrary limit to output */
             fprintf(stderr, " ");
         }
@@ -367,7 +365,8 @@ pointer reduce(pointer n)
                 switch (Tag(Top)) {
                         /* nothing to do */
                     case cons_t:
-                        if (Stacked > 1 && IsNum(Arg1) && Num(Arg1) > 0) {
+                        if (Stacked > 1) {
+                            if (IsNum(Arg1) && Num(Arg1) > 0) {
                             /* (list n) - return nth element of list numbered from 1 */
                             /* traverse n-1 tails and a then head:
                              n = 1: H(Arg2)
@@ -391,9 +390,12 @@ pointer reduce(pointer n)
                             if (IsCons(Top))
                                 Stack1 = refc_update_hdtl(Stack1, new_comb(I_comb), refc_copy(H(Top))); /* NB H(Top) here */
                             else
-                                Stack1 = refc_update_to_fail(Stack1);
+                                Stack1 = refc_update_to_fail(Stack1); /*todo just return the irreducible expression for debugging*/
                             Pop(1);
                             continue;
+                            } else {
+                                Stack1 = refc_update_to_fail(Stack1); /*todo just return the irreducible expression for debugging*/
+                            }
                         }
                         /* else FALLTHRU*/
                         
@@ -497,7 +499,7 @@ pointer reduce(pointer n)
                         fprintf(stderr,"I_comb NIL case\n");/*XXX*/
                         Assert(Stacked == 2);
                         refc_delete(&Stack1);
-                        Pop(Stacked);
+                        Pop(1);
                         return NIL;
                     }
                     else
