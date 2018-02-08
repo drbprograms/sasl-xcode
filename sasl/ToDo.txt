@@ -1,3 +1,7 @@
+2018-02-08
+(I NIL) still at root of some failures
+more Sasl Manual tests to be added
+
 2018-01-07
 Now clean to build tests and run them, only exceptiosn are tests where results include an extra newline (printf for DEF whence?)
 Started Excercises from sASL Manaual
