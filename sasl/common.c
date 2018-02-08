@@ -484,9 +484,10 @@ pointer out(pointer n)
   return n;
 }
 
+#define Limit 64  /* arbitrary limit to output */
 pointer out_debug(pointer n)
 {
- return out_debug_limit(n, 64); /* arbitrary limit to output */
+ return out_debug_limit(n, Limit);
 }
 
 
@@ -503,9 +504,10 @@ pointer out_debug_limit(pointer n, int limit)
 
 pointer out_debug1(pointer n)
 {
- return out_debug_limit1(n, 64); /* arbitrary limit to output */
+ return out_debug_limit1(n, Limit);
 }
 
+/* out_debug_limit1() - NO newline, otherwise same as out_deb ug_limit() */
 pointer out_debug_limit1(pointer n, int limit)
 {
   if (!debug)

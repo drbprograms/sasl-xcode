@@ -367,29 +367,36 @@ pointer reduce(pointer n)
                 switch (Tag(Top)) {
                         /* nothing to do */
                     case cons_t:
-                        /* WIP WIP xxx TODO */
-                       
-                        
                         if (Stacked > 1 && IsNum(Arg1) && Num(Arg1) > 0) {
                             /* (list n) - return nth element of list numbered from 1 */
-                            int i;
-                            for (i = Num(Arg1); i > 1 ; i--) {
-                                /* n-1 tails */
-                                Arg1 = reduce(Top);
-                                if (IsCons(Top))
-                                    Top = refc_update_hdtl(Stack1, new_comb(I_comb), refc_copy(Tl(Top)));
-                                else
-                                    Stack1 = refc_update_to_fail(Top);
-                                Pop(1);
-                                Stack1 = reduce(Stack1);
+                            /* traverse n-1 tails and a then head:
+                             n = 1: H(Arg2)
+                             n = 2: HT(Arg2)
+                             n = 3: HTT(Arg2) etc
+                             */
+                            int n = Num(Arg1);
+                            
+                            /* n-1 tails */
+                            while (--n >= 1) {
+                                T(Top) = reduce(T(Top)); /* force cons into existence */
+                                if (IsCons(T(Top))) {
+                                    Top = refc_update_hdtl(Top, refc_copy(HT(Top)), refc_copy(TT(Top)));
+                                } else {
+                                    Top = refc_update_to_fail(Top);
+                                    break; /*loop*/
+                                }
                             }
-                            /* .. and head */
-                            Stack1 = refc_update_hdtl(Stack1, new_comb(I_comb), H(Arg1));
-                        }
 
-                   
-                   
-                   
+                            /* .. and 1 head */
+                            if (IsCons(Top))
+                                Stack1 = refc_update_hdtl(Stack1, new_comb(I_comb), refc_copy(H(Top))); /* NB H(Top) here */
+                            else
+                                Stack1 = refc_update_to_fail(Stack1);
+                            Pop(1);
+                            continue;
+                        }
+                        /* else FALLTHRU*/
+                        
                     case int_t:
                     case floating_t:
                     case char_t:

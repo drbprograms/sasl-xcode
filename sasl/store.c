@@ -453,9 +453,9 @@ void refc_log_report(FILE *where)
 }
 
 /* 
- * ref_update_to_TYPE
+ * ref_update_to_TYPE - where TYPE is a constant
  * change apply node to a constant type and set value of that type.
- * Deltes any pointers in the node
+ * Deletes any pointers in the node
  * Error if node not an apply node - intended for use only in reduce()
  */
 pointer refc_update_to_int(pointer n, int i)
@@ -688,6 +688,7 @@ pointer refc_update_tl(pointer n, pointer new)
 /*
  * refc_update_hdtl
  *	update in place - replace hd and tl with new contents; requires n to be a pointer node already; content of n are deleted
+ *  does not modify tag (cons/apply).
  */
 pointer refc_update_hdtl(pointer n, pointer newhd, pointer newtl)
 {

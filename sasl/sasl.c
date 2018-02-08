@@ -166,21 +166,20 @@ int main(int argc, char **argv)
     if (IsSet(p)) {
       
       if (debug) {
-        fprintf(stderr, "program ==>\n");
-        out_debug(p);
+        fprintf(stderr, "program ==> "); out_debug(p);
         (void) reduce_log_report(stderr);
       }
       
       if (!IsDef(root)) {
         reduce_print(root);
-        printf("\n");
+        printf("\n"); /* in deference to Unix */
         refc_delete(&root);
       }
       
       if (debug)
         (void) reduce_log_report(stderr);
     }
-    fprintf(stderr, "\nwhat next?\n");
+    fprintf(stderr, "what next?\n");
   }
   return(0);
 }

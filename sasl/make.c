@@ -739,10 +739,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
         case 2: return n1;
         case 3: {
           /* check for unbound names; save defs */
-          /*todo check for unbound ... */
-          /* todo make_defs(n1, defs) merging previous definitions with new */
-
-          if (IsSet(defs))
+             if (IsSet(defs)) /* todo make_defs(n1, defs) merging previous definitions with new */
             refc_delete(&defs);
           
           if (IsSet(root))
