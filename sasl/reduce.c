@@ -405,7 +405,7 @@ pointer reduce(pointer n)
                     case bool_t:
                     case name_t: {
                         pointer here = Top;
-                        Assert(Stacked == 1);
+                        Assert(Stacked == 1 || IsCons(Top));
                         Pop(Stacked);
                         return here;
                     }
@@ -497,8 +497,10 @@ pointer reduce(pointer n)
                     /* I x => x */
                     if (IsNil(Arg1)) {
                         fprintf(stderr,"I_comb NIL case\n");/*XXX*/
-                        Assert(Stacked == 2);
+                       /*was
+                        Assert(Stacked == 2);*/
                         refc_delete(&Stack1);
+                        Stack1 = NIL; /*???*/
                         Pop(1);
                         return NIL;
                     }
