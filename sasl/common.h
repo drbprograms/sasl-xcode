@@ -136,27 +136,28 @@ typedef enum tag {
   TRY_comb,
   TRYn_comb,
   MATCH_comb,
-
+  
   PAIR_comb,
   H_comb,	/* hd / tl combinators - lazy */
   T_comb,
-
+  
   FUN1_comb,	/* built in one-argument functions eg abs() sin(), cos() */
-  FUN2_comb	/* ...with two arguments */
-    
+  FUN2_comb,	/* ...with two arguments */
+  _LastTag      /* Never appears in a node, used to calculate size for and array-of tag values */
+  
 #define IsCombTag(t) ((t)>=I_comb)
-#define TagCount (FUN2_comb+1)	/* tags are numbered from 0 */
+#define TagCount (_LastTag)	/* tags are numbered from 0, _LastTag isn't a tag(!) */
 } tag;
 
-typedef struct node 
+typedef struct node
 {
   union val {
     struct pointers {
       pointer hd, tl;	/* apply_t	sasl "apply" node, OR ...
-			   cons_t	sasl "cons" node
-			   ALSO NB comb_t uses hd as tag, tl as name of variable being abstracted */
+                         cons_t	sasl "cons" node
+                         ALSO NB comb_t uses hd as tag, tl as name of variable being abstracted */
     } pointers;
-
+    
     int i;	/* num_t	sasl "num" */
     char c;	/* char_t 	sasl "char" */
     char b;	/* bool_t	sasl "bool" */
@@ -328,3 +329,8 @@ extern int is_duplicate_name(pointer name, pointer p);
  * helper functions
  */
 extern int list_length(pointer p);
+
+/*
+ * Tables to store variable-sized objects
+ */
+void *new_table(size_t count, size_t size);

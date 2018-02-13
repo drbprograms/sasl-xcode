@@ -1,3 +1,54 @@
+2018-02-13
+++ consider "centralising" all "force" of arguments so that recude_int etc are simpler as args are already updated=in-place
+    or
+    ++ propage reduce_int change to ponter * arguemnt to other reduce_CONST()
+++ I_comb - finaise and makes sure all correct
+++ tests 14 16 17 something wrong with operator priority (was it change made ealier condept-opexp in parse rule for conexp???)
+++ test insertion-sort fails
+++ refc check:
+refc check:
+    38.2:180
+    381.2:180
+    insertion-sort2.2:180
+++ shell tools
+    ++ harmonsise all to reside on .bashrc
+    ++ harmonsie all to take simple test-name, and addin gappropriate file extensiopns as encessary and basenameing them away if provided)
+2018-02-09
+Branch: WIP-reduce
+re-work
+
+update_to_int .. reduce_int() to be two separate parts - to ensure that reduction of Argn is shared and not repeated
+
+Arg1 = reduce(Arg1);
+if (IsInt(Arg1)) {
+Arg2 = reduce(Arg2);
+if (IsInt(Arg2)) {
+Stack1 = refc_update(Stack1,new_int(Num(Arg1)+Num(Arg2)))
+}
+else
+bad();
+}
+
+???
+re-work reduce(n) - reduce(&n)
+
+store.c:
+refc_update_to_CONST()
+refc_update()
+refc_update_hdtl()
+refc_update_tl()
+refc_update_hd()
+
+
+reduce.c:
+reduce()
+reduce_KIND()
+reduce_is_equal() - almost there...
+
+NB need to be NEVER calling Stack1 = reduce(&Stack1), only reduce(&Hd(Stack1)) - or in main() - reduce(&root)
+    (a) the pointed-to-node
+
+
 2018-02-08
 (I NIL) still at root of some failures
 more Sasl Manual tests to be added

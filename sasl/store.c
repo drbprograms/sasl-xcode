@@ -619,7 +619,8 @@ pointer refc_copy_make_cyclic(pointer p)
 }
 
 /* refc_update - update-in-place overwriting contents.  
- * NB old contents are deleted before installing new, so refc are incremented to be correct! 
+ * NB old contents are deleted before installing new, so refc are incremented to be correct!
+ * If new value is NIL, delete and return NIL.
  */
 pointer refc_update(pointer n, pointer new)
 {
@@ -630,6 +631,12 @@ pointer refc_update(pointer n, pointer new)
     return NIL; /*NOTREACHED*/
   }
 
+  if (IsNil(new)) {
+    refc_delete(&n);
+    Assert(IsNil(n));
+    return n;
+  }
+  
   t = Tag(new);
   
   if (HasPointers(new)) {

@@ -86,11 +86,14 @@ int main(int argc, char **argv)
   int err;
   int resetting = 0; /* loop avoidance in longjmp() */
   
-  if(debug)
-    fprintf(stderr, "sizeof(node) %lu\n", sizeof(node));
-  
   (void) main_init();
   
+  if(debug) {
+    fprintf(stderr, "sizeof(node) %lu\n", sizeof(node));
+    fprintf(stderr, "_LastTag %d\n", _LastTag);
+    fprintf(stderr, "_TagCount %d\n", _LastTag);
+  }
+
   (void) fprintf(stderr, "hello from %s\n", argv[0]);
 
 #ifdef unitest

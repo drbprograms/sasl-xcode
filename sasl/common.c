@@ -539,3 +539,19 @@ int list_length(pointer p)
 
   return 1 + list_length(Tl(p));
 }
+
+/*
+ * Tables to store variable-sized objects
+ * new_table creates an array of count object of given size (exeactly)
+ */
+
+void *new_table(size_t count, size_t size)
+{
+  void *t =  calloc(size, count);
+  if (t == NULL) {
+    (void) err_zone("new_table: calloc out of space");
+    return 0; /*NOTREACHED*/
+  }
+  return t;
+}
+
