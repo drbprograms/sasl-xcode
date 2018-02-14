@@ -1,5 +1,6 @@
 2018-02-14
-WIP: parse_program defs/root setting etc messed up wip needs sorting who sets what when and how to treat EOF gracefiully...
+WIP: only printng FIRST resiult at top level needs to iterate eg tests 30 38
+however test 4? are passing (except above issue) - *why* did it ever work??
 
 2018-02-13
 refc check clean now
