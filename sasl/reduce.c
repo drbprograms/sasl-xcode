@@ -285,7 +285,7 @@ void reduce_print(pointer p)
     p = reduce(p);
     
     if (debug) {
-        REDUCE_DEBUG("Reduce_print ouput #",0);
+        REDUCE_DEBUG0("Reduce_print: ");
         out_debug(p);
     }
     
@@ -294,8 +294,9 @@ void reduce_print(pointer p)
         reduce_print(Tl(p));
     } else {
         reduce_show(p);
-        fflush(stdout); /* temporary */
+        /*    fflush(stdout); /* temporary */
     }
+    refc_delete(&root);
 }
 
 #ifdef notdef

@@ -1,4 +1,4 @@
-extern pointer parse(void);
+extern pointer parse_program(void);
 extern int parse_reset(void);
 
 #define Parse_Debug(where)		(debug > 1 ? fprintf(stderr, "%s\n", where) : 0)

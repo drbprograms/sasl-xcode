@@ -38,7 +38,10 @@ typedef enum tok
 
     tok_offside,
 
-    tok_unrecognised_char
+    tok_unrecognised_char,
+      
+    tok_eof
+    
   } tok;
 
 /* Constants = subtypes for tok_constant */

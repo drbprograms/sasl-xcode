@@ -236,10 +236,12 @@ TAB	{ LEX_DEBUG("A special char: %s\n", yytext); lex_tc = tok_const_special_char
 
 .		{ LEX_DEBUG2( "Unrecognized character: %s (%u)\n", yytext, (unsigned) yytext[0] ); grow(); }
 
+    /* end of input */
+<<EOF>> { LEX_DEBUG0("The end of file\n"); return (tok_eof); }
 %%
      
 
-int yywrap() { return(1);}	/* Return True - yes exit when first EOF encountered */
+int yywrap(void) { return(1);}	/* Return True - yes exit when first EOF encountered */
 
 /* 
  * lexer - lex...

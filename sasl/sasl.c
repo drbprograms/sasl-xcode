@@ -85,7 +85,8 @@ int main(int argc, char **argv)
 {
   int err;
   int resetting = 0; /* loop avoidance in longjmp() */
-  
+  pointer p;
+
   (void) main_init();
   
   if(debug) {
@@ -153,27 +154,25 @@ int main(int argc, char **argv)
       (void) main_init();
       (void) parse_reset();
       if (debug)
-	(void) reduce_log_report(stderr);
-
-    fprintf(stderr, "reset ");
-    for (i=1; i<=err; i++) /* indicate discreetely which jump occurred */
-      fprintf(stderr, ". ");
+        (void) reduce_log_report(stderr);
+      
+      fprintf(stderr, "reset ");
+      for (i=1; i<=err; i++) /* indicate discreetely which reset occurred */
+        fprintf(stderr, ". ");
     }
     resetting = 0;
   }
   
-  while (1) {
-    pointer p = parse();
+  for (p = parse_program(); IsSet(p); p = parse_program()) {
 
-    
     if (IsSet(p)) {
       
       if (debug) {
-        fprintf(stderr, "program ==> "); out_debug(p);
+        fprintf(stderr, "program ==> "); out_debug(IsSet(root) ? root : defs);/*todo be more selective printing *new* defs*/
         (void) reduce_log_report(stderr);
       }
       
-      if (!IsDef(root)) {
+      if (IsSet(root)) {
         reduce_print(root);
         printf("\n"); /* in deference to Unix */
         refc_delete(&root);

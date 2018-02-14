@@ -1,3 +1,34 @@
+2018-02-14
+WIP: parse_program defs/root setting etc messed up wip needs sorting who sets what when and how to treat EOF gracefiully...
+
+2018-02-13
+refc check clean now
+assertions clean now
+++ check for free variables inprogram before reducing it - avoids embarassment later!
+++ 03_Towers giving "Stack guard for thread" error in refc_check_tgreaverse_pointers at stack depth 512!!
+++ "1 - - 3" stopped working
+++ 4?.sasl random extra newline makes tests *appear* to fail
+++ compile expr when defs non-empty -
+    ++ add code to only link in the defs that rare needed, otherwise its monster every time!  or does "optimisatopn" remove that monster ????
+        ++ locate unbound names ie IsAtom and IsName ie is not *inside* a combinator
+search defs (name binding across the defslists ;-) for matching name
+add that name and its def to the where clauses def - non-permanently???
+continue until either all names are bound
+or else raise err unbound name
+
+Use case
+read defs1 - say prelude
+enter condexp where defs2
+bind condexp where defs2 "conventionally" - ie include unused names
+seek remaining unbound names in prelude
+if bound then bound forever.
+if unbound error, can go on to  add new DEF defs; to complete the condexp and when all bound execute.
+
+But if prelude needs to be revised/updated, need to start again.
+---
+
+
+
 2018-02-13
 ++ consider "centralising" all "force" of arguments so that recude_int etc are simpler as args are already updated=in-place
     or

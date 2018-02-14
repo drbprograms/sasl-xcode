@@ -67,7 +67,9 @@ pointer make_reset()
       fprintf(stderr, "make_reset[%ld]: ", sp-stack); out_debug(*sp);
     refc_delete(sp);
   }
-  return NIL;
+  
+  root = NIL;
+  return root;
 }
 
 /* various contructors */
@@ -453,6 +455,16 @@ pointer de_dup(pointer new, pointer old)
 /*maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker*/
 
 
+pointer make_result()
+{
+  if (Depth == 1)
+    return Pop(1);
+  
+  (void) make_err("program", "stack alignment problem", (int)Depth);
+  return NIL;
+}
+
+
 
 /*
  * (1)	<formal> ::= <name> | <constant> | (<namelist>)
@@ -731,12 +743,11 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
 
           if (IsSet(defs))
             n1 = make_where(n1, refc_copy(Tl(defs)));
-
-          root = n1;
           
           return n1;
 
         case 2: return n1;
+          
         case 3: {
           /* check for unbound names; save defs */
              if (IsSet(defs)) /* todo make_defs(n1, defs) merging previous definitions with new */
@@ -744,8 +755,9 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           
           if (IsSet(root))
             refc_delete(&root); /* housekeeping for safety */
-          
-          defs = n1 = new_def(new_name("<Top>"), n1);
+
+          n1 = new_def(new_name("<Top>"), n1);
+
           return n1;
         }
           break;
@@ -787,14 +799,5 @@ int maker(int howmany, char *ruledef, int rule, int subrule, int info)
   
   return 1;
 }
-
-pointer make_result()
-{
-  if (Depth == 1)
-    return Pop(1);
-  (void) make_err("program", "stack alignment problem", (int)Depth);
-  return NIL;
-}
-
 
 /*maker*maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker*/

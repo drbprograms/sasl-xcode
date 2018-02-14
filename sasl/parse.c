@@ -35,7 +35,7 @@ int parse_simple(char no_newline);
 int parse_opexp(void);
 int parse_opx(char prio);
 int parse_deflist(void);
-int parse_program(void);
+pointer parse_program(void);
 
 static int parse_err(char *f, char *msg1, char *msg2);
 
@@ -516,34 +516,39 @@ int parse_deflist()
  * (14)	<program> ::= <expr>? | def <deflist>?
  *                      1        2     3
  */
-int parse_program()
+pointer parse_program()
 {
   Parse_Debug("parse_program");
-
-  if (lex_looking_at(tok_def)) {
+  
+  if (lex_looking_at(tok_eof)) {
+    (void) parse_reset();
+    return NIL;
+  } else if (lex_looking_at(tok_def)) {
     Maker1("program<=DEF ...", 14,2);
     parse_deflist();
-    if(lex_looking_at(tok_question_mark))
-      return Maker1("program<=defs ?", 14,3);
-    else
-      return parse_err("parse_program","expecting \'?\'","<program> ::= DEF <defs>?");
+    if(lex_looking_at(tok_question_mark)) {
+      Maker1("program<=defs ?", 14,3);
+      defs = make_result();
+      return defs;   /*xxx or "the most recent"defs? */
+    } else {
+      parse_err("parse_program","expecting \'?\'","<program> ::= DEF <defs>?");
+      return NIL;
+    }
   } else {
     parse_expr();
-    if(lex_looking_at(tok_question_mark))
-      return Maker1("program<=expr ?", 14,1);
-    else
-      return parse_err("parse_program","expecting \'?\'","<program> ::= <expr>?");
+    if(lex_looking_at(tok_question_mark)) {
+      Maker1("program<=expr ?", 14,1);
+      root = make_result();
+      return root;
+    }    else {
+      parse_err("parse_program","expecting \'?\'","<program> ::= <expr>?");
+      return NIL;
+    }
   }
   /*NOTREACHED*/
 }
 
-pointer parse()
-{
-  Parse_Debug("parse");
 
-  parse_program();
-  return make_result();
-}
 
 int parse_reset()
 {
