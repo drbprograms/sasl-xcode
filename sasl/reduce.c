@@ -276,10 +276,10 @@ void reduce_show(pointer p)
 /*
  * reduce_print - reduce something, print it and delete the result
  */
-void reduce_print(pointer p)
+pointer reduce_print(pointer p)
 {
     if (IsNil(p))
-        return;
+        return NIL;
     
     /* reduce to find a constant, print it, free it */
     p = reduce(p);
@@ -290,13 +290,15 @@ void reduce_print(pointer p)
     }
     
     if (IsCons(p)) {
-        reduce_print(Hd(p));
-        reduce_print(Tl(p));
-    } else {
+        Hd(p) = reduce_print(Hd(p));
+        Tl(p) = reduce_print(Tl(p));
+    }
+    else {
         reduce_show(p);
         /*    fflush(stdout); /* temporary */
     }
-    refc_delete(&root);
+    
+    return NIL;
 }
 
 #ifdef notdef

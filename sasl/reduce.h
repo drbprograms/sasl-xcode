@@ -1,4 +1,4 @@
-extern void reduce_print(pointer p);
+extern pointer reduce_print(pointer p);
 extern pointer reduce(pointer n);
 
 extern void reduce_log_report(FILE *where);

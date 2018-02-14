@@ -173,7 +173,7 @@ int main(int argc, char **argv)
       }
       
       if (IsSet(root)) {
-        reduce_print(root);
+        root = reduce_print(root);
         printf("\n"); /* in deference to Unix */
         refc_delete(&root);
       }
