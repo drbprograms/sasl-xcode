@@ -298,7 +298,7 @@ pointer reduce_print(pointer p)
         /*    fflush(stdout); /* temporary */
     }
     
-    return NIL;
+    return p;
 }
 
 #ifdef notdef
@@ -458,9 +458,9 @@ pointer reduce(pointer n)
             {
                     /* unary: op arg  => res*/
                 case unary_minus_op:
-                    Stack1 = refc_update_to_int(Stack1, reduce_int(&Arg1)); Pop(1); continue;
+                    Stack1 = refc_update_to_int (Stack1, - reduce_int(&Arg1)); Pop(1); continue;
                 case unary_plus_op:
-                    Stack1 = refc_update_to_int(Stack1,   reduce_int(&Arg1)); Pop(1); continue;
+                    Stack1 = refc_update_to_int (Stack1,   reduce_int(&Arg1)); Pop(1); continue;
                 case unary_not_op:
                     Stack1 = refc_update_to_bool(Stack1, ! reduce_bool(Arg1)); Pop(1); continue;
                     
@@ -590,11 +590,15 @@ pointer reduce(pointer n)
                         
                     case or_op:	Stack2 = refc_update_to_bool(Stack2, reduce_bool(Arg1) || reduce_bool(Arg2));	Pop(2);	continue;
                     case and_op:	Stack2 = refc_update_to_bool(Stack2, reduce_bool(Arg1) && reduce_bool(Arg2));	Pop(2);	continue;
-                        
-                    case colon_op: /* should not be allowed */
-                        err_reduce("colon op not expected");
+                     
+                    case colon_op:
+                        /* (P x y) = (x:y)
+                         ((: a) b) => (a:b) */
+                        Stack2 = refc_update_hdtl(Stack2, refc_copy(Arg1), refc_copy(Arg2));
+                        Tag(Stack2) = cons_t;
                         Pop(2);
-                        continue; /* P x y => x:y */
+                        continue;
+
                     case plusplus_op:
                     case minusminus_op:
                     case range_op:
@@ -617,14 +621,24 @@ pointer reduce(pointer n)
                         
                         
                         
-                        /* floating point */
+                        /* todo floating point */
                     case much_less_op:
                         
                     case divide_op:
-                    case rem_op:
-                    case power_op:
-                        return Top; /* todo */
+                        err_reduce("divide op not expected");
+                        Pop(2);
+                        continue;
                         
+                    case rem_op:
+                        err_reduce("rem op not expected");
+                        Pop(2);
+                        continue;
+                        
+                    case power_op:
+                        err_reduce("power op not expected");
+                        Pop(2);
+                        continue;
+
                         /* comb arg1 arg2 */
                     case K_nil_comb:
                         if ( ! (IsCons(Arg2) || (IsApply(Arg2) &&

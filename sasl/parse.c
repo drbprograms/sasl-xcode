@@ -519,11 +519,8 @@ int parse_deflist()
 pointer parse_program()
 {
   Parse_Debug("parse_program");
-  
-  if (lex_looking_at(tok_eof)) {
-    (void) parse_reset();
-    return NIL;
-  } else if (lex_looking_at(tok_def)) {
+
+  if (lex_looking_at(tok_def)) {
     Maker1("program<=DEF ...", 14,2);
     parse_deflist();
     if(lex_looking_at(tok_question_mark)) {
@@ -548,12 +545,21 @@ pointer parse_program()
   /*NOTREACHED*/
 }
 
+pointer parse(FILE *where)
+{
+  
+  /* todo change lex input to "where"  to allow sub-files to be parsed */
+  
+  if (lex_looking_at(tok_eof))
+    return parse_reset();
+  
+  return parse_program();
+}
 
-
-int parse_reset()
+pointer parse_reset()
 {
   (void) make_reset();
-  return 0;
+  return NIL;
 }
 
 static int parse_err(char *f, char *msg1, char *msg2)

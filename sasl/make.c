@@ -172,7 +172,7 @@ pointer make_oper()
         case op_plus:		return new_oper(plus_op);
         case op_minus:		return new_oper(minus_op);
         case op_times:		return new_oper(times_op);
-        case op_divide:		return new_oper(divide_op);
+        case op_divide:		/*xxx todo floating ops return new_oper(divide_op);*/
         case op_int_divide:		return new_oper(int_divide_op);
         case op_rem:		return new_oper(rem_op);
         case op_power:		return new_oper(power_op);
@@ -689,17 +689,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
         case 2: return new_apply(n1, n2);
         case 3: return n1;
         case 4: return new_apply(make_oper(), n1);
-        case 5:
-          /* consify - elide colon_op re-write (: a b) as (a:b) */
-          if (IsApply(n1) && IsSet(Hd(n1)) && (Tag(Hd(n1)) == colon_op)) {
-            refc_delete(&Hd(n1));
-            Tag(n1) = cons_t;
-            Hd(n1) = Tl(n1);
-            Tl(n1) = n2;
-            return n1;
-          } else {
-            return new_apply(n1, n2);
-          }
+        case 5: return new_apply(n1, n2);
         case 6: return new_apply(make_oper(), n1);
       }
       break;

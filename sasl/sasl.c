@@ -163,10 +163,8 @@ int main(int argc, char **argv)
     resetting = 0;
   }
   
-  for (p = parse_program(); IsSet(p); p = parse_program()) {
+  for (p = parse(stdin); IsSet(p); p = parse(stdin)) {
 
-    if (IsSet(p)) {
-      
       if (debug) {
         fprintf(stderr, "program ==> "); out_debug(IsSet(root) ? root : defs);/*todo be more selective printing *new* defs*/
         (void) reduce_log_report(stderr);
@@ -182,6 +180,5 @@ int main(int argc, char **argv)
         (void) reduce_log_report(stderr);
     }
     fprintf(stderr, "what next?\n");
-  }
   return(0);
 }

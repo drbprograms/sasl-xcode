@@ -1,6 +1,12 @@
 2018-02-14
-WIP: only printng FIRST resiult at top level needs to iterate eg tests 30 38
+++ 15a unary prefix ops seem to be wrong
+++ insertion-sort insertion-sort3 (but not '2') failing
+
+ok WIP: only printng FIRST resiult at top level needs to iterate eg tests 30 38
 however test 4? are passing (except above issue) - *why* did it ever work??
+
+ok some question of refc errs about final deletion of *root* in reduce_print and main()
+ok re introdue parse() as controller for parese_program which is oo complex.   parse() controls
 
 2018-02-13
 refc check clean now
