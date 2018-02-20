@@ -120,7 +120,6 @@ int parse_namelist()
   Maker1("namelist<= struct,", 3,1);
   
   if (lex_looking_at(tok_comma)) {
-    Maker1("namelist<=struct,", 3,2);
     if (lex_peeking_at_simple()) {
       parse_struct();
       s++;
@@ -130,6 +129,8 @@ int parse_namelist()
         parse_struct();
         Maker2("namelist<=struct,struct", 3,3);
       }
+    } else {
+      Maker1("namelist<=struct,", 3,2);
     }
   }
   
@@ -436,15 +437,17 @@ int parse_simple(char no_newline)
 int parse_opx(char prio)
 {
   char done = 0;
-  char p = 0; /*DONTCARE*/
+  char p = prio;
 
   Parse_Debug("parse_opx");
 
   /* prefix */
-  if (lex_looking_at_operator_fix_prio('p', prio)) { /* prefix */
+  if (lex_looking_at_operator_fix_prio('p', p)) { /* prefix */
     Assert(lex_oper_prio>=prio);
     Maker0("opx<=prefix ...", 12,1);
-    if (parse_comb())
+    
+    p = lex_oper_prio;
+    if (parse_opx(p))
       Maker2("opx<=prefix comb", 12,2);
     else
       return parse_err("parse_opx", "no operand for prefix operator","opx<=prefix comb");
