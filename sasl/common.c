@@ -240,7 +240,7 @@ static int out_out(FILE *where, pointer n)
     return 0;
   }
   if (IsNil(n))    
-    return fprintf(where, "NIL");
+    return fprintf(where, "()");
   else		  
     if (IsWeak(n))
       return fprintf(where, "<loop>");	/* can we identify the variable in question? */

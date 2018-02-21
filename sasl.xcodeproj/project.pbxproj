@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0F671198203CD54F00E9DD0B /* sasl_test.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F671197203CD54F00E9DD0B /* sasl_test.m */; };
 		0F7E6555201A4BFF001A6B3C /* zone.c in Sources */ = {isa = PBXBuildFile; fileRef = 0F7E6541201A4BFD001A6B3C /* zone.c */; };
 		0F7E6557201A4BFF001A6B3C /* common.c in Sources */ = {isa = PBXBuildFile; fileRef = 0F7E6544201A4BFD001A6B3C /* common.c */; };
 		0F7E6558201A4BFF001A6B3C /* reduce.c in Sources */ = {isa = PBXBuildFile; fileRef = 0F7E6545201A4BFE001A6B3C /* reduce.c */; };
@@ -31,6 +32,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0F671195203CD54F00E9DD0B /* sasl-test.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "sasl-test.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		0F671197203CD54F00E9DD0B /* sasl_test.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = sasl_test.m; sourceTree = "<group>"; };
+		0F671199203CD54F00E9DD0B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		0F7E6537201A31AD001A6B3C /* sasl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sasl; sourceTree = BUILT_PRODUCTS_DIR; };
 		0F7E6541201A4BFD001A6B3C /* zone.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = zone.c; sourceTree = "<group>"; };
 		0F7E6543201A4BFD001A6B3C /* make.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = make.h; sourceTree = "<group>"; };
@@ -54,6 +58,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		0F671192203CD54F00E9DD0B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		0F7E6534201A31AD001A6B3C /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -64,10 +75,20 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0F671196203CD54F00E9DD0B /* sasl-test */ = {
+			isa = PBXGroup;
+			children = (
+				0F671197203CD54F00E9DD0B /* sasl_test.m */,
+				0F671199203CD54F00E9DD0B /* Info.plist */,
+			);
+			path = "sasl-test";
+			sourceTree = "<group>";
+		};
 		0F7E652E201A31AD001A6B3C = {
 			isa = PBXGroup;
 			children = (
 				0F7E6539201A31AD001A6B3C /* sasl */,
+				0F671196203CD54F00E9DD0B /* sasl-test */,
 				0F7E6538201A31AD001A6B3C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -76,6 +97,7 @@
 			isa = PBXGroup;
 			children = (
 				0F7E6537201A31AD001A6B3C /* sasl */,
+				0F671195203CD54F00E9DD0B /* sasl-test.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -109,6 +131,23 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		0F671194203CD54F00E9DD0B /* sasl-test */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0F67119C203CD54F00E9DD0B /* Build configuration list for PBXNativeTarget "sasl-test" */;
+			buildPhases = (
+				0F671191203CD54F00E9DD0B /* Sources */,
+				0F671192203CD54F00E9DD0B /* Frameworks */,
+				0F671193203CD54F00E9DD0B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "sasl-test";
+			productName = "sasl-test";
+			productReference = 0F671195203CD54F00E9DD0B /* sasl-test.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		0F7E6536201A31AD001A6B3C /* sasl */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 0F7E653E201A31AD001A6B3C /* Build configuration list for PBXNativeTarget "sasl" */;
@@ -135,6 +174,10 @@
 				LastUpgradeCheck = 0920;
 				ORGANIZATIONNAME = "David Brownbridge";
 				TargetAttributes = {
+					0F671194203CD54F00E9DD0B = {
+						CreatedOnToolsVersion = 9.2;
+						ProvisioningStyle = Automatic;
+					};
 					0F7E6536201A31AD001A6B3C = {
 						CreatedOnToolsVersion = 9.2;
 						ProvisioningStyle = Automatic;
@@ -154,11 +197,30 @@
 			projectRoot = "";
 			targets = (
 				0F7E6536201A31AD001A6B3C /* sasl */,
+				0F671194203CD54F00E9DD0B /* sasl-test */,
 			);
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		0F671193203CD54F00E9DD0B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
+		0F671191203CD54F00E9DD0B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0F671198203CD54F00E9DD0B /* sasl_test.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		0F7E6533201A31AD001A6B3C /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -178,6 +240,30 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		0F67119A203CD54F00E9DD0B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = "sasl-test/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = "optimumintegration.sasl-test";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		0F67119B203CD54F00E9DD0B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = "sasl-test/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = "optimumintegration.sasl-test";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		0F7E653C201A31AD001A6B3C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -300,6 +386,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		0F67119C203CD54F00E9DD0B /* Build configuration list for PBXNativeTarget "sasl-test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0F67119A203CD54F00E9DD0B /* Debug */,
+				0F67119B203CD54F00E9DD0B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		0F7E6532201A31AD001A6B3C /* Build configuration list for PBXProject "sasl" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

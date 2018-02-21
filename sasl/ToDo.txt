@@ -1,5 +1,18 @@
+2018-02-20
+03{,x} Towers of Hanoi - taking head of non-cons
+04 table of powers "reduce: reduce: stack depth within 90% of max" combinator reduction loop surely?
+
+2018-02-19
+ok 15a unary prefix ops seem to be wrong
+
+these all exhibit "reduce: taking tail of non-cons" error"
+ok insertion-sort insertion-sort3 (but not '2') failing - TEST ERROR NIL isn't ()
+++ 03-Towers..
+
+
+
 2018-02-14
-++ 15a unary prefix ops seem to be wrong
+ok15a unary prefix ops seem to be wrong
 ++ insertion-sort insertion-sort3 (but not '2') failing
 
 ok WIP: only printng FIRST resiult at top level needs to iterate eg tests 30 38
