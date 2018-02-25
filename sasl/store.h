@@ -1,3 +1,5 @@
+extern pointer make_append(pointer list, pointer tl);
+
 extern pointer new_copy(pointer p);
 extern pointer new_nil_list(void);
 extern pointer new_int(int i);
@@ -6,13 +8,20 @@ extern pointer new_char(char c);
 extern pointer new_bool(char b);
 extern pointer new_fail(void);
 extern pointer new_apply(pointer hd, pointer tl);
+extern pointer new_apply3(pointer hh, pointer th, pointer t);
+extern pointer new_apply4(pointer hhh, pointer thh, pointer th, pointer t);
+
+
 extern pointer new_cons(pointer hd, pointer tl);
 extern pointer new_abstract(pointer name, pointer def, int r);
 extern pointer new_def(pointer name, pointer def);
+extern pointer add_to_def(pointer def, pointer name, pointer d);
 extern pointer new_name(char *s);
 extern pointer new_oper(tag oper);
 extern pointer new_comb_name(tag t, pointer name);
 extern pointer new_comb(tag t);
+extern pointer new_unary_predicate(char *name, int (*fun)(pointer p));
+extern pointer new_unary_maths(char *name, int (*fun)(pointer p));
 
 extern void refc_delete(pointer *pp);
 extern pointer refc_update(pointer n, pointer new);

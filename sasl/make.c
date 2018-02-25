@@ -190,7 +190,7 @@ pointer make_oper()
   return NIL; /*NOTREACHED*/
 }
 
-/* helper finctions to make defs */
+/* helper functions to make defs */
 
 /* search def for definition of a name, return NIL is if not found 
  defs: (listof-names).(listof-clauses) */
@@ -256,27 +256,6 @@ pointer make_bind(pointer defs, pointer expr)
 }
 #endif
 
-/* helper function */
-/*
- * make_append - adds new cons cell to end of non-NIL list containing tl and NIL terminator; does nothing  if list is NIl
- *	NB no checking on list is done
- * return top of the list
- */
-pointer make_append(pointer list, pointer tl)
-{
-  pointer l = list;
-  
-  while (IsSet(l)) {
-    if (IsSet(Tl(l))) {
-      l = Tl(l);
-    } else {
-      Assert(IsNil(Tl(l)));
-      Tl(l) = tl; /* was new_cons(tl,NIL);c*/
-      break;
-    }
-  }
-  return list;
-}
 
 /* [Turner 1979]
  Mutual recursion following a where is handled by combining all the definitions follow- ing the where into a single definition with a complex left hand side and then proceeding as above. So for example
@@ -381,11 +360,7 @@ pointer make_multi_clause(pointer def1, pointer def2, int n)
 {
   MAKE_DEBUG("make_multi_clause ...");
     
-  return new_apply(
-                  new_apply(
-                            new_apply(new_comb(TRYn_comb), new_int(n)),
-                            def1),
-                  def2);
+  return new_apply4(new_comb(TRYn_comb), new_int(n), def1, def2);
 }
 
 #ifdef notdef
@@ -550,12 +525,12 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
       
       switch (subrule) {
         case 1: return n1; /*nop*/
-        case 2: return new_apply(new_apply(new_oper(cond_op), n1), n2);
+        case 2: return new_apply3(new_oper(cond_op), n1, n2);
         case 3: return new_apply(n1, n2);
         case 4: return n1; /*nop*/
         case 5: return new_cons(n1, NIL);
-        case 6: return make_append(n1, new_cons(n2,NIL));
-        case 7: return make_append(n1, new_cons(n2,NIL));
+        case 6: return make_append(n1, n2);
+        case 7: return make_append(n1, n2);
       }
       break;
       
@@ -584,7 +559,6 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           refc_delete(&n1); /* assume not needed xxx tidy whether to delete in make_abstract (code/no-code)) */
           return result;
         }
-          /* TODO free formals */
         case 3: return n1;
       }
       break;
@@ -612,6 +586,9 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
       switch (subrule) {
         case 1:
           /* first def - re-write n1 as a pair of lists */
+          /*
+           n1 = add_to_def(new_def(""), n1);
+           */
           H(n1) = new_cons(H(n1), NIL);
           T(n1) = new_cons(T(n1), NIL);
           return n1;
@@ -620,10 +597,13 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           /* || clause == names:expr */
           if (IsSameName(HH(n1), H(n2))) {
             /*multi-clause definition */
-            HT(n1) = make_multi_clause(HT(n1), T(n2), info);
+/* change here also */            HT(n1) = make_multi_clause(HT(n1), T(n2), info);
             T(n2) = NIL; /*move*/ /* H(n2) is surplus to requirements, delete below */
           } else {
             /* single clause definition, so far */
+/*
+ n1 = add_to_def(n1, H(n2), T(n2)) ...
+ */
             H(n1) = new_cons(H(n2), H(n1));
             T(n1) = new_cons(T(n2), T(n1));
             H(n2) = T(n2) = NIL; /*move*/

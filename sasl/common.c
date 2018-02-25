@@ -99,8 +99,9 @@ static char *tag_names[] = {
   "H_comb",
   "T_comb",
   
-  "FUN1_comb",
-  "FUN2_comb"
+  "unary_predicate",
+  "unary_maths"
+  
 
 };
 
@@ -464,12 +465,10 @@ static int out_out(FILE *where, pointer n)
       case T_comb:
 	(void) fprintf(where, "T");
 	return out_comb_name(where, n);
-      case FUN1_comb:
-	(void) fprintf(where, "FUN1");
-	return out_comb_name(where, n);
-      case FUN2_comb:
-	(void) fprintf(where, "FUN2");
-	return out_comb_name(where, n);
+      case unary_predicate:
+          return fprintf(where, "predicate:%s", Uname(n));
+      case unary_maths:
+          return fprintf(where, "maths:%s", Uname(n));
       }
     }
   return 0; /*NOTEREACHED*/

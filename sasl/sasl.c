@@ -14,6 +14,7 @@
 const pointer NIL = {(node *)0,0};
 pointer root = {(node *)0,0};
 pointer defs = {(node *)0,0};
+pointer sasl = {(node *)0,0};
 
 /* 
  * defaults and environment variables
@@ -60,17 +61,16 @@ static int main_init()
 
   no_reset		= getenv_int("no_reset", 1); /* default off - todo change for interactive use */
 
-  if (IsSet(root))
-    refc_delete(&root);
-  else
-    root = NIL;
+  /* store_init() */
+  refc_delete(&root);
+  refc_delete(&defs);
+  refc_delete(&sasl);
   
-  if (IsSet(defs))
-    refc_delete(&defs);
-  else
-    defs = NIL;
-  
+/*notyet
+ return reduce_init();
+ */
   return 0;
+
 }
 
 /* *** test *** test *** test *** test *** test *** test *** test *** test */

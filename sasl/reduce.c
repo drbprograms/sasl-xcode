@@ -58,6 +58,48 @@ static pointer *sp = stack;
 #define Pop(n)	(sp -= (n)) /* assert(sp>=base) */
 
 /*
+ * sasl - primitive to sasl functions
+ */
+
+static int is_list(pointer p)
+{
+    return IsCons(p);
+}
+/*
+ * initialise reduction machine
+ */
+int reduce_init()
+{
+    /*
+     * functions primitive to sasl
+     */
+    refc_delete(&sasl); /* ensure reduce_init() can be call more than once safely */
+    
+    sasl = new_def(new_name("<primitive to sasl>"), NIL);
+   
+    sasl = add_to_def(sasl, new_name("list"), new_unary_predicate("list", is_list));
+
+    /*
+     todo complete the rest of builtin
+     || arctan inverse trig function - primitive to sasl
+     || code ch = integer code for ch in local character set - primitive to sasl
+     || char type testing function - primitive to sasl
+     || cos trig function - primitive to sasl
+     || decode n the character whose integer code is n - primitive to sasl
+     || entier primitive to sasl
+     || exp exponential function - primitive to sasl
+     || functiontype testing function - primitive to sasl
+     || list type testing function - primitive to sasl
+     || log natural logarithm - primitive to sasl || logical type testing function - primitive to sasl
+     || number type testing function - primitive to sasl
+     || sin x trig function - primitive to sasl
+     || sqrt primitive to sasl
+     */
+
+    return 0;
+}
+
+/*
  * log reductions to file as required
  */
 static int reductions = 0;
@@ -861,10 +903,10 @@ pointer reduce(pointer n)
                                                                 new_apply(refc_copy(Arg2), refc_copy(Arg4))),
                                                       new_apply(refc_copy(Arg3), refc_copy(Arg4)));
                         } else {
-                            /*TODO re-use ARG1 setting it to -= 1 */
-                            Stack4 = refc_update_hdtl(Stack4,
-                                                      new_apply(new_apply(new_comb(TRYn_comb), new_int(Num(Arg1) - 1)),
-                                                                new_apply(refc_copy(Arg2), refc_copy(Arg4))),
+                           Stack4 = refc_update_hdtl(Stack4,
+                                                      new_apply3(new_comb(TRYn_comb),
+                                                                 new_int(Num(Arg1) - 1),
+                                                                 new_apply(refc_copy(Arg2), refc_copy(Arg4))),
                                                       new_apply(refc_copy(Arg3), refc_copy(Arg4)));
                             
                         }

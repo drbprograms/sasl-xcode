@@ -1,5 +1,6 @@
 extern pointer reduce_print(pointer p);
 extern pointer reduce(pointer n);
+extern int reduce_init(void);
 
 extern void reduce_log_report(FILE *where);
 

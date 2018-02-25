@@ -1,3 +1,52 @@
+2018-02-24
+def: bind from expr to defs in "the environment"
+
+def: consider changing nameslist:desflist to listof (name:def) for handling simplicity - requires abstgract to be chjange though.   Might make it easire to "link" sasl code
+
+ok new_apply2 new_apply3 finish them .h them and use them
+++ new_apply[23] use them throughout
+++ possibly - binds-to-right new_cons2 new_cons3 wirte and ditto
+
+++ is_list() for builtin sasl functions "list ()" etc
+
+2018-02-21
+
+++ Add Primitives - maths and type-testing
+|| arctan inverse trig function - primitive to sasl
+|| code ch = integer code for ch in local character set - primitive to sasl
+|| char type testing function - primitive to sasl
+|| cos trig function - primitive to sasl
+|| decode n the character whose integer code is n - primitive to sasl
+|| entier primitive to sasl
+|| exp exponential function - primitive to sasl
+|| functiontype testing function - primitive to sasl
+|| list type testing function - primitive to sasl
+|| log natural logarithm - primitive to sasl || logical type testing function - primitive to sasl
+|| number type testing function - primitive to sasl
+|| sin x trig function - primitive to sasl
+|| sqrt primitive to sasl
+
+++Implementation
+    ++ unary_predicate_op
+        sasl: *->boolean
+        C: int f(pointer p) ||
+    ++ unary_number_op
+        sasl: number->number
+        C: int f(pointer p) || IsNum(p)
+
+++ formalise zone/store
+    ++ zone struct nodes with two possibly NIL pointers and atoms with any content but pointer.
+    ++ store apply cons name FUN1 FUN2 as structs
+    ++ store constants int char bool ... as atoms
+++ zone check - update to self-locate roots and then compare separattely to list of root {root, defs} in store
+
+++ Reduce() restructure to
+    ++ make Pop common to all ops with same arity
+    ++ make "force" common outside the op itself
+    ++ op only does
+        typechecking IsNum(Arg) ...
+        re-writing
+
 2018-02-20
 03{,x} Towers of Hanoi - taking head of non-cons
 04 table of powers "reduce: reduce: stack depth within 90% of max" combinator reduction loop surely?

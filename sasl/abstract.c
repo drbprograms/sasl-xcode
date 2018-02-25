@@ -214,8 +214,7 @@ pointer reduce_abstract(pointer pattern, pointer exp, int r)
   if (IsNil(pattern) || IsConst(pattern)) {
     /* [const] E => MATCH const E */
     /* [NIL]   E => MATCH NIL   E */
-    exp = new_apply(new_apply(new_comb(MATCH_comb), refc_copy(pattern)), /*was (pattern)*/
-                    exp);
+    exp = new_apply3(new_comb(MATCH_comb), refc_copy(pattern), exp);
   } else if (IsName(pattern)) {
     /* [name] E => abstract1(name, E) */
     exp = reduce_abstract1(pattern, exp, 0); /* nb bug was 1; todo remove "r" parameter from abstract1() */

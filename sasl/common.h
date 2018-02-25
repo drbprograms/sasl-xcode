@@ -15,6 +15,7 @@ typedef struct pointer {
 
 extern pointer root;
 extern pointer defs;
+extern pointer sasl;
 extern const pointer NIL;
 
 /* NB numeric values here need to fit into a 'char' in tok->t below */
@@ -33,7 +34,7 @@ typedef enum tag {
   /* Special constant - to indicate pattern match has failed */
   fail_t,
 #define IsFailTag(t) ((t)==fail_t)  
-
+#define IsUnaryTag(t) ((t)==unary_predicate || (t)==unary_maths)
 
   
   /* Apply/Cons - these have a hl and tl (aka car and cdr) which can pont to any other node, or be NIL */
@@ -103,6 +104,7 @@ typedef enum tag {
 #define IsUnaryOpTag(t) ((t)>=unary_not_op && (t)<=unary_count_op)
   
   /* Combinators - tl contains first argument.  Optionally hd points to name_t name of variable being abstracted, for debugging purposes */
+#define IsCombTag(t) ((t)>=I_comb)
   I_comb,
   K_comb,
   K_nil_comb, /* checks 2nd arg is NIL */
@@ -140,12 +142,12 @@ typedef enum tag {
   PAIR_comb,
   H_comb,	/* hd / tl combinators - lazy */
   T_comb,
-  
-  FUN1_comb,	/* built in one-argument functions eg abs() sin(), cos() */
-  FUN2_comb,	/* ...with two arguments */
+
+  unary_predicate,  /* built in one-argument test eg "function" */
+  unary_maths,  /* built-in one argument maths eg "sin" */
+
   _LastTag      /* Never appears in a node, used to calculate size for and array-of tag values */
   
-#define IsCombTag(t) ((t)>=I_comb)
 #define TagCount (_LastTag)	/* tags are numbered from 0, _LastTag isn't a tag(!) */
 } tag;
 
@@ -157,6 +159,11 @@ typedef struct node
                          cons_t	sasl "cons" node
                          ALSO NB comb_t uses hd as tag, tl as name of variable being abstracted */
     } pointers;
+    
+    struct op {
+      char *n;
+      int (*fun)(pointer p);
+    } op;
     
     int i;	/* num_t	sasl "num" */
     char c;	/* char_t 	sasl "char" */
@@ -173,7 +180,6 @@ typedef struct node
   unsigned w_refc;
   unsigned bit:1;
 } node;
-
 
 #define IsSet(ptr)	((ptr).p)
 #define IsNil(ptr)	(!IsSet(ptr))
@@ -224,7 +230,8 @@ typedef struct node
 #define IsChar(p)	(IsSet(p) && IsCharTag(Tag(p)))
 #define IsBool(p)	(IsSet(p) && IsBoolTag(Tag(p)))
 #define IsName(p)	(IsSet(p) && IsNameTag(Tag(p)))
-#define IsFail(p)	(IsSet(p) && IsFailTag(Tag(p)))
+#define IsFail(p)  (IsSet(p) && IsFailTag(Tag(p)))
+#define IsFun(p)  (IsSet(p) && IsFunTag(Tag(p)))
 
 #define IsAbstract(p)	(IsSet(p) && IsAbstractTag(Tag(p)))
 #define IsRecursiveAbstract(p)	(IsSet(p) && IsRecursiveAbstractTag(Tag(p)))
@@ -246,10 +253,14 @@ typedef struct node
 #define Dbl(ptr)	_GETVCHECK(ptr,d,IsDbl)
 #define Bool(ptr)	_GETVCHECK(ptr,b,IsBool)
 #define Char(ptr)	_GETVCHECK(ptr,c,IsChar)
+#define Uname(ptr)  _GETVCHECK(ptr,op,IsFun).n         /* char * */
+#define Ufun(ptr)   _GETVCHECK(ptr,op,IsFun).fun       /* pointer (*fun)(pointer p) */
 #else
 #define Pointers(ptr)	_GETV(ptr,pointers)	/* pointers- deprecated, not for general use! */
 #define Hd(ptr)		_GETV(ptr,pointers).hd	/* pointer */
 #define Tl(ptr)		_GETV(ptr,pointers).tl	/* pointer */
+#define Uname(ptr)  _GETV(ptr,op).n         /* char * */
+#define Ufun(ptr)   _GETV(ptr,op).fun       /* pointer (*fun)(pointer p) */
 #define Num(ptr)	_GETV(ptr,i)
 #define Dbl(ptr)	_GETV(ptr,d)
 #define Bool(ptr)	_GETV(ptr,b)

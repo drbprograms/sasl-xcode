@@ -10,6 +10,26 @@
 
 #define Limit 6 /* keep low for brevity */
 
+/* helper function */
+/*
+ * make_append - adds new cons cell containing tl and NIL terminator to end of non-NIL list; does nothing  if list is NIL
+ * || append (a:x) tl = a:append x tl
+ * || append () tl    = tl,
+  * return top of the list
+ */
+pointer make_append(pointer list, pointer tl)
+{
+  if (IsNil(list))
+    list = new_cons(tl, NIL);
+  else
+    T(list) = make_append(T(list), tl);
+  
+  return list;
+}
+
+/*
+ * logging
+ */
 void store_log(char *s, pointer p)
 {
   if (debug) {
@@ -80,6 +100,16 @@ pointer new_apply(pointer hd, pointer tl)
   return n;
 }
 
+pointer new_apply3(pointer hh, pointer th, pointer t)
+{
+  return new_apply(new_apply(hh,th), t);
+}
+
+pointer new_apply4(pointer hhh, pointer thh, pointer th, pointer t)
+{
+  return new_apply(new_apply3(hhh, thh, th), t);
+}
+
 pointer new_cons(pointer hd, pointer tl)
 {
   pointer n = new_node(cons_t);
@@ -107,6 +137,22 @@ pointer new_def(pointer name, pointer def)
   return n;
 }
 
+/* add_def - add a name's definition to defs list (name may be a simple name or a namelist) */
+pointer add_to_def(pointer def, pointer name, pointer d)
+{
+  pointer deflist;
+  Assert(IsDef(def));
+  deflist = T(def);
+  if (IsNil(deflist)) {
+    deflist = new_cons(new_cons(name, NIL),
+                       new_cons(d,    NIL));
+  } else {
+    H(deflist) = new_cons(name, H(deflist));
+    T(deflist) = new_cons(d,    T(deflist));
+  }
+  return def;
+}
+
 pointer new_name(char *s)
 {
   pointer n = new_node(name_t);
@@ -132,6 +178,35 @@ pointer new_oper(tag oper)
   store_log_new(n);
   return n;
 }
+
+static pointer new_unary(tag t, char *name, int (*fun)(pointer p))
+{
+  pointer n = new_node(t);
+  
+  Uname(n) = (char *)malloc(strlen(name)+1);
+  
+  if (!Uname(n))
+    (void) err_store("new_unary: malloc out of space");
+  
+  if (!strcpy(Uname(n), name))
+    (void) err_store("new_unary: strcpy failed");
+
+  Ufun(n) = fun;
+  
+  return n;
+}
+
+pointer new_unary_predicate(char *name, int (*fun)(pointer p))
+{
+  return new_unary(unary_predicate, name, fun);
+}
+
+pointer new_unary_maths(char *name, int (*fun)(pointer p))
+{
+  return new_unary(unary_maths, name, fun);
+}
+
+
 
 /*
  * storage management - reference counting ref...
@@ -177,11 +252,6 @@ pointer make_apply(pointer n, pointer hd, pointer tl)
   Tl(n) = tl;
   store_log_new(n);
   return n;
-}
-
-pointer new_apply2(pointer hd, pointer tl)
-{
-  return make_apply(NIL, hd, tl);
 }
 
 /*end new*/
