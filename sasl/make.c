@@ -344,6 +344,12 @@ static int count_name(pointer name, pointer p)
 
 /* worker for de_dup() */
 /* de-duplicate a single given "atom", possibly a name */
+/* de_dup x ()        = x
+ * de_dup x (MATCH y) = (MATCH y)
+ * de_dup x (b:y)     = de_dup b : de_dup y
+ * de_dup x x         = MATCH x
+ * de_dup x y         = y
+ */
 pointer de_dup1(pointer name, pointer old)
 {
    if (IsNil(old))
@@ -523,45 +529,64 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
         case 3: return n1;
         case 4: return new_cons(n1, n2);
       }
-      break;
-      
+    break;
+    
     case 7:
-      /* (7)	<defs> ::= <clause> [; <clause>]*	* means 0 or more
-       *                      1           2      3
-       defs <= (list-of (name|namelist)).(list-of expr
-       || defs == (list-of names):(list-of expr)
-       */
-      switch (subrule) {
-        case 1:
-          /* first def - re-write n1 as a pair of lists */
-          /*
-           n1 = add_to_def(new_def(""), n1);
-           */
-          H(n1) = new_cons(H(n1), NIL);
-          T(n1) = new_cons(T(n1), NIL);
-          return n1;
-          
-        case 2: {
-          /* || clause == names:expr */
-          if (IsSameName(HH(n1), H(n2))) {
-            /*multi-clause definition */
-/* change here also */            HT(n1) = make_multi_clause(HT(n1), T(n2), info);
-            T(n2) = NIL; /*move*/ /* H(n2) is surplus to requirements, delete below */
-          } else {
-            /* single clause definition, so far */
-/*
- n1 = add_to_def(n1, H(n2), T(n2)) ...
- */
-            H(n1) = new_cons(H(n2), H(n1));
-            T(n1) = new_cons(T(n2), T(n1));
-            H(n2) = T(n2) = NIL; /*move*/
-          }
-          refc_delete(&n2); /* surplus cons node, possibly with contents */
-          return n1;
+    case 13:
+    /* (7)	<defs> ::= <clause> [; <clause>]*	* means 0 or more
+     *                      1           2      3
+     defs <= (list-of (name|namelist)).(list-of expr)
+     || defs == (list-of names):(list-of expr)
+     */
+    /*
+     * (13) <deflist> ::= <clause> [; <clause>]*
+     *                      1           2      3
+     defs <= (list-of (name|namelist)).(list-of expr)
+     || defs == (list-of names):(list-of expr)
+     */
+    
+    switch (subrule) {
+      
+      case 1:
+      /* first def - re-write n1 as a pair of lists */
+#ifdef defdef
+      n1 = add_to_def(new_def(""), H(n1), T(n1));
+#else
+      H(n1) = new_cons(H(n1), NIL);
+      T(n1) = new_cons(T(n1), NIL);
+#endif
+      return n1;
+      
+      case 2: {
+        /* || clause == names:expr */
+#ifdef defdef
+        if (IsSameName(H(Defnames(n1)), H(n2))) {
+          /*multi-clause definition */
+          H(DefExprs(n1)) = make_multi_clause(H(DefExprs(n1)), T(n2), info);
+          T(n2) = NIL /*move*/
+        } else {
+          /* single clause definition, so far */
+          n1 = add_to_def(n1, H(n2), T(n2)); /* ?? add_to_def(n1, n2) */
+          H(n2) = T(n2) = NIL; /*move*/
         }
-          
-       }
-      break;
+#else
+        if (IsSameName(HH(n1), H(n2))) {
+          /*multi-clause definition */
+          HT(n1) = make_multi_clause(HT(n1), T(n2), info);
+          T(n2) = NIL; /*move*/ /* H(n2) is surplus to requirements, delete below */
+        } else {
+          /* single clause definition, so far */
+          H(n1) = new_cons(H(n2), H(n1));
+          T(n1) = new_cons(T(n2), T(n1));
+          H(n2) = T(n2) = NIL; /*move*/
+        }
+#endif
+        refc_delete(&n2); /* surplus cons node, possibly with contents */
+        return n1;
+      }
+      
+    }
+    break;
       
     case 8:
           /* (8)	<expr> ::= <condexp> [where <defs>]*	* means 0 or more
@@ -621,22 +646,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
         case 6: return new_apply(make_oper(), n1);
       }
       break;
-      
-    case 13:
-      /*
-       * (13) <deflist> ::= <clause> [; <clause>]*
-       defs <= (listof-clause-names).(listof-clauses)
-       *
-       * retain listof-clauses for individual use
-       */
-      switch (subrule) {
-        case 3:
-          return n1;/*todo xxx BROKEN HERE make this like case: 7 defs, but updating Global DEF list */
-          
-          
-      }
-      break;
-      
+    
     case 14:
       /* (14)	<program> ::= <expr>? | def <deflist>?
        *                          1        2     3
@@ -649,7 +659,9 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           /* substitute for known DEFs; check for unbound names; return pointer to-be-reduced */
 
           Assert(IsNil(defs) || IsDef(defs));
+          Assert(IsDef(builtin));
 
+          n1 = make_bind(builtin, n1);
           root = make_bind(defs, n1);
 
           
@@ -662,8 +674,10 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           refc_delete(&root);
           refc_delete(&defs);
 
+          n1 = make_bind(builtin, n1);
           defs = new_def(new_name("<Top>"), n1);
           TT(defs) = make_bind(defs, TT(defs)); /* resolve internal references */
+          /* XXX todo Y comb here?? */
           
           return defs;
         }

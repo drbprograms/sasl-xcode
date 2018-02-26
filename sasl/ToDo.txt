@@ -1,7 +1,30 @@
 2018-02-26
+++ "list x" sasl not working
+... working through def addto_def for making clauses (!) to allow simplification throug always using "def" struct here (!)
+
+unary_predicate
+|| char type testing function - primitive to sasl
+|| function type testing function - primitive to sasl
+|| list type testing function - primitive to sasl
+|| number type testing function - primitive to sasl
+
+unary_maths
+|| code ch = integer code for ch in local character set - primitive to sasl
+|| decode n the character whose integer code is n - primitive to sasl
+
+|| arctan inverse trig function - primitive to sasl
+|| cos trig function - primitive to sasl
+|| entier primitive to sasl
+|| exp exponential function - primitive to sasl
+|| log natural logarithm - primitive to sasl || logical type testing function - primitive to sasl
+|| sin x trig function - primitive to sasl
+|| sqrt primitive to sasl
+
 test/*/sasl ok now inckuding use of prelude in simple expressioins (prelude{1,2,3} tests)
-++ todo avoid ccycles when binding names in make_bind()
+++ todo add code to avoid cycles when binding names in make_bind()
 ++ parse_check() looks for unbound names - currently fails with MacOS stack 512 limit - fix
+++ "." infix operator not parsing - it's treated as a name!!
+++ insertion-sort3 giving refc errors (NIL problem in deflist...)
 
 2018-02-24
 ok def: bind from expr to defs in "the environment"

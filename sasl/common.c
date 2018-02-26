@@ -164,11 +164,16 @@ int err_out(char *f, char *msg1, char *msg2, int n)
   return 0; /*NOTEREACHED*/
 }
 
-int err_reduce(char *msg1)
+int err_reduce2(char *msg1, char *msg2)
 {
-  (void) fprintf(stderr, "reduce: %s\n", msg1);
+  (void) fprintf(stderr, "reduce: %s %s\n", msg1, msg2);
   longjmp(jmpbuffer, 4);
   return 0; /*NOTEREACHED*/
+}
+
+int err_reduce(char *msg1)
+{
+  return err_reduce2(msg1, "");
 }
 
 int err_refc(char *msg1)
@@ -466,9 +471,9 @@ static int out_out(FILE *where, pointer n)
 	(void) fprintf(where, "T");
 	return out_comb_name(where, n);
       case unary_predicate:
-          return fprintf(where, "predicate:%s", Uname(n));
+          return fprintf(where, "predicate-%s", Uname(n));
       case unary_maths:
-          return fprintf(where, "maths:%s", Uname(n));
+          return fprintf(where, "maths-:%s", Uname(n));
       }
     }
   return 0; /*NOTEREACHED*/

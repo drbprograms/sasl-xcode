@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
+
 #include "common.h"
 
 #include "store.h"
@@ -28,7 +29,7 @@
 
 /* the stack - used by reduce */
 
-#define STACK_SIZE (10000)
+#define STACK_SIZE (50000) /*was 10000*/
 #define RM_SIZE (265)
 
 
@@ -55,16 +56,23 @@ static pointer *sp = stack;
 #define A3 refc_copy(Arg3)
 #define A4 refc_copy(Arg4)
 
-#define Pop(n)	(sp -= (n)) /* assert(sp>=base) */
+#define Pop(n)	(sp -= (n), sp[n]) /* assert(sp>=base) value is previous Top of stack */
 
 /*
  * sasl - primitive to sasl functions
  */
 
-static int is_list(pointer p)
-{
-    return IsCons(p);
-}
+/* unary predicates
+ * anything -> BOOL
+ */
+static pointer is_char(pointer p) { return new_bool(IsChar(p)); }
+static pointer is_list(pointer p) { return new_bool(IsNil(p) || IsCons(p)); }
+static pointer is_func(pointer p) { return new_bool(IsApply(p) || IsBuiltin(p)); }
+static pointer is_num(pointer p)  { return new_bool(IsNum(p)); }
+
+static pointer   code(pointer p)    { return new_int((int) Char(p)); }
+static pointer decode(pointer p)    { return new_char((char) Num(p)); }
+
 /*
  * initialise reduction machine
  */
@@ -73,12 +81,19 @@ int reduce_init()
     /*
      * functions primitive to sasl
      */
-    refc_delete(&sasl); /* ensure reduce_init() can be call more than once safely */
+    refc_delete(&builtin); /* ensure reduce_init() can be called safely more than once */
     
-    sasl = new_def(new_name("<primitive to sasl>"), NIL);
-   
-    sasl = add_to_def(sasl, new_name("list"), new_unary_predicate("list", is_list));
-
+    builtin = new_def(new_name("<primitive to sasl>"), NIL);
+    
+    /* unary prediacates */
+    builtin = add_to_def(builtin, new_name("char"), new_unary_predicate("char", is_char));
+    builtin = add_to_def(builtin, new_name("list"), new_unary_predicate("list", is_list));
+    builtin = add_to_def(builtin, new_name("function"), new_unary_predicate("function", is_func));
+    builtin = add_to_def(builtin, new_name("num"),  new_unary_predicate("num",  is_num ));
+    
+   /* unary_maths */
+    builtin = add_to_def(builtin, new_name("code"),    new_unary_predicate("code",  code ));
+    builtin = add_to_def(builtin, new_name("decode"),  new_unary_predicate("decode",  decode ));
     /*
      todo complete the rest of builtin
      || arctan inverse trig function - primitive to sasl
@@ -414,54 +429,64 @@ pointer reduce(pointer n)
         {
             
             if (Stacked >= 1)
-            /* constants -  no further reductions here */
-                switch (Tag(Top)) {
-                        /* nothing to do */
-                    case cons_t:
-                        if (Stacked > 1) {
-                            if (IsNum(Arg1) && Num(Arg1) > 0) {
-                                /* (list n) - return nth element of list numbered from 1 */
-                                /* traverse n-1 tails and a then head:
-                                 n = 1: H(Arg2)
-                                 n = 2: HT(Arg2)
-                                 n = 3: HTT(Arg2) etc
-                                 */
-                                int n = Num(Arg1);
-                                
-                                /* n-1 tails */
-                                while (--n >= 1) {
-                                    T(Top) = reduce(T(Top)); /* force cons into existence */
-                                    if (IsCons(T(Top))) {
-                                        Top = refc_update_hdtl(Top, refc_copy(HT(Top)), refc_copy(TT(Top)));
-                                    } else {
-                                        err_reduce("not enough tails when applying list to a number");
-                                        break; /*loop*/
-                                    }
-                                }
-                                
-                                /* .. and 1 head */
-                                if (IsCons(Top))
-                                    Stack1 = refc_update_hdtl(Stack1, new_comb(I_comb), refc_copy(H(Top))); /* NB H(Top) here */
-                                else
-                                   err_reduce("no head when applying list to a number");
-                                Pop(1);
-                                continue;
-                            } else {
-                                err_reduce("??");
-                            }
-                        }
-                        /* else FALLTHRU*/
-                        
+            switch (Tag(Top)) {
+                
+                case cons_t: {
+                    int n;
+                    
+                    if (Stacked == 1)
+                        return Pop(1); /* like constatnts */
+                    
+                    if (!IsNum(Arg1))
+                        err_reduce("applying a list to something that is not a number");
+                    
+                    n = Num(Arg1);
+                    if (n < 1)
+                        err_reduce("applying a list to something that is not a number");
+                    /* Future: use this for awk-style arrays (('a",1),('b",42),('c",99) 'b" => 42 */
+                    
+                    /* (list n) - return nth element of list numbered from 1 */
+                    /* traverse n-1 tails and a then head:
+                     n = 1: H(Arg2)
+                     n = 2: HT(Arg2)
+                     n = 3: HTT(Arg2) etc
+                     */
+                    
+                    /* n-1 tails */
+                    while (--n >= 1) {
+                        T(Top) = reduce(T(Top)); /* force cons into existence */
+                        if (IsCons(T(Top)))
+                            Top = refc_update_hdtl(Top, refc_copy(HT(Top)), refc_copy(TT(Top)));
+                        else
+                            err_reduce("not enough tails when applying list to a number");
+                    }
+                    
+                    /* .. and 1 head */
+                    if ( !IsCons(Top))
+                        err_reduce("no head when applying list to a number");
+                    
+                    Stack1 = refc_update_hdtl(Stack1, new_comb(I_comb), refc_copy(H(Top))); /* NB H(Top) here */
+                    
+                    Pop(1); /* and one only */
+                    continue;
+                }
+                
+                
+                    /* constants -  no further reductions here */
                     case int_t:
                     case floating_t:
                     case char_t:
                     case bool_t:
-                    case name_t: {
-                        pointer here = Top;
-                        Assert(Stacked == 1 || IsCons(Top));
-                        Pop(Stacked);
-                        return here;
-                    }
+                        if (Stacked == 1)
+                            return Pop(1);
+                        err_reduce("applying a constant as a function");
+                    /*NOTREACHED*/
+                   case name_t:
+                        if (Stacked == 1)
+                            return Pop(1);
+                        err_reduce2("undefined name:", Name(Top));
+                        /*NOTREACHED*/
+
                     case fail_t:  {/* FAIL anything => FAIL */
                         pointer here = refc_copy(Top);
                         Pop(Stacked);
@@ -506,6 +531,15 @@ pointer reduce(pointer n)
                 case unary_not_op:
                     Stack1 = refc_update_to_bool(Stack1, ! reduce_bool(Arg1)); Pop(1); continue;
                     
+                case unary_maths:
+                case unary_predicate:
+                    Assert(Ufun(Top));
+                    Stack1 = refc_update_hdtl(Stack1, new_comb(I_comb), Ufun(Top)(Arg1));
+                    /*was - why doesn't this work ..
+                    Stack1 = refc_update(Stack1, Ufun(Top)(Arg1));
+                     */
+                    Pop(1);
+                    continue;
                 case unary_count_op:
                 case range_unbounded_op:
                     break;
@@ -572,7 +606,7 @@ pointer reduce(pointer n)
 #ifdef notdef
                             pointer x = refc_copy(Arg1);
                             Assert(Stacked == 2);
-                            fprintf(stderr,"**I_comb Stacked=2 case\n");/*XXX*/
+                            fprintf(stderr,"**I_comb Stacked=2 case\n");/*XqXX*/
                             refc_delete(&Stack1);
                             Stack1 = x;
                             Pop(1);

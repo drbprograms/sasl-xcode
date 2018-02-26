@@ -140,18 +140,14 @@ pointer new_def(pointer name, pointer def)
 /* add_def - add a name's definition to defs list (name may be a simple name or a namelist) */
 pointer add_to_def(pointer def, pointer name, pointer d)
 {
-  pointer deflist;
-  
   Assert(IsDef(def));
   
-  deflist = T(def);
-  
-  if (IsNil(deflist)) {
-    deflist = new_cons(new_cons(name, NIL),
-                       new_cons(d,    NIL));
+  if (IsNil(T(def))) {
+    T(def) = new_cons(new_cons(name, NIL),
+                      new_cons(d,    NIL));
   } else {
-    H(deflist) = new_cons(name, H(deflist));
-    T(deflist) = new_cons(d,    T(deflist));
+    HT(def) = new_cons(name, HT(def));
+    TT(def) = new_cons(d,    TT(def));
   }
   return def;
 }
@@ -222,7 +218,7 @@ pointer new_oper(tag oper)
   return n;
 }
 
-static pointer new_unary(tag t, char *name, int (*fun)(pointer p))
+static pointer new_unary(tag t, char *name, pointer (*fun)(pointer p))
 {
   pointer n = new_node(t);
   
@@ -239,12 +235,12 @@ static pointer new_unary(tag t, char *name, int (*fun)(pointer p))
   return n;
 }
 
-pointer new_unary_predicate(char *name, int (*fun)(pointer p))
+pointer new_unary_predicate(char *name, pointer (*fun)(pointer p))
 {
   return new_unary(unary_predicate, name, fun);
 }
 
-pointer new_unary_maths(char *name, int (*fun)(pointer p))
+pointer new_unary_maths(char *name, pointer (*fun)(pointer p))
 {
   return new_unary(unary_maths, name, fun);
 }
@@ -778,12 +774,16 @@ pointer refc_update_hd(pointer n, pointer new)
     (void) err_refc("trying to update_hd a constant");
     return NIL; /*NOTREACHED*/
   }
-  
+  /*was
   if (!EqPtr(Hd(n), new)) {
     refc_delete(&Hd(n));
     Hd(n) = new;
   }
-
+   */
+ 
+  refc_delete(&Hd(n));
+  Hd(n) = new;
+  
   return n;
 }
 /*
@@ -808,7 +808,7 @@ pointer refc_update_tl(pointer n, pointer new)
 /*
  * refc_update_hdtl
  *	update in place - replace hd and tl with new contents; requires n to be a pointer node already; content of n are deleted
- *  does not modify tag (cons/apply).
+ *  does *not* modify tag (cons/apply).
  */
 pointer refc_update_hdtl(pointer n, pointer newhd, pointer newtl)
 {

@@ -14,7 +14,7 @@
 const pointer NIL = {(node *)0,0};
 pointer root = {(node *)0,0};
 pointer defs = {(node *)0,0};
-pointer sasl = {(node *)0,0};
+pointer builtin = {(node *)0,0};
 
 /* 
  * defaults and environment variables
@@ -64,13 +64,9 @@ static int main_init()
   /* store_init() */
   refc_delete(&root);
   refc_delete(&defs);
-  refc_delete(&sasl);
+  refc_delete(&builtin);
   
-/*notyet
  return reduce_init();
- */
-  return 0;
-
 }
 
 /* *** test *** test *** test *** test *** test *** test *** test *** test */

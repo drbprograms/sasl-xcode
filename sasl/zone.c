@@ -78,8 +78,9 @@ zone_header *zone_of_node(node *n)
 
     if ((n >= z->debug_nodes) && (n < (z->debug_nodes + z->used)))
       return z;
-
   }
+  
+    
   return (zone_header *)0;
 }
 
@@ -95,7 +96,7 @@ static char s[256]; /*!!*/
 
 /* helper: get non-NIL pointer's zone seq and offset in zone 
  * returns 0 for success 
- * if debug then debug node info is returned
+ * if dbg then debug node info is returned
  */ 
 static int zone_pointer_detail(pointer p, unsigned *seq, long *off, int dbg)
 {
@@ -106,6 +107,8 @@ static int zone_pointer_detail(pointer p, unsigned *seq, long *off, int dbg)
     *off = 0;
   } else {
     z = zone_of_node(Node(p));
+    if (!z)
+      return 1; /* fail */
     *seq = z->seq;
     if (dbg)
       *off = Node(p) - z->debug_nodes;
@@ -142,10 +145,10 @@ static char *zone_pointer_info_do(pointer p, int dbg)
       unsigned seq_hd, seq_tl;
       long off_hd, off_tl;
       if (zone_pointer_detail(Hd(p), &seq_hd, &off_hd, dbg))
-	err_refc("can't get pointer hd info");
+        err_zone("can't get pointer hd info");
       
       if (zone_pointer_detail(Tl(p), &seq_tl, &off_tl, dbg))
-	err_refc("can't get pointer tl info");
+        err_refc("can't get pointer tl info");
       
       sprintf(s + c," [%u.%ld].[%u.%ld]",
 	      seq_hd,
@@ -409,21 +412,21 @@ int refc_check_traverse_pointers(pointer p, int s_limit, int *nil_count,  int *s
 {
   zone_header *z;
   long int node_no;	/* offset of Node(p) within the zeon */
-
+  
   /* pointer counts */
   if (IsNil(p)) {
     (*nil_count)++;
     return 0;	/* nothing else to do */
   }
-
+  
   if (IsStrong(p)) {
     (*s_count)++;
     if ((s_limit > 0) && (*s_count > s_limit)) {
       char s[512];
       (void) sprintf(s, "strong pointer loop detected (limit=%d) ", s_limit);
       (void) err_zone(s);
+      /*NOTREACHED*/
     }
-    /*NOTREACHED*/
   }
   else {
     (*w_count)++;
@@ -576,7 +579,7 @@ int refc_check_traverse_nodes(zone_header *z, int zone_no, int *strong_refc_tota
   usage if (zone_check_do(root, freelist)) bad; else ok;
 
 */
-int zone_check_do(pointer root, pointer defs, pointer freelist)
+int zone_check_do(pointer root, pointer defs, pointer builtin, pointer freelist)
 {
 #ifdef notyet
   int free_count = 0;
@@ -659,6 +662,7 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
     /* check the counts and populate debug nodes */
     fprintf(stderr, "root\t%s\n", zone_pointer_info(root));
     fprintf(stderr, "defs\t%s\n", zone_pointer_info(defs));
+    fprintf(stderr, "builtin\t%s\n", zone_pointer_info(builtin));
     fprintf(stderr, "freelist\t%s\n", zone_pointer_info(freelist));
 
     /* root - the program graph */
@@ -670,15 +674,25 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
       
       res = refc_check_traverse_pointers(root, refc_inuse_count*2, &nil_count, &strong_count, &weak_count, &struct_count, &atom_count);
     }
-    
-    /* defs - saved definitions */
+
+   /* defs - saved definitions */
     if (IsNil(defs)) {
       (void) fprintf(stderr, "defs pointer is nil\n");
     } else{
-      if (IsWeak(defs)) 
-	(void) fprintf(stderr, "defs pointer is weak - unexpected\n");
+      if (IsWeak(defs))
+        (void) fprintf(stderr, "defs pointer is weak - unexpected\n");
       
       res = refc_check_traverse_pointers(defs, refc_inuse_count*2, &nil_count, &strong_count, &weak_count, &struct_count, &atom_count);
+    }
+  
+    /* sasl - builtin definitions */
+    if (IsNil(builtin)) {
+      (void) fprintf(stderr, "builtin pointer is nil\n");
+    } else{
+      if (IsWeak(builtin))
+        (void) fprintf(stderr, "builtin pointer is weak - unexpected\n");
+      
+      res = refc_check_traverse_pointers(builtin, refc_inuse_count*2, &nil_count, &strong_count, &weak_count, &struct_count, &atom_count);
     }
     
     (void) fprintf(stderr, "%s\t%d\n", "nil pointers",		nil_count );
@@ -802,7 +816,7 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
 /* externally usable version */
 int zone_check()
 {
-  return zone_check_do(root, defs, refc_freelist);
+  return zone_check_do(root, defs, builtin, refc_freelist);
 }
 
 /*

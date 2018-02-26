@@ -15,7 +15,7 @@ typedef struct pointer {
 
 extern pointer root;
 extern pointer defs;
-extern pointer sasl;
+extern pointer builtin;
 extern const pointer NIL;
 
 /* NB numeric values here need to fit into a 'char' in tok->t below */
@@ -104,7 +104,7 @@ typedef enum tag {
 #define IsUnaryOpTag(t) ((t)>=unary_not_op && (t)<=unary_count_op)
   
   /* Combinators - tl contains first argument.  Optionally hd points to name_t name of variable being abstracted, for debugging purposes */
-#define IsCombTag(t) ((t)>=I_comb)
+#define IsCombTag(t) ((t)>=I_comb && (t)<unary_predicate)
   I_comb,
   K_comb,
   K_nil_comb, /* checks 2nd arg is NIL */
@@ -145,7 +145,7 @@ typedef enum tag {
 
   unary_predicate,  /* built in one-argument test eg "function" */
   unary_maths,  /* built-in one argument maths eg "sin" */
-
+#define IsBuiltinTag(t) ((t) >= unary_predicate && (t) <= unary_maths)
   _LastTag      /* Never appears in a node, used to calculate size for and array-of tag values */
   
 #define TagCount (_LastTag)	/* tags are numbered from 0, _LastTag isn't a tag(!) */
@@ -154,15 +154,17 @@ typedef enum tag {
 typedef struct node
 {
   union val {
+    /* struct */
     struct pointers {
       pointer hd, tl;	/* apply_t	sasl "apply" node, OR ...
                          cons_t	sasl "cons" node
                          ALSO NB comb_t uses hd as tag, tl as name of variable being abstracted */
     } pointers;
     
+    /* atoms */
     struct op {
       char *n;
-      int (*fun)(pointer p);
+      pointer (*fun)(pointer p);
     } op;
     
     int i;	/* num_t	sasl "num" */
@@ -204,17 +206,17 @@ typedef struct node
 #define _Is(p, test)	(IsSet(p) && (test)(p))
 #define xIsConst(p)	_Is(p, IsCostTag)
   
-#define IsConst(p)	(IsSet(p) && IsConstTag(Tag(p)))
-#define IsApply(p)	(IsSet(p) && IsApplyTag(Tag(p)))
-#define IsCons(p)	(IsSet(p) && IsConsTag(Tag(p)))
-#define IsStruct(p)	(IsSet(p) && IsStructTag(Tag(p)))
-#define IsAtom(p)   (!IsStruct(p))
-#define HasPointers(p)	(IsSet(p) && HasPointersTag(Tag(p)))
-#define IsTernaryOp(p)	(IsSet(p) && IsTernaryOpTag(Tag(p)))
-#define IsBinaryOp(p)	(IsSet(p) && IsBinaryOpTag(Tag(p)))
-#define IsUnaryOp(p)	(IsSet(p) && IsUnaryOpTag(Tag(p)))
-#define IsComb(p)	(IsSet(p) && IsCombTag(Tag(p)))
-
+#define IsConst(p)	    (IsSet(p) && IsConstTag(Tag(p)))
+#define IsApply(p)	    (IsSet(p) && IsApplyTag(Tag(p)))
+#define IsCons(p)	    (IsSet(p) && IsConsTag(Tag(p)))
+#define IsStruct(p)	    (IsSet(p) && IsStructTag(Tag(p)))
+#define IsAtom(p)       (!IsStruct(p))
+#define HasPointers(p)  (IsSet(p) && HasPointersTag(Tag(p)))
+#define IsTernaryOp(p)  (IsSet(p) && IsTernaryOpTag(Tag(p)))
+#define IsBinaryOp(p)   (IsSet(p) && IsBinaryOpTag(Tag(p)))
+#define IsUnaryOp(p)    (IsSet(p) && IsUnaryOpTag(Tag(p)))
+#define IsComb(p)	    (IsSet(p) && IsCombTag(Tag(p)))
+#define IsBuiltin(p)    (IsSet(p) && IsBuiltinTag(Tag(p)))
 /* is a particular combinator */
 #define IsThisComb(p,t) (IsComb(p) && (Tag(p) == (t))
 
@@ -256,8 +258,8 @@ typedef struct node
 #define UnName(ptr)  _GETVCHECK((ptr),op,IsFun).n         /* function name char * */
 #define UnFun(ptr)   _GETVCHECK((ptr),op,IsFun).fun       /* function (*fun)(pointer p) */
 #define DefName(ptr) _GETVCHECK((ptr),pointers,IsDef).hd
-#define DefNamelist(ptr) H(_GETVCHECK((ptr),pointers,IsDef).tl)
-#define DefExprlist(ptr) T(_GETVCHECK((ptr),pointers,IsDef).tl)
+#define DefNames(ptr) H(_GETVCHECK((ptr),pointers,IsDef).tl)
+#define DefExprs(ptr) T(_GETVCHECK((ptr),pointers,IsDef).tl)
 #else
 #define Pointers(ptr)	_GETV((ptr),pointers)	/* pointers- deprecated, not for general use! */
 #define Hd(ptr)		_GETV((ptr),pointers).hd	/* pointer */
