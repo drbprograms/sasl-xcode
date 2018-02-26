@@ -12,4 +12,4 @@ extern int maker(int howmany, char *ruledef, int rule, int subrule, int info);
 #define MAKE_DEBUG(where) 		(debug>1 ? fprintf(stderr, "%s", where) : 0)
 
 extern pointer make_reset(void);
-extern pointer make_result(void);
+

@@ -238,34 +238,37 @@ typedef struct node
 #define IsDef(p)	(IsSet(p) && IsDefTag(Tag(p)))
 
 
-#define Tag(ptr)	_GET(ptr,t)
+#define Tag(ptr)	_GET((ptr),t)
 
 #define _GETV(ptr,item)	((Val(ptr)).item)
 
 
 #ifdef typecheck_pointer_use
-#define _CHECKTAG(ptr,item,check) (_GETV(ptr,t)==tag)
-#define _GETVCHECK(ptr,item) ((check(Tag(ptr)) ? GETV(ptr,item) : ERR )
+#define _CHECKTAG(ptr,item,check) (_GETV((ptr),t)==tag)
+#define _GETVCHECK(ptr,item) ((check(Tag(ptr)) ? GETV((ptr),item) : ERR )
 
-#define Hd(ptr)	        _GETVCHECK(ptr,pointers,IsStruct).hd	/* pointer */
-#define Tl(ptr)		_GETVCHECK(ptr,pointers,IsStruct).tl	/* pointer */
-#define Num(ptr)	_GETVCHECK(ptr,i,IsNum)
-#define Dbl(ptr)	_GETVCHECK(ptr,d,IsDbl)
-#define Bool(ptr)	_GETVCHECK(ptr,b,IsBool)
-#define Char(ptr)	_GETVCHECK(ptr,c,IsChar)
-#define Uname(ptr)  _GETVCHECK(ptr,op,IsFun).n         /* char * */
-#define Ufun(ptr)   _GETVCHECK(ptr,op,IsFun).fun       /* pointer (*fun)(pointer p) */
+#define Hd(ptr)	        _GETVCHECK((ptr),pointers,IsStruct).hd	/* pointer */
+#define Tl(ptr)		_GETVCHECK((ptr),pointers,IsStruct).tl	/* pointer */
+#define Num(ptr)	_GETVCHECK((ptr),i,IsNum)
+#define Dbl(ptr)	_GETVCHECK((ptr),d,IsDbl)
+#define Bool(ptr)	_GETVCHECK((ptr),b,IsBool)
+#define Char(ptr)	_GETVCHECK((ptr),c,IsChar)
+#define UnName(ptr)  _GETVCHECK((ptr),op,IsFun).n         /* function name char * */
+#define UnFun(ptr)   _GETVCHECK((ptr),op,IsFun).fun       /* function (*fun)(pointer p) */
+#define DefName(ptr) _GETVCHECK((ptr),pointers,IsDef).hd
+#define DefNamelist(ptr) H(_GETVCHECK((ptr),pointers,IsDef).tl)
+#define DefExprlist(ptr) T(_GETVCHECK((ptr),pointers,IsDef).tl)
 #else
-#define Pointers(ptr)	_GETV(ptr,pointers)	/* pointers- deprecated, not for general use! */
-#define Hd(ptr)		_GETV(ptr,pointers).hd	/* pointer */
-#define Tl(ptr)		_GETV(ptr,pointers).tl	/* pointer */
-#define Uname(ptr)  _GETV(ptr,op).n         /* char * */
-#define Ufun(ptr)   _GETV(ptr,op).fun       /* pointer (*fun)(pointer p) */
-#define Num(ptr)	_GETV(ptr,i)
-#define Dbl(ptr)	_GETV(ptr,d)
-#define Bool(ptr)	_GETV(ptr,b)
-#define Char(ptr)	_GETV(ptr,c)
-#define Name(ptr)	_GETV(ptr,n)
+#define Pointers(ptr)	_GETV((ptr),pointers)	/* pointers- deprecated, not for general use! */
+#define Hd(ptr)		_GETV((ptr),pointers).hd	/* pointer */
+#define Tl(ptr)		_GETV((ptr),pointers).tl	/* pointer */
+#define Uname(ptr)  _GETV((ptr),op).n         /* char * */
+#define Ufun(ptr)   _GETV((ptr),op).fun       /* pointer (*fun)(pointer p) */
+#define Num(ptr)	_GETV((ptr),i)
+#define Dbl(ptr)	_GETV((ptr),d)
+#define Bool(ptr)	_GETV((ptr),b)
+#define Char(ptr)	_GETV((ptr),c)
+#define Name(ptr)	_GETV((ptr),n)
 #endif
 
 #define H(x)  Hd(x)

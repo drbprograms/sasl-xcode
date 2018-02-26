@@ -141,8 +141,11 @@ pointer new_def(pointer name, pointer def)
 pointer add_to_def(pointer def, pointer name, pointer d)
 {
   pointer deflist;
+  
   Assert(IsDef(def));
+  
   deflist = T(def);
+  
   if (IsNil(deflist)) {
     deflist = new_cons(new_cons(name, NIL),
                        new_cons(d,    NIL));
@@ -153,21 +156,61 @@ pointer add_to_def(pointer def, pointer name, pointer d)
   return def;
 }
 
+/* search def for definition of a name, return NIL is if not found */
+pointer def_lookup(pointer def, pointer name)
+{
+  pointer deflist, n, d;
+  
+  if (IsNil(def))
+    return NIL;
+  
+  Assert(IsDef(def));
+  
+  deflist = T(def);
+  if (IsNil(deflist))
+    return NIL;
+  
+  /* deflist == (listof names . listof-clauses) */
+  for (n = H(deflist), d = T(deflist); IsSet(n); n = T(n), d = T(d)) {
+    if (IsAtom(H(n))) {
+      if (IsSameName(H(n), name)) {
+        if (debug >1)
+          fprintf(stderr, "def_lookup: \"%s\"\n", Name(Hd(n)) );
+        return H(d);
+      }
+    } else {
+      pointer h, t;
+      Assert(IsCons(H(n))); /* namelist */
+      
+      h = def_lookup(def, HH(n));
+      if (IsSet(h))
+        return h;
+      
+      t = def_lookup(def, TH(n));
+      if (IsSet(t))
+        return t;
+    }
+  }
+  
+  return NIL;
+}
+
+
 pointer new_name(char *s)
 {
   pointer n = new_node(name_t);
   
   if (!s)
     (void) err_store("new_name: null string pointer");
- 
+  
   Name(n) = (char *)malloc(strlen(s)+1);
-
+  
   if (!Name(n))
     (void) err_store("new_name: malloc out of space");
-
+  
   if (!strcpy(Name(n), s))
     (void) err_store("new_name: strcpy failed");
-
+  
   store_log_new(n);
   return n;
 }

@@ -8,6 +8,65 @@
 #include "parse.h"
 
 /*
+ * Helper functions
+ */
+
+/* recover from error */
+pointer parse_reset()
+{
+  (void) make_reset();
+  return NIL;
+}
+
+/* report parse error */
+static int parse_err(char *f, char *msg1, char *msg2)
+{
+  (void) parse_reset();
+  err_parse(f, msg1, msg2);
+  /*NOTREACHED*/
+  return 0;
+}
+
+/* locate undefined names in and expr and raise an error */
+/*
+ * check ()   = ()
+ * check def  =  check exprlist WHERE (n:namelist:exprlist) = def
+ * check (a:x) = isatom a -> (isname a -> ERROR; check x); (check a : check x)?
+ */
+pointer parse_check(pointer n, char *msg)
+{
+  /*WIP WIP */
+  return n; /* crashes with MacOS stack 512 limit!!*/
+  /*WIP WIP */
+
+  if (IsNil(n))
+    return NIL;
+  
+  if (IsDef(n))
+    return parse_check(TT(n), msg);
+  
+  if (IsStruct(n)) {
+    H(n) = parse_check(H(n), msg);
+    T(n) = parse_check(T(n), msg);
+  } else {
+    if (IsName(n)) {
+      parse_err("undefined variable", Name(n), msg);
+    } /* else nothing to do */
+  }
+  return n;
+}
+/* locate undefined names in def and raise an error */
+pointer parse_defs_check(pointer n, char *msg)
+{
+  if (IsNil(n))
+    return NIL;
+  
+  Assert(IsDef(n));
+
+  return n;
+}
+
+/*
   <name>		::= alphbetic alphanumeric..		Note .. means 0 or more
 
   <constant>	::= <numeral> | <charconst> | <boolconst> | ()| <string> | 
@@ -522,14 +581,14 @@ int parse_deflist()
 pointer parse_program()
 {
   Parse_Debug("parse_program");
-
+  
   if (lex_looking_at(tok_def)) {
     Maker1("program<=DEF ...", 14,2);
     parse_deflist();
+    
     if(lex_looking_at(tok_question_mark)) {
       Maker1("program<=defs ?", 14,3);
-      defs = make_result();
-      return defs;   /*xxx or "the most recent"defs? */
+      return parse_check(defs, "program<=defs ?");   /*xxx parse_check is NOT correct here or "the most recent"defs? */
     } else {
       parse_err("parse_program","expecting \'?\'","<program> ::= DEF <defs>?");
       return NIL;
@@ -537,9 +596,8 @@ pointer parse_program()
   } else {
     parse_expr();
     if(lex_looking_at(tok_question_mark)) {
-      Maker1("program<=expr ?", 14,1);
-      root = make_result();
-      return root;
+      Maker1("program<=expr?", 14,1);
+      return parse_check(root, "program<=expr?");
     }    else {
       parse_err("parse_program","expecting \'?\'","<program> ::= <expr>?");
       return NIL;
@@ -550,7 +608,6 @@ pointer parse_program()
 
 pointer parse(FILE *where)
 {
-  
   /* todo change lex input to "where"  to allow sub-files to be parsed */
   
   if (lex_looking_at(tok_eof))
@@ -559,16 +616,3 @@ pointer parse(FILE *where)
   return parse_program();
 }
 
-pointer parse_reset()
-{
-  (void) make_reset();
-  return NIL;
-}
-
-static int parse_err(char *f, char *msg1, char *msg2)
-{
-  (void) parse_reset();
-  err_parse(f, msg1, msg2);
-  /*NOTREACHED*/
-  return 0;
-}

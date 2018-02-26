@@ -1,10 +1,15 @@
-2018-02-24
-def: bind from expr to defs in "the environment"
+2018-02-26
+test/*/sasl ok now inckuding use of prelude in simple expressioins (prelude{1,2,3} tests)
+++ todo avoid ccycles when binding names in make_bind()
+++ parse_check() looks for unbound names - currently fails with MacOS stack 512 limit - fix
 
-def: consider changing nameslist:desflist to listof (name:def) for handling simplicity - requires abstgract to be chjange though.   Might make it easire to "link" sasl code
+2018-02-24
+ok def: bind from expr to defs in "the environment"
+
+dexx f: consider changing nameslist:desflist to listof (name:def) for handling simplicity - requires abstgract to be chjange though.   Might make it easire to "link" sasl code
 
 ok new_apply2 new_apply3 finish them .h them and use them
-++ new_apply[23] use them throughout
+ok new_apply[23] use them throughout
 ++ possibly - binds-to-right new_cons2 new_cons3 wirte and ditto
 
 ++ is_list() for builtin sasl functions "list ()" etc

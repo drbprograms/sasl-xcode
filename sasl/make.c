@@ -30,6 +30,7 @@ static pointer *sp = stack; /* sp points to top-of-stack (note: stack[0] never u
 #define Depth (sp-stack)    /* >=0 */
 #define Push(x) (sp++, *sp = (x))
 #define Pop(n)  (sp -= (n), sp[n])
+#define Top   (*sp)
 
 
 /* debug: make_show - display maker stack items  */
@@ -64,11 +65,12 @@ pointer make_reset()
   
   for (/**/; sp > stack; sp--) {
     if (debug)
-      fprintf(stderr, "make_reset[%ld]: ", sp-stack); out_debug(*sp);
+      fprintf(stderr, "make_reset[%ld]: ", Depth); out_debug(Top);
     refc_delete(sp);
   }
   
-  root = NIL;
+  refc_delete(&root);
+  
   return root;
 }
 
@@ -192,77 +194,50 @@ pointer make_oper()
 
 /* helper functions to make defs */
 
-/* search def for definition of a name, return NIL is if not found 
- defs: (listof-names).(listof-clauses) */
-pointer make_lookup_name(pointer name, pointer def)
+/* search expr for unbound names and substitute from definitions in def */
+/*
+ * bind ()  x     = x
+ * bind def ()    = ()
+ * bind def (a:x) = bind def a : bind def x
+ * bind def NAME  = def_lookup def NAME
+ * bind def const = const
+ */
+pointer make_bind(pointer def, pointer expr)
 {
-  pointer defs, n, d;
-  
-  if (IsNil(def))
-    return NIL;
-  
-  /* Hd(def) == name-of-def list */
-  /* Tl(def) == (listof names . listof-clauses) */
-  defs = Tl(def);
-  
-  for (n = Hd(defs), d = Tl(defs); IsSet(n); n = Tl(n), d = Tl(d)) {
-    /*WIP TODO xxx BUG needs to recurse over names == list-of (name|namelist) */
-    if (IsName(Hd(n))) {
-      if ( !EqName(name, Hd(n)))
-        return Hd(d);
-    } else {
-      pointer h, t;
-      h = make_lookup_name(Hd(n), def);
-      if (IsSet(h))
-        return h;
-      t = make_lookup_name(Tl(n), def);
-      if (IsSet(t))
-        return t;
-    }
-  }
-  return NIL;
-}
-
-#ifdef deprecated
-/* search expr for unbound names and substitute from definitions in defs */
-pointer make_bind(pointer defs, pointer expr)
-{
-  if (IsNil(expr))
-    return NIL;
+  if (IsNil(def) || IsNil(expr))
+    return expr;
   
   if (IsStruct(expr)) {
-    /*new update(expr, make_bind(defs, H), make_bind(defs, T))*/
-    Hd(expr) = make_bind(defs, Hd(expr));
-    Tl(expr) = make_bind(defs, Tl(expr));
+    /*new update(expr, make_bind(def, H), make_bind(def, T))*/
+    H(expr) = make_bind(def, H(expr));
+    T(expr) = make_bind(def, T(expr));
   } else {
     if (IsName(expr)) {
-      pointer temp = make_lookup_name(expr, defs); /*WIPWIP*/
-      
-      if (debug) {
-        fprintf(stderr, "make_bind: ");
-        out_debug1(expr);
-        fprintf(stderr, "==");
-        out_debug(temp);
-      }
-      
-      if (IsSet(temp)) {
+      pointer d = def_lookup(def, expr);
+  
+      if (IsSet(d)) {
         /* replace name by it's definition */
+        if (debug) {
+          fprintf(stderr, "make_bind: "); out_debug1(expr); fprintf(stderr, "=>"); out_debug(d);
+        }
+        
         refc_delete(&expr);
-        return refc_copy_make_cyclic(temp); /*recursive??*/
+        if (1 /*xxx todo wip wip*/)
+          return refc_copy(d);
+        else
+          return refc_copy_make_cyclic(d);
       }
     }
-  }
+  } /* else { nothing to do } */
   return expr;
 }
-#endif
-
 
 /* [Turner 1979]
  Mutual recursion following a where is handled by combining all the definitions follow- ing the where into a single definition with a complex left hand side and then proceeding as above. So for example
  
  E where f x = ...g... ; g y = ...f...
- 
- is first transformed to
+   
+   is first transformed to
  
  E where f= [x] (...g ...) , g = [y] (... f ...)
  
@@ -322,22 +297,6 @@ pointer make_where(pointer condexp, pointer defs)
   /* todo: copy and save defs list Hd/Tl pointers for debugging/ Module definition? */
   
   return condexp;
-}
-
-/* get the definition for a given name in a defslist */
-pointer def_for(pointer name, pointer defs)
-{
-  pointer n, d;
-
-  if (IsNil(defs) || IsNil(name))
-    return NIL;
-
-  for (n = H(defs), d = T(defs); IsSet(n)/* && IsSet(d)*/; n = T(n), d = T(d)) {
-    if (IsSameName(name, H(d)))
-      return (Tl(d));
-  }
-  
-  return NIL;
 }
 
 /* add new defs to existing defs in old
@@ -428,17 +387,6 @@ pointer de_dup(pointer new, pointer old)
 }
 
 /*maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker*/
-
-
-pointer make_result()
-{
-  if (Depth == 1)
-    return Pop(1);
-  
-  (void) make_err("program", "stack alignment problem", (int)Depth);
-  return NIL;
-}
-
 
 
 /*
@@ -699,36 +647,25 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           
         case 1:
           /* substitute for known DEFs; check for unbound names; return pointer to-be-reduced */
-          /* n1 = make_bind(theDefs, n1);
-           if (make_check_free(n1))
-           return (make_reset())
-           else
-           return n1;
-           */
-          
-          /* ||defs == name:deflist */
-          
-          if (IsSet(root))
-            refc_delete(&root);
 
-          if (IsSet(defs))
-            n1 = make_where(n1, refc_copy(Tl(defs)));
-          
-          return n1;
+          Assert(IsNil(defs) || IsDef(defs));
 
+          root = make_bind(defs, n1);
+
+          
+          return root;
+          
         case 2: return n1;
           
         case 3: {
-          /* check for unbound names; save defs */
-             if (IsSet(defs)) /* todo make_defs(n1, defs) merging previous definitions with new */
-            refc_delete(&defs);
+        /*  Assert(Depth == 0);*/
+          refc_delete(&root);
+          refc_delete(&defs);
+
+          defs = new_def(new_name("<Top>"), n1);
+          TT(defs) = make_bind(defs, TT(defs)); /* resolve internal references */
           
-          if (IsSet(root))
-            refc_delete(&root); /* housekeeping for safety */
-
-          n1 = new_def(new_name("<Top>"), n1);
-
-          return n1;
+          return defs;
         }
           break;
           

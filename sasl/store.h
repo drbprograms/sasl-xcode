@@ -16,6 +16,7 @@ extern pointer new_cons(pointer hd, pointer tl);
 extern pointer new_abstract(pointer name, pointer def, int r);
 extern pointer new_def(pointer name, pointer def);
 extern pointer add_to_def(pointer def, pointer name, pointer d);
+extern pointer def_lookup(pointer def, pointer name);
 extern pointer new_name(char *s);
 extern pointer new_oper(tag oper);
 extern pointer new_comb_name(tag t, pointer name);
