@@ -230,8 +230,8 @@ int reduce_int(pointer *nn)
     *nn = reduce(*nn);
     
     if (Tag(*nn) != int_t)
-        (void) err_reduce("reduce: expecting int");
-    
+        (void) err_reduce("expecting int");
+   
     return Num(*nn);
 }
 
@@ -240,7 +240,7 @@ char reduce_bool(pointer n)
     n = reduce(n);
     
     if (Tag(n) != bool_t)
-        (void) err_reduce("reduce: expecting bool");
+        (void) err_reduce("expecting bool");
     
     return Bool(n);
 }
@@ -250,7 +250,7 @@ char reduce_char(pointer n)
     n = reduce(n);
     
     if (Tag(n) != char_t)
-        (void) err_reduce("reduce: expecting char");
+        (void) err_reduce("expecting char");
     
     return Char(n);
 }
@@ -267,7 +267,7 @@ pointer reduce_cons(pointer n)
     n = reduce(n);
     
     if (!IsCons(n))
-        (void) err_reduce("reduce: expecting cons");
+        (void) err_reduce("expecting cons");
     
     return n;
 }
@@ -384,7 +384,7 @@ pointer reduce(pointer n)
     
     /* stack size is arbitrary, so check for potential overflow */
     if ((sp-stack) >= ((STACK_SIZE)*0.9)) {
-        (void) err_reduce("reduce: stack depth within 90% of max");
+        (void) err_reduce("stack depth within 90% of max");
         return NIL; /*NOTREACHED*/
     }
     

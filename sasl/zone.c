@@ -421,17 +421,24 @@ int refc_check_traverse_pointers(pointer p, int s_limit, int *nil_count,  int *s
   
   if (IsStrong(p)) {
     (*s_count)++;
+    
     if ((s_limit > 0) && (*s_count > s_limit)) {
-      char s[512];
-      (void) sprintf(s, "strong pointer loop detected (limit=%d) ", s_limit);
-      (void) err_zone(s);
-      /*NOTREACHED*/
+      if (debug > 1) {
+        fprintf(stderr, "strong pointer loop detected (limit=%d)\n", s_limit);
+        return 1;
+      } else {
+        char s[512];
+        (void) sprintf(s, "strong pointer loop detected (limit=%d) ", s_limit);
+        (void) err_zone(s);
+        /*NOTREACHED*/
+      }
     }
+    
   }
   else {
     (*w_count)++;
   }
-
+  
   /* copy details into debug_nodes */
   z = zone_of_node(Node(p));
   if (!z)
