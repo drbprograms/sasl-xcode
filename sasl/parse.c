@@ -28,6 +28,7 @@ static int parse_err(char *f, char *msg1, char *msg2)
 }
 
 /* locate undefined names in and expr and raise an error */
+/* NB must only be called when there is no possibility of cycles in n */
 /*
  * check ()   = ()
  * check def  =  check exprlist WHERE (n:namelist:exprlist) = def
@@ -43,7 +44,7 @@ pointer parse_check(pointer n, char *msg)
     return NIL;
   
   if (IsDef(n))
-    return parse_check(TT(n), msg);
+    return parse_check(DefNames(n), msg);
   
   if (IsStruct(n)) {
     H(n) = parse_check(H(n), msg);
@@ -53,16 +54,6 @@ pointer parse_check(pointer n, char *msg)
       parse_err("undefined variable", Name(n), msg);
     } /* else nothing to do */
   }
-  return n;
-}
-/* locate undefined names in def and raise an error */
-pointer parse_defs_check(pointer n, char *msg)
-{
-  if (IsNil(n))
-    return NIL;
-  
-  Assert(IsDef(n));
-
   return n;
 }
 

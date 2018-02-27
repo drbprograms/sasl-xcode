@@ -56,6 +56,14 @@ static pointer make_err(char *f, char *msg1, int i)
   return NIL;
 }
 
+static pointer make_err1(char *f)
+{
+  (void) make_reset();
+  (void) err_make1(f);
+  /*NOTREACHED*/
+  return NIL;
+}
+
 
 /* make_reset delete partially-built code fragments */
 pointer make_reset()
@@ -195,26 +203,26 @@ pointer make_oper()
 /* helper functions to make defs */
 
 /* search expr for unbound names and substitute from definitions in def */
+/* if an error message is provided, treat unbound anmes as errors */
 /*
- * bind ()  x     = x
  * bind def ()    = ()
  * bind def (a:x) = bind def a : bind def x
- * bind def NAME  = def_lookup def NAME
+ * bind def NAME  = def_lookup def NAME  || when def=() will return () and trigger possionble warning
  * bind def const = const
  */
-pointer make_bind(pointer def, pointer expr)
+pointer make_bind(pointer def, pointer expr, char *msg)
 {
-  if (IsNil(def) || IsNil(expr))
+  if (IsNil(expr))
     return expr;
   
   if (IsStruct(expr)) {
     /*new update(expr, make_bind(def, H), make_bind(def, T))*/
-    H(expr) = make_bind(def, H(expr));
-    T(expr) = make_bind(def, T(expr));
+    H(expr) = make_bind(def, H(expr), msg);
+    T(expr) = make_bind(def, T(expr), msg);
   } else {
     if (IsName(expr)) {
       pointer d = def_lookup(def, expr);
-  
+      
       if (IsSet(d)) {
         /* replace name by it's definition */
         if (debug) {
@@ -226,6 +234,12 @@ pointer make_bind(pointer def, pointer expr)
           return refc_copy(d);
         else
           return refc_copy_make_cyclic(d);
+      } else {
+        /* no definition found */
+        if (msg) {
+          fprintf(stderr, "%s %s\n", msg, Name(expr));
+          make_err1("program"); /* perhaps shoudl be a parameter, but really ... */
+        }
       }
     }
   } /* else { nothing to do } */
@@ -661,8 +675,8 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           Assert(IsNil(defs) || IsDef(defs));
           Assert(IsDef(builtin));
 
-          n1 = make_bind(builtin, n1);
-          root = make_bind(defs, n1);
+          n1 = make_bind(builtin, n1, NULL);
+          root = make_bind(defs, n1, "undefined name: ");
 
           
           return root;
@@ -670,13 +684,20 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
         case 2: return n1;
           
         case 3: {
-        /*  Assert(Depth == 0);*/
+          /*  Assert(Depth == 0);*/
+          /*
+           || defs == (list-of names):(list-of expr)
+           */
+          
           refc_delete(&root);
           refc_delete(&defs);
 
-          n1 = make_bind(builtin, n1);
+          T(n1) = make_bind(builtin, T(n1), NULL);
+
           defs = new_def(new_name("<Top>"), n1);
-          TT(defs) = make_bind(defs, TT(defs)); /* resolve internal references */
+
+          DefExprs(defs) = make_bind(builtin, DefExprs(defs), NULL); /* resolve builtin references */
+          DefExprs(defs) = make_bind(defs,    DefExprs(defs), "undefined name: "); /* resolve internal references */
           /* XXX todo Y comb here?? */
           
           return defs;

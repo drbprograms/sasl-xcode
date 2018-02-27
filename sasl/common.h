@@ -271,6 +271,9 @@ typedef struct node
 #define Bool(ptr)	_GETV((ptr),b)
 #define Char(ptr)	_GETV((ptr),c)
 #define Name(ptr)	_GETV((ptr),n)
+#define DefName(ptr) _GETV((ptr),pointers).hd
+#define DefNames(ptr) H(_GETV((ptr),pointers).tl)
+#define DefExprs(ptr) T(_GETV((ptr),pointers).tl)
 #endif
 
 #define H(x)  Hd(x)
@@ -293,6 +296,7 @@ extern jmp_buf jmpbuffer;
 
 extern int err_parse(char *f, char *msg1, char *msg2);
 extern int err_make(char *f, char *msg1, int i);
+extern int err_make1(char *f);
 extern int err_out(char *f, char *msg1, char *msg2, int n);
 extern int err_reduce(char *msg1);
 extern int err_refc(char *msg1);

@@ -87,9 +87,9 @@
 		0F7E652E201A31AD001A6B3C = {
 			isa = PBXGroup;
 			children = (
+				0F7E6538201A31AD001A6B3C /* Products */,
 				0F7E6539201A31AD001A6B3C /* sasl */,
 				0F671196203CD54F00E9DD0B /* sasl-test */,
-				0F7E6538201A31AD001A6B3C /* Products */,
 			);
 			sourceTree = "<group>";
 		};
@@ -105,6 +105,7 @@
 		0F7E6539201A31AD001A6B3C /* sasl */ = {
 			isa = PBXGroup;
 			children = (
+				0F7E6561201B75DD001A6B3C /* ToDo.txt */,
 				0F7E6546201A4BFE001A6B3C /* abstract.c */,
 				0F7E654D201A4BFE001A6B3C /* abstract.h */,
 				0F7E6544201A4BFD001A6B3C /* common.c */,
@@ -121,7 +122,6 @@
 				0F7E654E201A4BFE001A6B3C /* sasl.h */,
 				0F7E6554201A4BFF001A6B3C /* store.c */,
 				0F7E654A201A4BFE001A6B3C /* store.h */,
-				0F7E6561201B75DD001A6B3C /* ToDo.txt */,
 				0F7E6541201A4BFD001A6B3C /* zone.c */,
 				0F7E654B201A4BFE001A6B3C /* zone.h */,
 			);

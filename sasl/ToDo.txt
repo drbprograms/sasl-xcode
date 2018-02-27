@@ -1,16 +1,15 @@
 2018-02-26
-++ "list x" sasl not working
 ... working through def addto_def for making clauses (!) to allow simplification throug always using "def" struct here (!)
+ok 71 fail "reduce: expecting int " = Ackerman! translated to sasl thne it works!
+prelude5 fail "reduce + 431 (reduce.c:420)"
 
-unary_predicate
-|| char type testing function - primitive to sasl
-|| function type testing function - primitive to sasl
-|| list type testing function - primitive to sasl
-|| number type testing function - primitive to sasl
+insertionsort5 refc
 
-unary_maths
-|| code ch = integer code for ch in local character set - primitive to sasl
-|| decode n the character whose integer code is n - primitive to sasl
+??make each clause Y([name] E)) => broken form multi-clause
+
+
+++ 71 fails - Ackerman! "reduce expecting int"
+++ prelude5 fails "show sum ..." pretty cokmplext but should work - too much recursion?? Dumps core traversing the stack (reduce: line 420)
 
 || arctan inverse trig function - primitive to sasl
 || cos trig function - primitive to sasl
@@ -25,6 +24,19 @@ test/*/sasl ok now inckuding use of prelude in simple expressioins (prelude{1,2,
 ++ parse_check() looks for unbound names - currently fails with MacOS stack 512 limit - fix
 ++ "." infix operator not parsing - it's treated as a name!!
 ++ insertion-sort3 giving refc errors (NIL problem in deflist...)
+
+unary_predicate
+ok char type testing function - primitive to sasl
+ok function type testing function - primitive to sasl
+ok list type testing function - primitive to sasl
+ok number type testing function - primitive to sasl
+
+unary_maths
+ok code ch = integer code for ch in local character set - primitive to sasl
+ok decode n the character whose integer code is n - primitive to sasl
+
+ok "list x" sasl not working
+
 
 2018-02-24
 ok def: bind from expr to defs in "the environment"
