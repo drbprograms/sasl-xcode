@@ -1,14 +1,20 @@
+2018-02-28
+
+
 2018-02-26
 
-++ make builtin "function" work "function pi WHERE pi = 3" currently TRUE
-++ make builtin maths "double" correct floating point!
+ok typo in prelude less prelude.sasl++ prelude5 fails "show sum ..." pretty cokmplext but should work - too much recursion?? Dumps core traversing the stack (reduce: line 420)
+ok prelude5 fail reduce.c:436
+++ insertionsort5 refc "()" problem in clause list? ...
 
-... working through def addto_def for making clauses (!) to allow simplification throug always using "def" struct here (!)
+
+
+ok make builtin "function" work "function pi WHERE pi = 3" currently TRUE
+.. make builtin maths "double" correct floating point!
+
+    ... working through def addto_def for making clauses (!) to allow simplification throug always using "def" struct here (!)
 ok 71 fails - Ackerman! "reduce expecting int"
-++ prelude5 fails "show sum ..." pretty cokmplext but should work - too much recursion?? Dumps core traversing the stack (reduce: line 420)
-== prelude5 fail reduce.c:453
 
-insertionsort5 refc
 
 ??make each clause Y([name] E)) => broken form multi-clause
 

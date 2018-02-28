@@ -380,7 +380,7 @@ pointer reduce_print(pointer p)
     }
     else {
         reduce_show(p);
-        /*    fflush(stdout); /* temporary */
+        /*    fflush(stdout); * temporary */
     }
     
     return p;
@@ -422,17 +422,15 @@ pointer reduce(pointer n)
     while (IsSet(Top) && Stacked > 0) {
         /* Within the loop, Top is set to NIL on error; also halt if nothing on stack - should never happen error */
         
-#ifdef notdef
-        if (debug) {
+        if (debug > 2) {
             indent(stderr, Depth); out_debug1(Top);
             fprintf(stderr, "\t%s (%ld/%ld Depth/Stacked)", refc_pointer_info(*sp), Depth, Stacked);
             fprintf(stderr, "\tTop\n");
         }
-#endif
-            
+        
         if (Tag(*sp) == apply_t) {
             /* travel down the 'spine' */
-            
+            Assert(Stacked <= ((STACK_SIZE)*0.95));
             sp[1] = Hd(*sp);  /* Push(Hd(Top)) */
             sp++;
             
@@ -599,24 +597,16 @@ pointer reduce(pointer n)
 #endif 
                 case I_comb:
                     /* I x => x */
-#ifdef notdef
-                    if (IsNil(Arg1)) {
-                        if (debug)
-                            fprintf(stderr,"I_comb NIL case\n");/*XXX*/
-                        Assert(Stacked == 2);
-                        refc_delete(&Stack1);
-                        Stack1 = NIL; /*???*/
-                        Pop(1);/**2??**/
-                        return NIL;
-                    }
-                    else
-#endif
                         
                         if (Stacked > 2) {
-                            /* elide (I x) on stack */
+                            /* elide (I x) on stack
+                             * Afterwards Arg1 has become H(Stack2), and new stack has old Stack2 on in it
+                             */
                             if (debug)
                                 fprintf(stderr,"**I_comb Stacked>2 case\n");/*XXX*/
+                            Assert(!SameNode(Stack2, Arg2)); /* avoid stack loops */
                             Stack2 = refc_update_hd(Stack2, refc_copy(Arg1));  /* Arg1 may be NIL */
+                            
                             Pop(/**/ 2 /**/);
                         } else {
                             /* reduce (I x) => x */

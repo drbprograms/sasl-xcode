@@ -188,7 +188,8 @@ typedef struct node
 #define PtrBit(ptr)	((ptr).bit)
 #define Node(ptr)	((ptr).p)
 
-#define EqPtr(p1, p2)	(Node((p1)) == Node((p2)) && PtrBit((p1)) == PtrBit((p2)))	/* assert(EqPtr(NIL, NIL) */
+#define SameNode(p1, p2) (Node((p1)) == Node((p2)))
+#define EqPtr(p1, p2)	(SameNode((p1),(p2)) && PtrBit((p1)) == PtrBit((p2)))	/* assert(EqPtr(NIL, NIL) */
 
 #define _GET(ptr,item)	(Node(ptr)->item)	/* GET(n,hd) = GET(n1,tl); ????? */
 
