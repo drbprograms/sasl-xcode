@@ -3,6 +3,7 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 
 #include "common.h"
@@ -65,13 +66,35 @@ static pointer *sp = stack;
 /* unary predicates
  * anything -> BOOL
  */
+static pointer is_logical(pointer p) { return new_bool(IsBool(p)); }
 static pointer is_char(pointer p) { return new_bool(IsChar(p)); }
 static pointer is_list(pointer p) { return new_bool(IsNil(p) || IsCons(p)); }
 static pointer is_func(pointer p) { return new_bool(IsApply(p) || IsBuiltin(p)); }
 static pointer is_num(pointer p)  { return new_bool(IsNum(p)); }
 
-static pointer   code(pointer p)    { return new_int((int) Char(p)); }
-static pointer decode(pointer p)    { return new_char((char) Num(p)); }
+/* unary maths */
+/* char -> num */
+static pointer   code(pointer p)    { return new_int((int) Char(p)); } /*TODO Check its a CHAR */
+
+/* num -> char*/
+static pointer decode(pointer p)    { return new_char((char) Num(p)); } /*TODO Check its a NUM */
+
+/* num -> num */
+/* ToDo make these work with sasl doubles */
+static pointer maths_arctan(pointer p)  { return IsNum(p) ? new_int((int) atan((double) Num(p))) :  new_fail();}
+static pointer maths_cos(pointer p)     { return IsNum(p) ? new_int((int) cos((double)  Num(p))) :   new_fail();}
+static pointer maths_entier(pointer p)  { return IsNum(p) ? new_int((int)               Num(p)) :    new_fail();} /* XXX Todo propoer entier implementatin for doubles */
+static pointer maths_exp(pointer p)     { return IsNum(p) ? new_int((int) exp((double)  Num(p))) :   new_fail();}
+static pointer maths_log(pointer p)     { return IsNum(p) ? new_int((int) log((double)  Num(p))) :   new_fail();}
+static pointer maths_sin(pointer p)     { return IsNum(p) ? new_int((int) sin((double)  Num(p))) :   new_fail();}
+static pointer maths_sqrt(pointer p)    { return IsNum(p) ? new_int((int) sqrt((double) Num(p))) :  new_fail();}
+
+/*
+|| entier primitive to sasl
+ 
+|| logical type testing function - primitive to sasl
+
+*/
 
 /*
  * initialise reduction machine
@@ -86,14 +109,24 @@ int reduce_init()
     builtin = new_def(new_name("<primitive to sasl>"), NIL);
     
     /* unary prediacates */
-    builtin = add_to_def(builtin, new_name("char"), new_unary_predicate("char", is_char));
-    builtin = add_to_def(builtin, new_name("list"), new_unary_predicate("list", is_list));
+    builtin = add_to_def(builtin, new_name("logical"),  new_unary_predicate("logical",  is_logical));
+    builtin = add_to_def(builtin, new_name("char"),     new_unary_predicate("char",     is_char));
+    builtin = add_to_def(builtin, new_name("list"),     new_unary_predicate("list",     is_list));
     builtin = add_to_def(builtin, new_name("function"), new_unary_predicate("function", is_func));
-    builtin = add_to_def(builtin, new_name("num"),  new_unary_predicate("num",  is_num ));
+    builtin = add_to_def(builtin, new_name("num"),      new_unary_predicate("num",      is_num ));
     
    /* unary_maths */
-    builtin = add_to_def(builtin, new_name("code"),    new_unary_predicate("code",  code ));
-    builtin = add_to_def(builtin, new_name("decode"),  new_unary_predicate("decode",  decode ));
+    builtin = add_to_def(builtin, new_name("code"),     new_unary_predicate("code",     code));
+    builtin = add_to_def(builtin, new_name("decode"),   new_unary_predicate("decode",   decode));
+
+    builtin = add_to_def(builtin, new_name("entier"),   new_unary_predicate("entier",   maths_entier));
+    builtin = add_to_def(builtin, new_name("arctan"),   new_unary_predicate("arctan",   maths_arctan));
+    builtin = add_to_def(builtin, new_name("cos"),      new_unary_predicate("cos",      maths_cos));
+    builtin = add_to_def(builtin, new_name("exp"),      new_unary_predicate("exp",      maths_exp));
+    builtin = add_to_def(builtin, new_name("log"),      new_unary_predicate("log",      maths_log));
+    builtin = add_to_def(builtin, new_name("sin"),      new_unary_predicate("sin",      maths_sin));
+    builtin = add_to_def(builtin, new_name("sqrt"),     new_unary_predicate("sqrt",     maths_sqrt));
+
     /*
      todo complete the rest of builtin
      || arctan inverse trig function - primitive to sasl

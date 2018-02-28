@@ -1,16 +1,17 @@
 2018-02-26
 ... working through def addto_def for making clauses (!) to allow simplification throug always using "def" struct here (!)
-ok 71 fail "reduce: expecting int " = Ackerman! translated to sasl thne it works!
-prelude5 fail "reduce + 431 (reduce.c:420)"
+++ 71 fails - Ackerman! "reduce expecting int"
+++ prelude5 fails "show sum ..." pretty cokmplext but should work - too much recursion?? Dumps core traversing the stack (reduce: line 420)
+== prelude5 fail reduce.c:453
 
 insertionsort5 refc
 
 ??make each clause Y([name] E)) => broken form multi-clause
 
 
-++ 71 fails - Ackerman! "reduce expecting int"
-++ prelude5 fails "show sum ..." pretty cokmplext but should work - too much recursion?? Dumps core traversing the stack (reduce: line 420)
+ok 71 fail "reduce: expecting int " = Ackerman! translated to sasl thne it works!
 
+ok..
 || arctan inverse trig function - primitive to sasl
 || cos trig function - primitive to sasl
 || entier primitive to sasl
@@ -18,6 +19,7 @@ insertionsort5 refc
 || log natural logarithm - primitive to sasl || logical type testing function - primitive to sasl
 || sin x trig function - primitive to sasl
 || sqrt primitive to sasl
+/ok
 
 test/*/sasl ok now inckuding use of prelude in simple expressioins (prelude{1,2,3} tests)
 ++ todo add code to avoid cycles when binding names in make_bind()
