@@ -63,90 +63,6 @@ static pointer *sp = stack;
  * sasl - primitive to sasl functions
  */
 
-/* unary predicates
- * anything -> BOOL
- */
-static pointer is_logical(pointer p) { return new_bool(IsBool(p)); }
-static pointer is_char(pointer p) { return new_bool(IsChar(p)); }
-static pointer is_list(pointer p) { return new_bool(IsNil(p) || IsCons(p)); }
-static pointer is_func(pointer p) { return new_bool(IsApply(p) || IsBuiltin(p)); }
-static pointer is_num(pointer p)  { return new_bool(IsNum(p)); }
-
-/* unary maths */
-/* char -> num */
-static pointer   code(pointer p)    { return new_int((int) Char(p)); } /*TODO Check its a CHAR */
-
-/* num -> char*/
-static pointer decode(pointer p)    { return new_char((char) Num(p)); } /*TODO Check its a NUM */
-
-/* num -> num */
-/* ToDo make these work with sasl doubles */
-static pointer maths_arctan(pointer p)  { return IsNum(p) ? new_int((int) atan((double) Num(p))) :  new_fail();}
-static pointer maths_cos(pointer p)     { return IsNum(p) ? new_int((int) cos((double)  Num(p))) :   new_fail();}
-static pointer maths_entier(pointer p)  { return IsNum(p) ? new_int((int)               Num(p)) :    new_fail();} /* XXX Todo propoer entier implementatin for doubles */
-static pointer maths_exp(pointer p)     { return IsNum(p) ? new_int((int) exp((double)  Num(p))) :   new_fail();}
-static pointer maths_log(pointer p)     { return IsNum(p) ? new_int((int) log((double)  Num(p))) :   new_fail();}
-static pointer maths_sin(pointer p)     { return IsNum(p) ? new_int((int) sin((double)  Num(p))) :   new_fail();}
-static pointer maths_sqrt(pointer p)    { return IsNum(p) ? new_int((int) sqrt((double) Num(p))) :  new_fail();}
-
-/*
-|| entier primitive to sasl
- 
-|| logical type testing function - primitive to sasl
-
-*/
-
-/*
- * initialise reduction machine
- */
-int reduce_init()
-{
-    /*
-     * functions primitive to sasl
-     */
-    refc_delete(&builtin); /* ensure reduce_init() can be called safely more than once */
-    
-    builtin = new_def(new_name("<primitive to sasl>"), NIL);
-    
-    /* unary prediacates */
-    builtin = add_to_def(builtin, new_name("logical"),  new_unary_predicate("logical",  is_logical));
-    builtin = add_to_def(builtin, new_name("char"),     new_unary_predicate("char",     is_char));
-    builtin = add_to_def(builtin, new_name("list"),     new_unary_predicate("list",     is_list));
-    builtin = add_to_def(builtin, new_name("function"), new_unary_predicate("function", is_func));
-    builtin = add_to_def(builtin, new_name("num"),      new_unary_predicate("num",      is_num ));
-    
-   /* unary_maths */
-    builtin = add_to_def(builtin, new_name("code"),     new_unary_predicate("code",     code));
-    builtin = add_to_def(builtin, new_name("decode"),   new_unary_predicate("decode",   decode));
-
-    builtin = add_to_def(builtin, new_name("entier"),   new_unary_predicate("entier",   maths_entier));
-    builtin = add_to_def(builtin, new_name("arctan"),   new_unary_predicate("arctan",   maths_arctan));
-    builtin = add_to_def(builtin, new_name("cos"),      new_unary_predicate("cos",      maths_cos));
-    builtin = add_to_def(builtin, new_name("exp"),      new_unary_predicate("exp",      maths_exp));
-    builtin = add_to_def(builtin, new_name("log"),      new_unary_predicate("log",      maths_log));
-    builtin = add_to_def(builtin, new_name("sin"),      new_unary_predicate("sin",      maths_sin));
-    builtin = add_to_def(builtin, new_name("sqrt"),     new_unary_predicate("sqrt",     maths_sqrt));
-
-    /*
-     todo complete the rest of builtin
-     || arctan inverse trig function - primitive to sasl
-     || code ch = integer code for ch in local character set - primitive to sasl
-     || char type testing function - primitive to sasl
-     || cos trig function - primitive to sasl
-     || decode n the character whose integer code is n - primitive to sasl
-     || entier primitive to sasl
-     || exp exponential function - primitive to sasl
-     || functiontype testing function - primitive to sasl
-     || list type testing function - primitive to sasl
-     || log natural logarithm - primitive to sasl || logical type testing function - primitive to sasl
-     || number type testing function - primitive to sasl
-     || sin x trig function - primitive to sasl
-     || sqrt primitive to sasl
-     */
-
-    return 0;
-}
-
 /*
  * log reductions to file as required
  */
@@ -348,6 +264,85 @@ char reduce_is_equal(pointer *nn1, pointer *nn2)
     return 0;
 }
 
+/* unary stricts
+ * anything -> BOOL
+ */
+static pointer is_logical(pointer p)    { return new_bool(IsBool(p)); }
+static pointer is_char(pointer p)       { return new_bool(IsChar(p)); }
+static pointer is_list(pointer p)       { return new_bool(IsNil(p) || IsCons(p)); }
+static pointer is_func(pointer p)       { return new_bool(IsApply(p) || IsBuiltin(p)); } /* non-strict?? *//*ToDo "function pi WHERE pi = 3? => TRUE which ios probably wrong!*/
+static pointer is_num(pointer p)        { return new_bool(IsNum(p)); }
+
+/* unary maths */
+/* char -> num */
+static pointer   code(pointer p)    { return new_int( (int)  Char(p)); } /*TODO Check its a CHAR */
+
+/* num -> char*/
+static pointer decode(pointer p)    { return new_char((char) Num(p)); } /*TODO Check its a NUM */
+
+/* num -> num */
+/* ToDo make these work with sasl doubles */
+static pointer maths_arctan(pointer p)  { return IsNum(p) ? new_int((int) atan((double) Num(p))) :  new_fail();}
+static pointer maths_cos(pointer p)     { return IsNum(p) ? new_int((int) cos((double)  Num(p))) :   new_fail();}
+static pointer maths_entier(pointer p)  { return IsNum(p) ? new_int((int)               Num(p)) :    new_fail();} /* XXX Todo proper entier implementatin for doubles */
+static pointer maths_exp(pointer p)     { return IsNum(p) ? new_int((int) exp((double)  Num(p))) :   new_fail();}
+static pointer maths_log(pointer p)     { return IsNum(p) ? new_int((int) log((double)  Num(p))) :   new_fail();}
+static pointer maths_sin(pointer p)     { return IsNum(p) ? new_int((int) sin((double)  Num(p))) :   new_fail();}
+static pointer maths_sqrt(pointer p)    { return IsNum(p) ? new_int((int) sqrt((double) Num(p))) :  new_fail();}
+
+/*
+ * initialise reduction machine
+ */
+int reduce_init()
+{
+    /*
+     * functions primitive to sasl
+     */
+    refc_delete(&builtin); /* ensure reduce_init() can be called safely more than once */
+    
+    builtin = new_def(new_name("<primitive to sasl>"), NIL);
+    
+    /* type prediacates */
+    builtin = add_to_def(builtin, new_name("char"),     new_unary_strict("char",     is_char));
+    builtin = add_to_def(builtin, new_name("list"),     new_unary_strict("list",     is_list));
+    builtin = add_to_def(builtin, new_name("logical"),  new_unary_strict("logical",  is_logical));
+    builtin = add_to_def(builtin, new_name("function"), new_unary_nonstrict("function", is_func));
+    builtin = add_to_def(builtin, new_name("num"),      new_unary_strict("num",      is_num ));
+    
+    /* chars */
+    builtin = add_to_def(builtin, new_name("code"),     new_unary_strict("code",     code));
+    builtin = add_to_def(builtin, new_name("decode"),   new_unary_strict("decode",   decode));
+    
+    /* maths */
+    builtin = add_to_def(builtin, new_name("entier"),   new_unary_strict("entier",   maths_entier));
+    builtin = add_to_def(builtin, new_name("arctan"),   new_unary_strict("arctan",   maths_arctan));
+    builtin = add_to_def(builtin, new_name("cos"),      new_unary_strict("cos",      maths_cos));
+    builtin = add_to_def(builtin, new_name("exp"),      new_unary_strict("exp",      maths_exp));
+    builtin = add_to_def(builtin, new_name("log"),      new_unary_strict("log",      maths_log));
+    builtin = add_to_def(builtin, new_name("sin"),      new_unary_strict("sin",      maths_sin));
+    builtin = add_to_def(builtin, new_name("sqrt"),     new_unary_strict("sqrt",     maths_sqrt));
+    
+    /*
+     todo complete the rest of builtin
+     || arctan inverse trig function - primitive to sasl
+     || code ch = integer code for ch in local character set - primitive to sasl
+     || char type testing function - primitive to sasl
+     || cos trig function - primitive to sasl
+     || decode n the character whose integer code is n - primitive to sasl
+     || entier primitive to sasl
+     || exp exponential function - primitive to sasl
+     || functiontype testing function - primitive to sasl
+     || list type testing function - primitive to sasl
+     || log natural logarithm - primitive to sasl || logical type testing function - primitive to sasl
+     || number type testing function - primitive to sasl
+     || sin x trig function - primitive to sasl
+     || sqrt primitive to sasl
+     */
+    
+    return 0;
+}
+
+
 /*
  * reduce_show - print a constant - unstructured results of reduction
  */
@@ -424,9 +419,8 @@ pointer reduce(pointer n)
     sp[1] = n; /* Push(n) */
     sp++;
     
-    while (IsSet(Top) && Stacked > 0) { /* ?? (IsSet(Top) && Stacked > 0) */
+    while (IsSet(Top) && Stacked > 0) {
         /* Within the loop, Top is set to NIL on error; also halt if nothing on stack - should never happen error */
-        pointer *last = 0; /* optimiser: 'last' points to highest *successive* node on stack with ALLrefc==1, if any, otherwise (pointer *)0 */
         
 #ifdef notdef
         if (debug) {
@@ -435,20 +429,9 @@ pointer reduce(pointer n)
             fprintf(stderr, "\tTop\n");
         }
 #endif
-        
+            
         if (Tag(*sp) == apply_t) {
             /* travel down the 'spine' */
-            
-            if (reduce_optimise) { /* optimiser - reset after reduction has moved sp */
-                if (last && last >= sp)
-                    last = 0;
-                if (Srefc(*sp) == 1) {	/* assert this node will be free if pointer sp[-1] is deleted */
-                    if (!last)	/* start eligible */
-                        last = sp;
-                }
-                else
-                    last = 0;	/* not eligible */
-            }
             
             sp[1] = Hd(*sp);  /* Push(Hd(Top)) */
             sp++;
@@ -564,11 +547,12 @@ pointer reduce(pointer n)
                 case unary_not_op:
                     Stack1 = refc_update_to_bool(Stack1, ! reduce_bool(Arg1)); Pop(1); continue;
                     
-                case unary_maths:
-                case unary_predicate:
+                case unary_strict:
+                    Arg1 = reduce(Arg1); /* strict */
+                case unary_nonstrict:
                     Assert(Ufun(Top));
                     Stack1 = refc_update_hdtl(Stack1, new_comb(I_comb), Ufun(Top)(Arg1));
-                    /*was - why doesn't this work ..
+                    /*was - WIP XXX why doesn't this work ..
                     Stack1 = refc_update(Stack1, Ufun(Top)(Arg1));
                      */
                     Pop(1);
@@ -850,7 +834,7 @@ pointer reduce(pointer n)
                         /*FALLTHRU*/
                     case S_comb:	 /* S f g x => (f x)(g x) */
                     {
-                        long int got = (reduce_optimise ? (sp - last) : 0);
+                        long int got = 0;
                         if (got >= 2) {
                             /* optimise - update in place, no reference counts changed, apart from new pointer to Arg3 */
                             reduce_optimise_log(*sp, 2);

@@ -235,14 +235,14 @@ static pointer new_unary(tag t, char *name, pointer (*fun)(pointer p))
   return n;
 }
 
-pointer new_unary_predicate(char *name, pointer (*fun)(pointer p))
+pointer new_unary_strict(char *name, pointer (*fun)(pointer p))
 {
-  return new_unary(unary_predicate, name, fun);
+  return new_unary(unary_strict, name, fun);
 }
 
-pointer new_unary_maths(char *name, pointer (*fun)(pointer p))
+pointer new_unary_nonstrict(char *name, pointer (*fun)(pointer p))
 {
-  return new_unary(unary_maths, name, fun);
+  return new_unary(unary_nonstrict, name, fun);
 }
 
 
@@ -797,10 +797,12 @@ pointer refc_update_tl(pointer n, pointer new)
     return NIL; /*NOTREACHED*/
   }
  
-  if (!EqPtr(Tl(n), new)) {
+  /*was
+   if (!EqPtr(Tl(n), new)) {
     refc_delete(&Tl(n));
     Tl(n) = new;
   }
+   */
   
   return n;
 }

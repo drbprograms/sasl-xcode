@@ -34,7 +34,7 @@ typedef enum tag {
   /* Special constant - to indicate pattern match has failed */
   fail_t,
 #define IsFailTag(t) ((t)==fail_t)  
-#define IsUnaryTag(t) ((t)==unary_predicate || (t)==unary_maths)
+#define IsUnaryTag(t) ((t)==unary_strict || (t)==unary_nonstrict)
 
   
   /* Apply/Cons - these have a hl and tl (aka car and cdr) which can pont to any other node, or be NIL */
@@ -104,7 +104,7 @@ typedef enum tag {
 #define IsUnaryOpTag(t) ((t)>=unary_not_op && (t)<=unary_count_op)
   
   /* Combinators - tl contains first argument.  Optionally hd points to name_t name of variable being abstracted, for debugging purposes */
-#define IsCombTag(t) ((t)>=I_comb && (t)<unary_predicate)
+#define IsCombTag(t) ((t)>=I_comb && (t)<unary_strict)
   I_comb,
   K_comb,
   K_nil_comb, /* checks 2nd arg is NIL */
@@ -143,9 +143,9 @@ typedef enum tag {
   H_comb,	/* hd / tl combinators - lazy */
   T_comb,
 
-  unary_predicate,  /* built in one-argument test eg "function" */
-  unary_maths,  /* built-in one argument maths eg "sin" */
-#define IsBuiltinTag(t) ((t) >= unary_predicate && (t) <= unary_maths)
+  unary_strict,  /* built in one-argument test eg "function" */
+  unary_nonstrict,  /* built-in one argument maths eg "sin" */
+#define IsBuiltinTag(t) ((t) >= unary_strict && (t) <= unary_nonstrict)
   _LastTag      /* Never appears in a node, used to calculate size for and array-of tag values */
   
 #define TagCount (_LastTag)	/* tags are numbered from 0, _LastTag isn't a tag(!) */
@@ -299,6 +299,7 @@ extern int err_make(char *f, char *msg1, int i);
 extern int err_make1(char *f);
 extern int err_out(char *f, char *msg1, char *msg2, int n);
 extern int err_reduce(char *msg1);
+extern int err_reduce2(char *msg1, char *msg2b);
 extern int err_refc(char *msg1);
 extern int err_store(char *msg);
 extern int err_zone(char *msg1);

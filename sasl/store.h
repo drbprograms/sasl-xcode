@@ -21,8 +21,8 @@ extern pointer new_name(char *s);
 extern pointer new_oper(tag oper);
 extern pointer new_comb_name(tag t, pointer name);
 extern pointer new_comb(tag t);
-extern pointer new_unary_predicate(char *name, pointer (*fun)(pointer p));
-extern pointer new_unary_maths(char *name, pointer (*fun)(pointer p));
+extern pointer new_unary_strict(char *name, pointer (*fun)(pointer p));
+extern pointer new_unary_nonstrict(char *name, pointer (*fun)(pointer p));
 
 extern void refc_delete(pointer *pp);
 extern pointer refc_update(pointer n, pointer new);

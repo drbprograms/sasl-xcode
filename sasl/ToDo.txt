@@ -1,6 +1,10 @@
 2018-02-26
+
+++ make builtin "function" work "function pi WHERE pi = 3" currently TRUE
+++ make builtin maths "double" correct floating point!
+
 ... working through def addto_def for making clauses (!) to allow simplification throug always using "def" struct here (!)
-++ 71 fails - Ackerman! "reduce expecting int"
+ok 71 fails - Ackerman! "reduce expecting int"
 ++ prelude5 fails "show sum ..." pretty cokmplext but should work - too much recursion?? Dumps core traversing the stack (reduce: line 420)
 == prelude5 fail reduce.c:453
 
