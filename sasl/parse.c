@@ -597,12 +597,11 @@ pointer parse_program()
   /*NOTREACHED*/
 }
 
-pointer parse(FILE *where)
+
+pointer parse()
 {
-  /* todo change lex input to "where"  to allow sub-files to be parsed */
-  
   if (lex_looking_at(tok_eof))
-    return parse_reset();
+    return NIL; /*was: make_reset() */
   
   return parse_program();
 }

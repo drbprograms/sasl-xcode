@@ -130,9 +130,14 @@ extern char lex_oper_prio;
 extern char lex_oper_assoc;	/* indicator set when tok_operator found - 'r' right associative, 'l' left acssociative, 'n'=non-associative, '? ???*/
 extern char *lex_oper_fix;	/* indicator set when tok_operator found - "i"=infix, "p"=prefix, "o"=postfix also "ip" if can be prefix *or* infix */
 
+extern void lex_do_get(char *f);
+
 extern int debug;
 
-#define LEX_DEBUG0(string)			((debug) ? fprintf(stderr, string) : 0)
+#define LEX_ERROR1(string)      fprintf(stderr, string)
+#define LEX_ERROR2(string, value)      fprintf(stderr, string, value)
+
+#define LEX_DEBUG0(string)      ((debug) ? fprintf(stderr, string) : 0)
 #define LEX_DEBUG(string,value)			((debug) ? fprintf(stderr, string, value) : 0)
 #define LEX_DEBUG2(string,value1, value2)	((debug) ? fprintf(stderr, string, value1, value2) : 0)
 

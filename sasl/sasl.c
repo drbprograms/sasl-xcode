@@ -4,6 +4,7 @@
 #include <setjmp.h>
 
 #include "common.h"
+#include "lex.h"
 #include "parse.h"
 #include "reduce.h"
 #include "store.h"
@@ -23,6 +24,7 @@ int partial_compile;
 int reduce_optimise;
 int debug;
 int no_code;
+int no_prelude = 0;
 
 static int no_reset;
 /*
@@ -52,14 +54,40 @@ static int getenv_bool(char *var)
 }
 #endif
 
+/* repeatedly parse SASL programs contained in a file */
+static int read_file()
+{
+  pointer p;
+  
+  for (p = parse(); IsSet(p); p = parse()) {
+    
+    if (debug) {
+      fprintf(stderr, "program ==> "); out_debug(IsSet(root) ? root : defs);/*todo be more selective printing *new* defs*/
+      (void) reduce_log_report(stderr);
+    }
+    
+    if (IsSet(root)) {
+      root = reduce_print(root);
+      printf("\n"); /* in deference to Unix */
+      refc_delete(&root);
+    }
+    
+    if (debug)
+      (void) reduce_log_report(stderr);
+  }
+  
+  return 0;
+}
+
+/* startup */
 static int main_init()
 {
-  debug 		= getenv_int("debug", 1);	/* default on and low */
+  debug 		    = getenv_int("debug", 1);	/* default on and low */
   partial_compile 	= getenv_int("partial_compile", 0); /* default off */
   reduce_optimise 	= getenv_int("reduce_optimise", 0); /* default off */
-  no_code		= getenv_int("no_code", 0); /* default off */
-
-  no_reset		= getenv_int("no_reset", 1); /* default off - todo change for interactive use */
+  no_code		    = getenv_int("no_code", 0); /* default off */
+  no_prelude        = getenv_int("no_prelude", 0); /* default off unless "-p" in argv[] */
+  no_reset		    = getenv_int("no_reset", 1); /* default off - todo change for interactive use */
 
   /* store_init() */
   refc_delete(&root);
@@ -81,20 +109,80 @@ int main(int argc, char **argv)
 {
   int err;
   int resetting = 0; /* loop avoidance in longjmp() */
-  pointer p;
-
-  (void) main_init();
-  
-  if(debug) {
+  int i;
+ 
+  if(debug > 1) {
     fprintf(stderr, "sizeof(node) %lu\n", sizeof(node));
     fprintf(stderr, "_LastTag %d\n", _LastTag);
     fprintf(stderr, "_TagCount %d\n", _LastTag);
   }
 
-  (void) fprintf(stderr, "hello from %s\n", argv[0]);
+  (void) main_init();
+  
+  /*
+   * error handling
+   */
+  err = setjmp(jmpbuffer);
+  if (err != 0) {
+    /* arrived here from a longjmp() call */
+    
+    /* todo print more useful diagnostics and skip to sensible place eg token in col 1? ie offside=0? */
+    int i;
+    
+    if (no_reset)
+      exit(1);
+    
+    if (!resetting) {
+      resetting++;
+      (void) main_init();
+      (void) parse_reset();
+      if (debug)
+        (void) reduce_log_report(stderr);
+      
+      fprintf(stderr, "reset ");
+      for (i=1; i<=err; i++) /* indicate discreetely which reset occurred */
+        fprintf(stderr, ". ");
+    }
+    resetting = 0;
+  }
+  
+  /* read file args, or else stdin */
+
+  /* process command line: sasl [-p] [file..] */
+  
+  /* option: -p  suprsess prelude - overrides no_prelude environment variable */
+  i = 1;
+  if (argc > 1 && ! strcmp(argv[1], "-p")) {
+    no_prelude = 1;
+    i++;
+  }
+  
+  if (! no_prelude) {
+    /* read prelude file first */
+    lex_do_get("prelude");
+    read_file();
+  }
+
+  if (argc > i) {
+    /* read file... */
+    for (/**/; argc > i; i++) {
+      lex_do_get(argv[i]);
+      read_file();
+      (void) fprintf(stderr, "*hello from %s\n", argv[0]);
+      lex_do_get("/dev/stdin");
+      read_file();
+      fprintf(stderr, "*what next?\n");
+    }
+  } else {
+    (void) fprintf(stderr, "hello from %s\n", argv[0]);
+    lex_do_get("/dev/stdin");
+    read_file();
+    fprintf(stderr, "what next?\n");
+  }
+  
 
 #ifdef unitest
-  /* *** test *** test *** test *** test *** test *** test *** test *** test */
+        /* *** test *** test *** test *** test *** test *** test *** test *** test */
 #define name(n) new_name(n)
 #define cons(h,t) new_cons((h),(t))
 #define ap(h,t) new_apply((h),(t))
@@ -135,46 +223,6 @@ int main(int argc, char **argv)
   /* *** test *** test *** test *** test *** test *** test *** test *** test */
 #endif
   
-  err = setjmp(jmpbuffer);
-  if (err != 0) {
-    /* arrived here from a longjmp() call */
 
-    /* todo print more useful diagnostics and skip to sensible place eg token in col 1? ie offside=0? */
-    int i;
-
-    if (no_reset)
-      exit(1);
-    
-    if (!resetting) {
-      resetting++;
-      (void) main_init();
-      (void) parse_reset();
-      if (debug)
-        (void) reduce_log_report(stderr);
-      
-      fprintf(stderr, "reset ");
-      for (i=1; i<=err; i++) /* indicate discreetely which reset occurred */
-        fprintf(stderr, ". ");
-    }
-    resetting = 0;
-  }
-  
-  for (p = parse(stdin); IsSet(p); p = parse(stdin)) {
-
-      if (debug) {
-        fprintf(stderr, "program ==> "); out_debug(IsSet(root) ? root : defs);/*todo be more selective printing *new* defs*/
-        (void) reduce_log_report(stderr);
-      }
-      
-      if (IsSet(root)) {
-        root = reduce_print(root);
-        printf("\n"); /* in deference to Unix */
-        refc_delete(&root);
-      }
-      
-      if (debug)
-        (void) reduce_log_report(stderr);
-    }
-    fprintf(stderr, "what next?\n");
   return(0);
 }

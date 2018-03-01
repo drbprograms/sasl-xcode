@@ -14,6 +14,7 @@ SIGN	 [+-]
 DIGIT    [0-9]
 EXP	 [eE]{SIGN}?{DIGIT}+
 
+
 NAME       [A-Za-z][A-Za-z0-9_]*
 
 
@@ -76,6 +77,20 @@ NAME       [A-Za-z][A-Za-z0-9_]*
 	  grow();
 	  return t;
 	}
+
+  /*
+  * user commands
+  */
+  /* GET file */
+  void lex_do_get(char* filename)
+  {
+    FILE *f = fopen(filename, "r");
+    if (!f) {
+      LEX_ERROR2("unable to GET \"%s\"\n", filename);
+    } else {
+      yypush_buffer_state(yy_create_buffer(f, YY_BUF_SIZE ));
+    }
+  }
 
 	static tok off(tok t);
 
@@ -215,9 +230,10 @@ TAB	{ LEX_DEBUG("A special char: %s\n", yytext); lex_tc = tok_const_special_char
 
 ^DEF.*		{ LEX_DEBUG( "DEF: %s\n", yytext); return indent(tok_def); }
 	
+^GET" ".* { LEX_DEBUG( "A GET: \"%s\"\n", yytext+4); grow(); lex_do_get(yytext+4); }
+
 ^COUNT.* |
 ^GC.* |
-^GET.* |
 ^HELP.* |
 ^INTERACTIVE.* |
 ^OBJECT.* |
@@ -237,7 +253,17 @@ TAB	{ LEX_DEBUG("A special char: %s\n", yytext); lex_tc = tok_const_special_char
 .		{ LEX_DEBUG2( "Unrecognized character: %s (%u)\n", yytext, (unsigned) yytext[0] ); grow(); }
 
     /* end of input */
-<<EOF>> { LEX_DEBUG0("The end of file\n"); return (tok_eof); }
+
+<<EOF>> {
+  LEX_DEBUG0("The end of file\n");
+    yypop_buffer_state();
+    if ( !YY_CURRENT_BUFFER ) {
+      //    yyterminate();
+      return (tok_eof);
+    } else {
+      LEX_DEBUG0("continue where we left off ...\n");
+    }
+  }
 %%
      
 
@@ -449,3 +475,4 @@ int lex_looking_at_operator_fix_prio(char fix, char prio)
   }
   return 0;
 }
+

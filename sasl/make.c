@@ -224,7 +224,7 @@ pointer make_bind(pointer def, pointer expr, char *msg)
       pointer d = def_lookup(def, expr);
       
       if (IsSet(d)) {
-        /* replace name by it's definition */
+        /* name - replace by it's definition */
         if (debug) {
           fprintf(stderr, "make_bind: "); out_debug1(expr); fprintf(stderr, "=>"); out_debug(d);
         }
@@ -235,10 +235,10 @@ pointer make_bind(pointer def, pointer expr, char *msg)
         else
           return refc_copy_make_cyclic(d);
       } else {
-        /* no definition found */
+        /* name - no definition found */
         if (msg) {
           fprintf(stderr, "%s %s\n", msg, Name(expr));
-          make_err1("program"); /* perhaps shoudl be a parameter, but really ... */
+//          make_err1("program"); /* perhaps should be a parameter, but really ... */
         }
       }
     }

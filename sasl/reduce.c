@@ -498,7 +498,7 @@ pointer reduce(pointer n)
                    case name_t:
                         if (Stacked == 1)
                             return Pop(1);
-                        err_reduce2("undefined name:", Name(Top));
+                        err_reduce2("name undefined:", Name(Top));
                         /*NOTREACHED*/
 
                     case fail_t:  {/* FAIL anything => FAIL */
