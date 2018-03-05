@@ -1,13 +1,23 @@
+2018-03-05
+checkpoint
+03x Hanoi now working
+01a Fib now working
+++ 01b Fib not working
+++ checking refc: insertion-sort3.2:507
+
+
 2018-02-28
+WIP add_deflist_to_def() re think to keep it simpel (traverse namelist) - copy code from make_bind() which is lcose to same job...)
+
 DEF my local definitions *added* to  DEFS already - needs fix
 
-++ show (1,2) - "1,2," reduce done stacked=1; $taking head of non cons
+ok show (1,2) - "1,2," reduce done stacked=1; $taking head of non cons
 ok interactive/stdin not quite right...
 
 All tests pass
 Started tom implement auto loading of preude (now its debugged!))
 sasl -p fine for test - built into bashrc
-++ sasl file .. check it works
+ok sasl file .. check it works
     ok lex_do_get(prelude) works from main(); BUT need to avoid parse_reset() etc which is trashing the lovely prelude we've read!
     ok also SEGV when reading eof!
 
@@ -15,7 +25,7 @@ sasl -p fine for test - built into bashrc
     ok may as well implement as GET directive do_get("prelude") vs do_get(yytext) in lex.l
 info here: https://westes.github.io/flex/manual/Multiple-Input-Buffers.html#Multiple-Input-Buffers
 
-++ I . inc 41 WHERE I x = x; inc x = x+1? fails with reduce: unimplemented tag 
+ok I . inc 41 WHERE I x = x; inc x = x+1? fails with reduce: unimplemented tag
 
 2018-02-26
 

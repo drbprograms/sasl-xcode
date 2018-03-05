@@ -153,18 +153,18 @@ pointer add_to_def(pointer def, pointer name, pointer d)
 }
 
 /* search def for definition of a name, return NIL is if not found */
-pointer def_lookup(pointer def, pointer name)
+pointer *def_for(pointer def, pointer name)
 {
   pointer deflist, n, d;
   
   if (IsNil(def))
-    return NIL;
+    return (pointer *)0;
   
   Assert(IsDef(def));
   
   deflist = T(def);
   if (IsNil(deflist))
-    return NIL;
+    return (pointer *)0;
   
   /* deflist == (listof names . listof-clauses) */
   for (n = H(deflist), d = T(deflist); IsSet(n); n = T(n), d = T(d)) {
@@ -172,25 +172,67 @@ pointer def_lookup(pointer def, pointer name)
       if (IsSameName(H(n), name)) {
         if (debug >1)
           fprintf(stderr, "def_lookup: \"%s\"\n", Name(Hd(n)) );
-        return H(d);
+        return &H(d);
       }
     } else {
-      pointer h, t;
+      pointer *h, *t;
       Assert(IsCons(H(n))); /* namelist */
       
-      h = def_lookup(def, HH(n));
-      if (IsSet(h))
+      h = def_for(def, HH(n));
+      if (IsSet(*h))
         return h;
       
-      t = def_lookup(def, TH(n));
-      if (IsSet(t))
+      t = def_for(def, TH(n));
+      if (IsSet(*t))
         return t;
     }
   }
   
-  return NIL;
+  return (pointer *)0;
 }
 
+pointer def_lookup(pointer def, pointer name, char *msg)
+{
+  pointer *dp = def_for(def, name);
+  
+  if (dp)
+    return *dp;
+  else
+    return NIL;
+}
+
+pointer add_deflist_to_def(pointer def, pointer deflist, char *msg)
+{
+  pointer n, d;
+
+  if (IsNil(def))
+    return NIL;
+  
+  if (IsNil(deflist))
+    return def;
+  
+  for (n = H(deflist), d = T(deflist); IsSet(n); n = T(n), d = T(d)) {
+/*WIP WIP todo traverse H(n) which may be a namelist */
+
+    pointer *dp = def_for(def, H(n));
+    
+    if (dp) {
+      /* name already in def: generate error if msg is set, otherwise replace old definition with new */
+      if (msg) {
+        
+      } else {
+        refc_delete(dp);
+        *dp = H(d);
+      }
+    } else {
+      def = add_to_def(def, H(n), H(d));
+    }
+    
+    
+  }
+
+  return def;
+}
 
 pointer new_name(char *s)
 {

@@ -155,36 +155,36 @@ int parse_struct()
 }
 
 /*
- * (3)	<namelist> ::= <struct> | <struct>, | <struct> , . . . ,<struct>
- *                        1          2                              3
+ * (3)  <namelist> ::= <struct> | <struct>, | <struct> [, <struct>]+ where + means 1 or more
+ *                         1          2                        3N
  * return(length-of structlist)
  */
 int parse_namelist()
 {
-  int s;
+  int count;
   
   Parse_Debug("parse_namelist");
   
   parse_struct();
-  s = 1;
-  Maker1("namelist<= struct,", 3,1);
+  count = 1;
   
   if (lex_looking_at(tok_comma)) {
     if (lex_peeking_at_simple()) {
       parse_struct();
-      s++;
-      Maker2("namelist<=struct,struct", 3,3);
+      count++;
       while (lex_looking_at(tok_comma)) {
-        s++;
+        count++;
         parse_struct();
-        Maker2("namelist<=struct,struct", 3,3);
       }
+      MakerN(count, "namelist<=struct,struct", 3,3);
     } else {
       Maker1("namelist<=struct,", 3,2);
     }
+  } else {
+    Maker1("namelist<= struct,", 3,1);
   }
   
-  return s;
+  return count;
 }
 
 /* parse_condexp() parse_rhs()
@@ -251,7 +251,7 @@ int parse_condexp()
 /*
  *	<rhs> ::= <formal><rhs> | <formal> = <expr>
  * rewritten as
- * (5)  <rhs> ::= = <formal>+ = <expr> | <expr>    + means 1 or more
+ * (5)  <rhs> ::= = <formal>+ = <expr> | = <expr>    + means 1 or more
  *                      1          2        3
  * returns how many formals (>=0)
  */

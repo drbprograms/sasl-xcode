@@ -55,10 +55,12 @@ static int getenv_bool(char *var)
 #endif
 
 /* repeatedly parse SASL programs contained in a file */
-static int read_file()
+static int read_file(char *filename)
 {
   pointer p;
-  
+
+  lex_do_get(filename);
+
   for (p = parse(); IsSet(p); p = parse()) {
     
     if (debug) {
@@ -159,24 +161,16 @@ int main(int argc, char **argv)
   
   if (! no_prelude) {
     /* read prelude file first */
-    lex_do_get("prelude");
-    read_file();
+    read_file("prelude");
   }
 
   if (argc > i) {
     /* read file... */
-    for (/**/; argc > i; i++) {
-      lex_do_get(argv[i]);
-      read_file();
-      (void) fprintf(stderr, "*hello from %s\n", argv[0]);
-      lex_do_get("/dev/stdin");
-      read_file();
-      fprintf(stderr, "*what next?\n");
-    }
+    for (/**/; argc > i; i++)
+      read_file(argv[i]);
   } else {
     (void) fprintf(stderr, "hello from %s\n", argv[0]);
-    lex_do_get("/dev/stdin");
-    read_file();
+    read_file("/dev/stdin");
     fprintf(stderr, "what next?\n");
   }
   

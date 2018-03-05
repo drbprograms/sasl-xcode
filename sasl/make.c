@@ -215,16 +215,14 @@ pointer make_bind(pointer def, pointer expr, char *msg)
   if (IsNil(expr))
     return expr;
   
-  if (IsStruct(expr)) {
-    /*new update(expr, make_bind(def, H), make_bind(def, T))*/
+  if (IsStruct(expr)) {    /*new update(expr, make_bind(def, H), make_bind(def, T))*/
     H(expr) = make_bind(def, H(expr), msg);
     T(expr) = make_bind(def, T(expr), msg);
   } else {
     if (IsName(expr)) {
-      pointer d = def_lookup(def, expr);
+      pointer d = def_lookup(def, expr, msg);
       
-      if (IsSet(d)) {
-        /* name - replace by it's definition */
+      if (IsSet(d)) {     /* name - replace by it's definition */
         if (debug) {
           fprintf(stderr, "make_bind: "); out_debug1(expr); fprintf(stderr, "=>"); out_debug(d);
         }
@@ -234,8 +232,7 @@ pointer make_bind(pointer def, pointer expr, char *msg)
           return refc_copy(d);
         else
           return refc_copy_make_cyclic(d);
-      } else {
-        /* name - no definition found */
+      } else {        /* name - no definition found */
         if (msg) {
           fprintf(stderr, "%s %s\n", msg, Name(expr));
 //          make_err1("program"); /* perhaps should be a parameter, but really ... */
@@ -469,15 +466,28 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
       
     case 3:
       /*
-       * (3)	<namelist> ::= <struct> | <struct>, | <struct> , . . . ,<struct>
-       *   *                            1          2                              3
+       * (3)  <namelist> ::= <struct> | <struct>, | <struct>, [, <struct>]+ where * means 1 or more
+       *   *                     1          2                        3
        
        namelist <= struct|listof-struct
        */
       switch (subrule) {
         case 1: return n1;
         case 2: return new_cons(n1,NIL);
-        case 3: return new_cons(n1, de_dup(n1,n2));
+        case 3:  {
+          /* use stack N reverse order of SASL text - comma binds "rightmost"  first */
+          /* "w,x,y" compiles to w:(x:(y:NIL)) */
+          /* this ensures correct de-dup'ing */
+          pointer structs = sp[howmany];
+          int i;
+          Assert(howmany >= 1);
+          structs = new_cons(structs, NIL);
+          for (i = howmany - 1; i > 0; i--)
+            structs = new_cons(sp[i], de_dup(sp[i], structs));
+          return structs;
+        }
+        case 33: return new_cons(n1,NIL);
+        case 44: return make_append(n1, de_dup(n1,n2)); /* fix here WIP TODO a:(b(c:NIL)) */
       }
       break;
       
@@ -506,7 +516,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
       /*
        *	<rhs> ::= <formal><rhs> | <formal> = <expr>
        * rewritten as
-       * (5)  <rhs> ::= = <formal>+ = <expr> | <expr>    + means 1 or more
+       * (5)  <rhs> ::= = <formal>+ = <expr> | = <expr>    + means 1 or more
        *                      1          2        3
        *    || rhs <= expr
        !! ToDo consider check "name" is not present in Lhs.formal - its an error isn't it eg sasl "f a f = a?"!!
@@ -518,6 +528,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           /* this ensures correct de-dup'ing */
           pointer formals = sp[howmany];
           int i;
+          Assert(howmany >= 1);
           for (i = howmany - 1; i > 0; i--)
             formals = new_apply(sp[i], de_dup(sp[i], formals));
           return formals;
@@ -690,14 +701,17 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
            */
           
           refc_delete(&root);
-          refc_delete(&defs);
+//          refc_delete(&defs);
 
           T(n1) = make_bind(builtin, T(n1), NULL);
 
-          defs = new_def(new_name("<Top>"), n1);
+          if (IsNil(defs))
+            defs = new_def(new_name("<Top>"), n1);
+//          else
+//            defs = add_deflist_to_def(defs, n1);
 
           DefExprs(defs) = make_bind(builtin, DefExprs(defs), NULL); /* resolve builtin references */
-          DefExprs(defs) = make_bind(defs,    DefExprs(defs), "undefined name: "); /* resolve internal references */
+          DefExprs(defs) = make_bind(defs,    DefExprs(defs), "in DEF: undefined name: "); /* resolve internal references */
           /* XXX todo Y comb here?? */
           
           return defs;

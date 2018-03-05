@@ -450,7 +450,7 @@ int refc_check_traverse_pointers(pointer p, int s_limit, int *nil_count,  int *s
   else
     (z->debug_nodes[node_no].w_refc)++;
 
-  /* only follow record node counts and follow sub-pointers once */
+  /* ??? only follow record node counts and follow sub-pointers once */
   if (((z->debug_nodes[node_no].s_refc) +
        (z->debug_nodes[node_no].w_refc)) > 1) {
     return 0;
