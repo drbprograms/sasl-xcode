@@ -181,7 +181,7 @@ int parse_namelist()
       Maker1("namelist<=struct,", 3,2);
     }
   } else {
-    Maker1("namelist<= struct,", 3,1);
+    Maker1("namelist<= struct", 3,1);
   }
   
   return count;
@@ -204,29 +204,32 @@ int parse_namelist()
  *	re-written to:
  * (x)	<condexp> ::= <opexp> → <condexp>; <condexp> | <opexp>, . . . ,<opexp> | <opexp>, | <opexp>
  *	re-re-written to:
- * (4)	<condexp> ::= <opexp> → <condexp>; <condexp> | <opexp> | <opexp>, | <opexp>, <opexp> [, <opexp>]* where * means 0 or more 
- *                       1          2          3       [4] as 1      5                   6          7
+ * (4)  <condexp> ::= <opexp> | <opexp>, | <opexp> [, <opexp>]+ | <opexp> → <condexp>; <condexp> where + means 0 or more
+ *                       1           2                   3N                   4            5
  */
 /* Turner 1983: "Finally note the convention that the delimiter ‘‘;’’ can be omitted provided a newline is taken instead." */ 
 
 int parse_condexp()
 {
+  int count;
+  
   Parse_Debug("parse_condexp");
   
   /* opexp */
   parse_opexp();
-  Maker1("condexp<=opexp",4,1);
+  count = 1;
   
   if (lex_looking_at(tok_comma)) {
-    /* listexp */
-    Maker1("condexp<=opexp,",4,5);
     if (lex_peeking_at_simple()) {
       parse_opexp();
-      Maker2("condexp<=opexp,opexp",4,6);
+      count++;
       while (lex_looking_at(tok_comma)) {
+        count++;
         parse_opexp();
-        Maker2("condexp<=opexp,opexp,opexp",4,7);
       }
+      MakerN(count,"condexp<=opexp,opexp", 4,3);
+    } else {
+      Maker1("condexp<=opexp,",4,2);
     }
   } else if (lex_looking_at(tok_then)) {
     /* conditional */
@@ -236,15 +239,18 @@ int parse_condexp()
     parse_condexp();
     lex_onside();
     
-    Maker2("condexp<=opexp->condexp ; ...",4,2);
+    Maker2("condexp<=opexp->condexp ; ...",4,4);
     
     if (lex_looking_at_or_onside_newline(tok_semicolon)) {
       /* else-part */
       parse_condexp();
-      return Maker2("condexp<=opexp -> condexp ; condexp",4,3);
+      return Maker2("condexp<=opexp -> condexp ; condexp",4,5);
     } else
       return parse_err("parse_condexp","expecting \';\' before else-part, got:", yytext);
+  } else {
+    Maker1("condexp<=opexp", 4, 1);
   }
+  
   return 1;
 }
 

@@ -675,7 +675,7 @@ pointer reduce(pointer n)
                     case and_op:	Stack2 = refc_update_to_bool(Stack2, reduce_bool(Arg1) && reduce_bool(Arg2));	Pop(2);	continue;
                      
                     case colon_op:
-                        /* (P x y) = (x:y)
+                        /* (P x y) => (x:y)
                          ((: a) b) => (a:b) */
                         Stack2 = refc_update_hdtl(Stack2, refc_copy(Arg1), refc_copy(Arg2));
                         Tag(Stack2) = cons_t;
@@ -683,6 +683,11 @@ pointer reduce(pointer n)
                         continue;
 
                     case plusplus_op:
+                        /* ++ list1 list2 => append list2 to end of list1 */
+                        Arg1 = reduce_cons(Arg1);
+                        Stack2 = refc_update_hdtl(Stack2, new_comb(I_comb), make_append(refc_copy(Arg1), refc_copy(Arg2)));
+                        Pop(2);
+                        continue;
                     case minusminus_op:
                     case range_op:
                         

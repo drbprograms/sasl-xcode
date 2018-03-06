@@ -466,8 +466,8 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
       
     case 3:
       /*
-       * (3)  <namelist> ::= <struct> | <struct>, | <struct>, [, <struct>]+ where * means 1 or more
-       *   *                     1          2                        3
+       * (3)  <namelist> ::= <struct> | <struct>, | <struct> [, <struct>]+ where * means 1 or more
+       *   *                     1          2                        3N
        
        namelist <= struct|listof-struct
        */
@@ -478,24 +478,22 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           /* use stack N reverse order of SASL text - comma binds "rightmost"  first */
           /* "w,x,y" compiles to w:(x:(y:NIL)) */
           /* this ensures correct de-dup'ing */
-          pointer structs = sp[howmany];
+          pointer s = sp[howmany];
           int i;
           Assert(howmany >= 1);
-          structs = new_cons(structs, NIL);
+          s = new_cons(s, NIL);
           for (i = howmany - 1; i > 0; i--)
-            structs = new_cons(sp[i], de_dup(sp[i], structs));
-          return structs;
+            s = new_cons(sp[i], de_dup(sp[i], s));
+          return s;
         }
-        case 33: return new_cons(n1,NIL);
-        case 44: return make_append(n1, de_dup(n1,n2)); /* fix here WIP TODO a:(b(c:NIL)) */
-      }
+       }
       break;
       
     case 4:
       /* (4)	<condexp> ::= <opexp> → <condexp>; <condexp> | <opexp>, . . . ,<opexp> | <opexp>, | <opexp> */
       /*	re-re-written to:
-       * (4)	<condexp> ::= <opexp> → <condexp>; <condexp> | <opexp> | <opexp>, | <opexp>, <opexp> [, <opexp>]* where * means 0 or more
-       *                           1          2          3          4        5                   6          7
+       * (4)	<condexp> ::= <opexp> | <opexp>, | <opexp> [, <opexp>]+ | <opexp> → <condexp>; <condexp> where + means 0 or more
+       *                         1           2                   3N                   4            5
        
        srhs     condexp <= cond_op opexp condexp condexp | opexp1 | listof-opexp
        */
@@ -503,12 +501,22 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
       
       switch (subrule) {
         case 1: return n1; /*nop*/
-        case 2: return new_apply3(new_oper(cond_op), n1, n2);
-        case 3: return new_apply(n1, n2);
-        case 4: return n1; /*nop*/
-        case 5: return new_cons(n1, NIL);
-        case 6: return make_append(n1, n2);
-        case 7: return make_append(n1, n2);
+        case 2: return new_cons(n1, NIL);
+        case 3: {
+          /* use stack N reverse order of SASL text - comma binds "rightmost"  first */
+          /* "w,x,y" compiles to w:(x:(y:NIL)) */
+          /* this ensures correct de-dup'ing */
+          pointer s = sp[howmany];
+          int i;
+          Assert(howmany >= 1);
+          s = new_cons(s, NIL);
+          for (i = howmany - 1; i > 0; i--)
+            s = new_cons(sp[i], s);
+          return s;
+          
+        }
+        case 4: return new_apply3(new_oper(cond_op), n1, n2);
+        case 5: return new_apply(n1, n2);
       }
       break;
       
@@ -526,12 +534,12 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           /* use stack N reverse order of SASL text - abstract "rightmost" formal first */
           /* "f x y = E compiles to [x] ([y] E) where the innermost abstraction is performed first" [Turner] */
           /* this ensures correct de-dup'ing */
-          pointer formals = sp[howmany];
+          pointer s = sp[howmany];
           int i;
           Assert(howmany >= 1);
           for (i = howmany - 1; i > 0; i--)
-            formals = new_apply(sp[i], de_dup(sp[i], formals));
-          return formals;
+            s = new_apply(sp[i], de_dup(sp[i], s));
+          return s;
         }
         case 2: {
           pointer result = make_abstract(n1, n2, 0/*nonrecursive*/);

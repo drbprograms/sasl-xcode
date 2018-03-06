@@ -175,48 +175,9 @@ int main(int argc, char **argv)
   }
   
 
-#ifdef unitest
-        /* *** test *** test *** test *** test *** test *** test *** test *** test */
-#define name(n) new_name(n)
-#define cons(h,t) new_cons((h),(t))
-#define ap(h,t) new_apply((h),(t))
-
-#define def(n, expr) ap(name(n), name(expr))
-
-#define add_def(name, expr, list) \
-    cons(cons(name, H(list)), \
-         cons(expr, T(list)))
-    
-#define list1 add_def(name("firstname"), name("firstdef"),cons(NIL,NIL))
-#define list2 add_def(name("2name"), name("2def"),list1)
-#define list3 add_def(name("firstname"), name("redfined"),cons(NIL,NIL))
-
-  
-#define x name("x")
-#define y name("y")
-#define z name("z")
-#define yx cons(cons(y,x),NIL)
-#define zyx cons(z,yx)
-#define new1 NIL
-#define old ap(yx,zyx)
-#ifdef test_de_dup
-  extern pointer de_dup(pointer n, pointer o);
-#define test(n,o) {out_debug1(n);out_debug1(o);out_debug(cons(n,de_dup(n,o)));}
+#ifdef notdef
+#include "test/test.c" /* unit test */
 #endif
-  
-#define test(new, old)  {out_debug(new);out_debug(old);out_debug(reduce(new));}
-  
-#define Itest ap(new_comb(I_comb), NIL)
-  
-  {
-    extern pointer make_defs(pointer n, pointer o);
-    fprintf(stderr, "*test start*\n");
-    test(Itest, NIL);
-    fprintf(stderr, "*test done*\n");
-  }
-  /* *** test *** test *** test *** test *** test *** test *** test *** test */
-#endif
-  
 
   return(0);
 }

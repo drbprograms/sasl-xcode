@@ -14,16 +14,16 @@
 /*
  * make_append - adds new cons cell containing tl and NIL terminator to end of non-NIL list; does nothing  if list is NIL
  * || append (a:x) tl = a:append x tl
- * || append () tl    = tl,
-  * return top of the list
+ * || append () tl    = tl
+ * return top of the list
  */
 pointer make_append(pointer list, pointer tl)
 {
   if (IsNil(list))
-    list = new_cons(tl, NIL);
-  else
-    T(list) = make_append(T(list), tl);
-  
+    return tl;
+
+  Assert(IsCons(list));
+  T(list) = make_append(T(list), tl);
   return list;
 }
 
