@@ -184,24 +184,24 @@ int reduce_int(pointer *nn)
     return Num(*nn);
 }
 
-char reduce_bool(pointer n)
+char reduce_bool(pointer *nn)
 {
-    n = reduce(n);
+    *nn = reduce(*nn);
     
-    if (Tag(n) != bool_t)
+    if (Tag(*nn) != bool_t)
         (void) err_reduce("expecting bool");
     
-    return Bool(n);
+    return Bool(*nn);
 }
 
-char reduce_char(pointer n)
+char reduce_char(pointer *nn)
 {
-    n = reduce(n);
+    *nn = reduce(*nn);
     
-    if (Tag(n) != char_t)
+    if (Tag(*nn) != char_t)
         (void) err_reduce("expecting char");
     
-    return Char(n);
+    return Char(*nn);
 }
 
 /* implement int -> double widening */
@@ -211,14 +211,14 @@ double reduce_double(pointer n)
     return Dbl(n);
 }
 
-pointer reduce_cons(pointer n)
+pointer reduce_cons(pointer *nn)
 {
-    n = reduce(n);
+    *nn = reduce(*nn);
     
-    if (!IsCons(n))
+    if (!IsCons(*nn))
         (void) err_reduce("expecting cons");
     
-    return n;
+    return *nn;
 }
 
 /* equality is polymophic and expands through lists [SASL Manual 1983] 
@@ -231,18 +231,18 @@ pointer reduce_cons(pointer n)
  */
 char reduce_is_equal(pointer *nn1, pointer *nn2)
 {
-    pointer n1 = *nn1, n2 = *nn2;
+    pointer n1, n2;
+    
+    n1 = *nn1 = reduce(*nn1); /* update in place */
+    n2 = *nn2 = reduce(*nn2); /* update in place */
     
     if (IsCons(n1))
         return (IsCons(n2) &&
                 reduce_is_equal(&Hd(n1), &Hd(n2)) &&
                 reduce_is_equal(&Tl(n1), &Tl(n2)));
-    
-    *nn1 = n1 = reduce(n1); /* update in place */
+   
     
     if (IsNil(n1) || IsConst(n1)) {
-        
-        *nn2 = n2 = reduce(n2); /* update in place */
         
         if (IsNil(n1))
             return (IsNil(n2)); /* NIL == NIL,  NIL != non-nil */
@@ -261,6 +261,7 @@ char reduce_is_equal(pointer *nn1, pointer *nn2)
                   /* IsFail() is never equal to anything */
                   )));
     }
+    /* function never equal to function ... */
     return 0;
 }
 
@@ -543,7 +544,7 @@ pointer reduce(pointer n)
                 case unary_plus_op:
                     Stack1 = refc_update_to_int (Stack1,   reduce_int(&Arg1)); Pop(1); continue;
                 case unary_not_op:
-                    Stack1 = refc_update_to_bool(Stack1, ! reduce_bool(Arg1)); Pop(1); continue;
+                    Stack1 = refc_update_to_bool(Stack1, ! reduce_bool(&Arg1)); Pop(1); continue;
                     
                 case unary_strict:
                     Arg1 = reduce(Arg1); /* strict */
@@ -671,8 +672,8 @@ pointer reduce(pointer n)
                     case times_op:	Stack2 = refc_update_to_int(Stack2, reduce_int(&Arg1) * reduce_int(&Arg2));	Pop(2);	continue;
                     case int_divide_op:	Stack2 = refc_update_to_int(Stack2, reduce_int(&Arg1) / reduce_int(&Arg2));	Pop(2);	continue;
                         
-                    case or_op:	Stack2 = refc_update_to_bool(Stack2, reduce_bool(Arg1) || reduce_bool(Arg2));	Pop(2);	continue;
-                    case and_op:	Stack2 = refc_update_to_bool(Stack2, reduce_bool(Arg1) && reduce_bool(Arg2));	Pop(2);	continue;
+                    case or_op:	Stack2 = refc_update_to_bool(Stack2, reduce_bool(&Arg1) || reduce_bool(&Arg2));	Pop(2);	continue;
+                    case and_op:	Stack2 = refc_update_to_bool(Stack2, reduce_bool(&Arg1) && reduce_bool(&Arg2));	Pop(2);	continue;
                      
                     case colon_op:
                         /* (P x y) => (x:y)
@@ -683,8 +684,10 @@ pointer reduce(pointer n)
                         continue;
 
                     case plusplus_op:
-                        /* ++ list1 list2 => append list2 to end of list1 */
-                        Arg1 = reduce_cons(Arg1);
+                        /* ++ list1 list2 => append list2 to end of list1 NB () ++ x => x */
+                        Arg1 = reduce(Arg1);
+                        if ( ! (IsCons(Arg1) || IsNil(Arg1)))
+                            err_reduce("plusplus_op - non-list first arg");
                         Stack2 = refc_update_hdtl(Stack2, new_comb(I_comb), make_append(refc_copy(Arg1), refc_copy(Arg2)));
                         Pop(2);
                         continue;
@@ -726,12 +729,14 @@ pointer reduce(pointer n)
                         err_reduce("power op not expected");
                         Pop(2);
                         continue;
-
+                        
                         /* comb arg1 arg2 */
                     case K_nil_comb:
-                        if ( ! (IsCons(Arg2) || (IsApply(Arg2) &&
-                                                 ((Tag(Hd(Arg2)) == H_comb) ||
-                                                  (Tag(Hd(Arg2)) == T_comb))) /* allow "lazy" lists */
+                        if ( ! (IsNil(Arg2) ||
+                                IsCons(Arg2) ||
+                                (IsApply(Arg2) &&
+                                 ((Tag(Hd(Arg2)) == H_comb) ||
+                                  (Tag(Hd(Arg2)) == T_comb))) /* allow "lazy" lists */
                                 ))
                             err_reduce("K_nil_comb - non-list second arg");
                     case K_comb:
@@ -751,7 +756,7 @@ pointer reduce(pointer n)
                         
                     case TRY_comb: {
                         /* TRY FAIL y => y
-                         TRY x    y => x */
+                         * TRY x    y => x */
                         Arg1 = reduce(Arg1);
                         if (IsFail(Arg1)) {
                             Stack2 = refc_update_hdtl(Stack2, new_comb(I_comb), refc_copy(Arg2));
@@ -764,8 +769,8 @@ pointer reduce(pointer n)
                         
 #ifdef incorrect
                     case U_comb:
-                        /*  U f (x:y) => (f x) y */
-                        /*  U f other => FAIL */
+                        /*  U f (x:y) => (f x) y
+                         *  U f other => FAIL */
                         Arg2 = reduce(Arg2);
                         if (IsCons(Arg2)) {
                             Stack2 = refc_update_hdtl(Stack2, new_apply(refc_copy(Arg1), refc_copy(Hd(Arg2))), refc_copy(Tl(Arg2)));
@@ -786,7 +791,7 @@ pointer reduce(pointer n)
                         
                     case cond_op:	{
                         /* cond b t f => t (or f) */
-                        if (reduce_bool(Arg1))
+                        if (reduce_bool(&Arg1))
                             Stack3 = refc_update_hdtl(Stack3, new_comb(I_comb), refc_copy(Arg2));
                         else
                             Stack3 = refc_update_hdtl(Stack3, new_comb(I_comb), refc_copy(Arg3));
