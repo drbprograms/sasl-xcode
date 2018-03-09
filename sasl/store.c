@@ -22,7 +22,8 @@ pointer make_append(pointer list, pointer tl)
   if (IsNil(list))
     return tl;
 
-  Assert(IsCons(list));
+  /* was Assert(IsCons(list)); but wrong as that is strict */
+  Assert(IsStruct(list));
   T(list) = make_append(T(list), tl);
   return list;
 }

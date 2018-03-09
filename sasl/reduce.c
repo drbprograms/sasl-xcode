@@ -452,6 +452,7 @@ pointer reduce(pointer n)
                     if (Stacked == 1)
                         return Pop(1); /* like constatnts */
                     
+                    Arg1 = reduce(Arg1); /* strict */
                     if (!IsNum(Arg1))
                         err_reduce("applying a list to something that is not a number");
                     
