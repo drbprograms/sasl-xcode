@@ -32,7 +32,7 @@
 
 /* Begin PBXFileReference section */
 		0F7E6537201A31AD001A6B3C /* sasl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sasl; sourceTree = BUILT_PRODUCTS_DIR; };
-		0F7E6541201A4BFD001A6B3C /* zone.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = zone.c; sourceTree = "<group>"; };
+		0F7E6541201A4BFD001A6B3C /* zone.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 2; lastKnownFileType = sourcecode.c.c; path = zone.c; sourceTree = "<group>"; };
 		0F7E6543201A4BFD001A6B3C /* make.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = make.h; sourceTree = "<group>"; };
 		0F7E6544201A4BFD001A6B3C /* common.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 2; lastKnownFileType = sourcecode.c.c; path = common.c; sourceTree = "<group>"; };
 		0F7E6545201A4BFE001A6B3C /* reduce.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = reduce.c; sourceTree = "<group>"; };
