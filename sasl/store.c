@@ -883,3 +883,30 @@ pointer refc_move_h2h(pointer to, pointer from)
   Hd(from) = NIL;
   return to;
 }
+
+/*
+ * startup/closedown
+ */
+int store_init()
+{
+  fprintf(stderr, "store_init\n");
+  refc_delete(&root);
+  refc_delete(&defs);
+  refc_delete(&builtin);
+
+  return 0;
+}
+
+int store_done()
+{
+  refc_delete(&root);
+  refc_delete(&defs);
+  refc_delete(&builtin);
+  
+  if (debug) {
+    fprintf(stderr, "store_done\n");
+    (void) reduce_log_report(stderr);
+  }
+
+  return 0;
+}

@@ -42,3 +42,7 @@ extern pointer refc_move_h2h(pointer from, pointer to);
 extern int refc_check(void);
 extern char *refc_pointer_info(pointer p);
 extern void refc_log_report(FILE *where);
+
+extern int store_init();
+extern int store_done();
+

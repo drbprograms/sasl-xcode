@@ -91,12 +91,15 @@ static int main_init()
   no_prelude        = getenv_int("no_prelude", 0); /* default off unless "-p" in argv[] */
   no_reset		    = getenv_int("no_reset", 1); /* default off - todo change for interactive use */
 
-  /* store_init() */
-  refc_delete(&root);
-  refc_delete(&defs);
-  refc_delete(&builtin);
+  store_init();
   
- return reduce_init();
+ return store_init() || reduce_init();
+}
+
+/* closedown */
+static int main_done()
+{
+  return store_done();
 }
 
 /* *** test *** test *** test *** test *** test *** test *** test *** test */
@@ -169,10 +172,19 @@ int main(int argc, char **argv)
     for (/**/; argc > i; i++)
       read_file(argv[i]);
   } else {
+    /* no files - interactive */
     (void) fprintf(stderr, "hello from %s\n", argv[0]);
-    read_file("/dev/stdin");
+    read_file("/dev/stdin"); /*todo not quite right - need to say what next after ever program */
     fprintf(stderr, "what next?\n");
   }
+  
+  /*
+   * all done - wrap up
+   */
+  main_done();
+  
+  if (debug)
+    (void) reduce_log_report(stderr);
   
 
 #ifdef notdef
