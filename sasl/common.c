@@ -558,11 +558,18 @@ int list_length(pointer p)
 
 void *new_table(size_t count, size_t size)
 {
+  /* to do add loggin/validation? */
   void *t =  calloc(size, count);
   if (t == NULL) {
     (void) err_zone("new_table: calloc out of space");
     return 0; /*NOTREACHED*/
   }
   return t;
+}
+
+void free_table(void *t)
+{
+  /* to do add loggin/validation? */
+  free(t);
 }
 

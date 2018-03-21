@@ -31,31 +31,86 @@ static int parse_err(char *f, char *msg1, char *msg2)
 /* NB must only be called when there is no possibility of cycles in n */
 /*
  * check ()   = ()
- * check def  =  check exprlist WHERE (n:namelist:exprlist) = def
+ * deprecated for make_bind() style defs: check def  =  check exprlist WHERE (n:namelist:exprlist) = def
  * check (a:x) = isatom a -> (isname a -> ERROR; check x); (check a : check x)?
  */
 pointer parse_check(pointer n, char *msg)
 {
   /*WIP WIP */
-  return n; /* crashes with MacOS stack 512 limit!!*/
+  /*  return n; *//* crashes with MacOS stack 512 limit!!*/
   /*WIP WIP */
-
+  
   if (IsNil(n))
     return NIL;
   
   if (IsDef(n))
-    return parse_check(DefNames(n), msg);
+  /*was
+   return parse_check(DefNames(n), msg);*/
+    return n;
   
   if (IsStruct(n)) {
     H(n) = parse_check(H(n), msg);
     T(n) = parse_check(T(n), msg);
   } else {
     if (IsName(n)) {
-      parse_err("undefined variable", Name(n), msg);
+      parse_err("undefined variable", Name(n), msg); /* TODO give indication of where the name occurs in SASL program text */
     } /* else nothing to do */
   }
   return n;
 }
+
+/*
+ * Iterative check - MacOS stack is limited to depth 512 then aborts
+ */
+static pointer *stack;
+static pointer *sp;
+static unsigned stack_size = 0;
+
+#define Stacked (sp-stack)
+#define Push(p) (Assert(Stacked < stack_size), *sp++ = (p))
+#define Pop     (Assert(Stacked > 0),         (*--sp))
+
+static pointer parse_checki(pointer n, char *msg)
+{
+  
+  while (1) {
+    
+    while (IsSet(n) && IsStruct(n)) {
+      Push(n);
+      n = H(n);
+    }
+    
+    if (IsName(n))
+      parse_err("undefined variable", Name(n), msg); /* TODO give indication of where the name occurs in SASL program text */
+    
+    if (Stacked == 0)
+      return n;
+    
+    n = Pop;
+    Assert(IsStruct(n));
+    n = T(n);
+  }
+}
+
+pointer parse_check0(pointer n, char *msg)
+{
+  extern int refc_inuse(void); /**/
+  
+  /* Assert(is_tree(n)) - NO loops! */
+  
+  stack_size = refc_inuse();
+  sp = stack = new_table(stack_size , sizeof(pointer));
+  
+  parse_checki(n, msg);
+  
+  free_table(stack);
+  
+  return n;
+}
+
+#undef Stacked
+#undef Push
+#undef Pop
 
 /*
   <name>		::= alphbetic alphanumeric..		Note .. means 0 or more
@@ -594,7 +649,7 @@ pointer parse_program()
     parse_expr();
     if(lex_looking_at(tok_question_mark)) {
       Maker1("program<=expr?", 14,1);
-      return parse_check(root, "program<=expr?");
+      return parse_check0(root, "program<=expr?");
     }    else {
       parse_err("parse_program","expecting \'?\'","<program> ::= <expr>?");
       return NIL;

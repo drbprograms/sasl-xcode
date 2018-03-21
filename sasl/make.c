@@ -28,7 +28,7 @@ static pointer stack[STACK_SIZE];
 static pointer *sp = stack; /* sp points to top-of-stack (note: stack[0] never used) */
 
 #define Depth (sp-stack)    /* >=0 */
-#define Push(x) (sp++, *sp = (x))
+#define Push(x)  (*++sp=(x))
 #define Pop(n)  (sp -= (n), sp[n])
 #define Top   (*sp)
 
@@ -296,14 +296,20 @@ pointer make_where(pointer condexp, pointer defs)
 {
   MAKE_DEBUG("make_where ...\n");
   
+  if (IsNil(defs))
+    return condexp;
+  
   pointer a1 = make_abstract(Hd(defs), condexp, 0/*non-recursive*/);
   pointer a2 = make_abstract(Hd(defs), Tl(defs), 1/*recursive*/);
+//  pointer a1 = make_abstract(refc_copy(Hd(defs)), condexp, 0/*non-recursive*/);
+//  pointer a2 = make_abstract(refc_copy(Hd(defs)), refc_copy(Tl(defs)), 1/*recursive*/);
 
   condexp = new_apply(a1, a2);
   
 /*  Hd(defs) = NIL; / * move *//*xxx*/
+//    xrefc: no need to set NIL; DO NEED THE DELETE
   Tl(defs) = NIL; /* move *//*defs are copied when used in abstract() */
-  refc_delete(&defs); /* no longer required */
+  refc_delete(&defs); /* surplus cons node */
   
   /* todo: copy and save defs list Hd/Tl pointers for debugging/ Module definition? */
   
@@ -543,7 +549,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
         }
         case 2: {
           pointer result = make_abstract(n1, n2, 0/*nonrecursive*/);
-          refc_delete(&n1); /* assume not needed xxx tidy whether to delete in make_abstract (code/no-code)) */
+          refc_delete(&n1); /* xrefc assume not needed xxx tidy whether to delete in make_abstract (code/no-code)) */
           return result;
         }
         case 3: return n1;
@@ -592,6 +598,18 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
       
       case 2: {
         /* || clause == names:expr */
+#ifdef lastest
+        if (IsSameName(HH(n1), H(n2))) {
+          /*multi-clause definition */
+          HT(n1) = make_multi_clause(HT(n1), refc_copy(T(n2)), info);
+          /* H(n2) is surplus to requirements, and is deleted below */
+        } else {
+          /* single clause definition, so far */
+          H(n1) = new_cons(refc_copy(H(n2)), H(n1));
+          T(n1) = new_cons(refc_copy(T(n2)), T(n1));
+        }
+        refc_delete(&n2); /* surplus cons node, possibly with contents */
+#else
 #ifdef defdef
         if (IsSameName(H(Defnames(n1)), H(n2))) {
           /*multi-clause definition */
@@ -605,16 +623,16 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
 #else
         if (IsSameName(HH(n1), H(n2))) {
           /*multi-clause definition */
-          HT(n1) = make_multi_clause(HT(n1), T(n2), info);
-          T(n2) = NIL; /*move*/ /* H(n2) is surplus to requirements, delete below */
+          HT(n1) = make_multi_clause(HT(n1), T(n2), info); T(n2) = NIL; /*move*/
+          /* H(n2) is surplus to requirements, and is deleted below */
         } else {
           /* single clause definition, so far */
-          H(n1) = new_cons(H(n2), H(n1));
-          T(n1) = new_cons(T(n2), T(n1));
-          H(n2) = T(n2) = NIL; /*move*/
+          H(n1) = new_cons(H(n2), H(n1)); H(n2) = NIL; /*move*/
+          T(n1) = new_cons(T(n2), T(n1)); T(n2) = NIL; /*move*/
         }
 #endif
         refc_delete(&n2); /* surplus cons node, possibly with contents */
+#endif
         return n1;
       }
       
@@ -632,7 +650,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
        */
       switch (subrule) {
         case 1: return n1;
-        case 2: return make_where(n1, n2);
+        case 2: n1 = make_where(n1, n2); /*was refc_delete(&n2);*/ return n1;
       }
       break;
       
@@ -694,9 +712,16 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           Assert(IsNil(defs) || IsDef(defs));
           Assert(IsDef(builtin));
 
+#ifdef def
           n1 = make_bind(builtin, n1, NULL);
           root = make_bind(defs, n1, "undefined name: ");
-
+#else
+          n1 = make_where(n1, refc_copy(DefDefs(builtin)));
+          if (IsSet(defs))
+            n1 = make_where(n1, refc_copy(DefDefs(defs)));
+          refc_delete(&root);
+          root = n1;
+#endif
           
           return root;
           
@@ -711,17 +736,24 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           refc_delete(&root);
 //          refc_delete(&defs);
 
+#ifdef def
           T(n1) = make_bind(builtin, T(n1), NULL);
+#else
+          T(n1) = make_where(T(n1), refc_copy(DefDefs(builtin)));
+//          T(n1) = make_where(T(n1), n1); /* mutual recursion in the defs */
+#endif
 
+          /*WIP WIP 2nd adn subsequent DEF */
           if (IsNil(defs))
             defs = new_def(new_name("<Top>"), n1);
 //          else
 //            defs = add_deflist_to_def(defs, n1);
 
+#ifdef def
           DefExprs(defs) = make_bind(builtin, DefExprs(defs), NULL); /* resolve builtin references */
           DefExprs(defs) = make_bind(defs,    DefExprs(defs), "in DEF: undefined name: "); /* resolve internal references */
           /* XXX todo Y comb here?? */
-          
+#endif
           return defs;
         }
           break;

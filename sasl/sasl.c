@@ -99,7 +99,9 @@ static int main_init()
 /* closedown */
 static int main_done()
 {
-  return store_done();
+  store_done();
+  (void) reduce_log_report(stderr);
+  return 0;
 }
 
 /* *** test *** test *** test *** test *** test *** test *** test *** test */

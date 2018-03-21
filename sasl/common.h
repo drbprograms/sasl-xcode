@@ -154,10 +154,10 @@ typedef enum tag {
 typedef struct node
 {
   union val {
-    /* struct */
+    /* has pointers */
     struct pointers {
-      pointer hd, tl;	/* apply_t	sasl "apply" node, OR ...
-                         cons_t	sasl "cons" node
+      pointer hd, tl;	/* apply_t	sasl "apply" node
+                         cons_t	sasl "cons" node, OR ...
                          ALSO NB comb_t uses hd as tag, tl as name of variable being abstracted */
     } pointers;
     
@@ -258,7 +258,8 @@ typedef struct node
 #define Char(ptr)	_GETVCHECK((ptr),c,IsChar)
 #define UnName(ptr)  _GETVCHECK((ptr),op,IsFun).n         /* function name char * */
 #define UnFun(ptr)   _GETVCHECK((ptr),op,IsFun).fun       /* function (*fun)(pointer p) */
-#define DefName(ptr) _GETVCHECK((ptr),pointers,IsDef).hd
+#define DefName(ptr) (_GETVCHECK((ptr),pointers,IsDef).hd)
+#define DefDefs(ptr) (_GETVCHECK((ptr),pointers,IsDef).tl)
 #define DefNames(ptr) H(_GETVCHECK((ptr),pointers,IsDef).tl)
 #define DefExprs(ptr) T(_GETVCHECK((ptr),pointers,IsDef).tl)
 #else
@@ -272,7 +273,8 @@ typedef struct node
 #define Bool(ptr)	_GETV((ptr),b)
 #define Char(ptr)	_GETV((ptr),c)
 #define Name(ptr)	_GETV((ptr),n)
-#define DefName(ptr) _GETV((ptr),pointers).hd
+#define DefName(ptr) (_GETV((ptr),pointers).hd)
+#define DefDefs(ptr) (_GETV((ptr),pointers).tl)
 #define DefNames(ptr) H(_GETV((ptr),pointers).tl)
 #define DefExprs(ptr) T(_GETV((ptr),pointers).tl)
 #endif
@@ -356,3 +358,4 @@ extern int list_length(pointer p);
  * Tables to store variable-sized objects
  */
 void *new_table(size_t count, size_t size);
+void free_table(void *t);

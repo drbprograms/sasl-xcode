@@ -262,7 +262,7 @@ void refc_free_log(pointer p)
 static pointer refc_freelist = {(node *)0,0};/* "NIL" in a way that satisfies cc() */
 
 static int refc_free_count = 0;  /* how many nodes in the free list */
-static int refc_inuse_count = 0;  /* nodes in use == reachable from 'root' */
+static int refc_inuse_count = 0;  /* nodes in use == reachable from 'root' or 'defs' or 'builtin' */
 
 /* how many nodes are in use? */
 int refc_inuse()
@@ -350,7 +350,7 @@ void free_node(pointer p)
   /* add to freelist - refc_frelist is Hd linked list of strong pointers (possibly NIL) */
   Tag(p) = cons_t;
   Hd(p) = refc_freelist;
-  Tl(p) = NIL;
+  Tl(p) = NIL; // not needed
   
   PtrBit(p)= NodeBit(p) = PtrBit(refc_freelist);  /* link with strong pointers */
   Srefc(p) = 1;
@@ -390,6 +390,112 @@ int refc_check_log6(char *msg, int result, int zone_no, int node_no, int i, int 
 }
 
 /*
+ * Iterative check - MacOS stack is limited to depth 512 then aborts
+ */
+static pointer *stack;
+static pointer *sp;
+static unsigned stack_size = 0;
+
+#define Stacked (sp-stack)
+#define Push(p) (Assert(Stacked < stack_size), *sp++ = (p))
+#define Pop     (Assert(Stacked > 0),         (*--sp))
+
+/*
+ * update debug info for a pointer and poitned to node
+ * returns ALLrefc of node
+ */
+static int refc_check_visit_node(pointer p, int s_limit, int *nil_count,  int *s_count, int *w_count, int *struct_count, int *atom_count)
+{
+  zone_header *z;
+  long int node_no;  /* offset of Node(p) within the zone */
+
+  /* count the pointer */
+  if (IsStrong(p)) {
+    (*s_count)++;
+    if ((s_limit > 0) && (*s_count > s_limit)) {
+      if (debug > 1) {
+        fprintf(stderr, "strong pointer loop detected (limit=%d)\n", s_limit);
+        return 1;
+      } else {
+        char s[512];
+        (void) sprintf(s, "strong pointer loop detected (limit=%d) ", s_limit);
+        (void) err_zone(s);
+        /*NOTREACHED*/
+      }
+    }
+  }
+  else {
+    (*w_count)++;
+  }
+  
+  z = zone_of_node(Node(p));
+  if (!z)
+    return refc_check_log("traverse pointers: can't find zone for pointer ", 99);
+  node_no = Node(p) - z->nodes;
+  
+  /* update debug refc */
+  if (IsStrong(p))
+    (z->debug_nodes[node_no].s_refc)++;
+  else
+    (z->debug_nodes[node_no].w_refc)++;
+  
+  z->debug_nodes[node_no].t = z->nodes[node_no].t;
+
+  return((z->debug_nodes[node_no].s_refc) +
+         (z->debug_nodes[node_no].w_refc));
+}
+
+int refc_check_traverse_pointers_do(pointer p, int s_limit, int *nil_count,  int *s_count, int *w_count, int *struct_count, int *atom_count)
+{
+  while (1) {
+    /* pointer nodes, not previosuly visited */
+    while (HasPointers(p)) {
+      if (refc_check_visit_node(p, s_limit, nil_count, s_count, w_count, struct_count, atom_count) == 1)
+        (*struct_count)++;
+      else
+        break; /* only visit/count pointed-to node first time through */
+      
+      Push(p);
+      p = H(p);
+    }
+    
+    if (IsNil(p)) {
+      (*nil_count)++;
+    } else if (!HasPointers(p)) {
+      if (refc_check_visit_node(p, s_limit, nil_count, s_count, w_count, struct_count, atom_count) == 1)
+        (*atom_count)++;
+    }
+    
+    if (Stacked == 0)
+      return 0; /* all done */
+    
+    p = Pop;
+    Assert(HasPointers(p));
+    p = T(p);
+  }
+}
+
+int refc_check_traverse_pointers0(pointer p, int s_limit, int *nil_count,  int *s_count, int *w_count, int *struct_count, int *atom_count)
+{
+  int res;
+  
+  /* Assert(is_tree(n)) - NO loops! */
+  
+  stack_size = s_limit;
+  sp = stack = new_table(stack_size , sizeof(pointer));
+  
+  res = refc_check_traverse_pointers_do(p, s_limit, nil_count, s_count, w_count, struct_count, atom_count);
+  
+  free_table(stack);
+  
+  return res;
+}
+
+#undef Stacked
+#undef Push
+#undef Pop
+
+/*DEPRECATED
  refc_check_traverse_pointers - traverse pointers, populating debug_nodes with Tag/Srefc/Wrefc
  recursively traverse from p counting pointers and nodes and updating debug_nodes
  
@@ -658,7 +764,7 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
     
     /* report and return if no zones in use */
     if (zone_current == 0) {
-      refc_check_log("zone_current == 0", 1);
+      refc_check_log("no zones in use", 1);
       return 1;
     }
     
@@ -721,7 +827,7 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
       if (IsWeak(root))
         (void) fprintf(stderr, "!!root pointer is weak - unexpected\n");
       
-      res += refc_check_traverse_pointers(root, refc_inuse_count*2, &nil_count, &strong_count, &weak_count, &struct_count, &atom_count);
+      res += refc_check_traverse_pointers0(root, refc_inuse_count*2, &nil_count, &strong_count, &weak_count, &struct_count, &atom_count);
       res += refc_check_loop(root, refc_inuse_count*2); /* stricter to use struct_count */
     }
     
@@ -733,7 +839,7 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
       if (IsWeak(defs))
         (void) fprintf(stderr, "!!defs pointer is weak - unexpected\n");
       
-      res = refc_check_traverse_pointers(defs, refc_inuse_count*2, &nil_count, &strong_count, &weak_count, &struct_count, &atom_count);
+      res = refc_check_traverse_pointers0(defs, refc_inuse_count*2, &nil_count, &strong_count, &weak_count, &struct_count, &atom_count);
       res += refc_check_loop(defs, refc_inuse_count*2);
     }
     
@@ -745,7 +851,7 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
       if (IsWeak(builtin))
         (void) fprintf(stderr, "!!builtin pointer is weak - unexpected\n");
       
-      res = refc_check_traverse_pointers(builtin, refc_inuse_count*2, &nil_count, &strong_count, &weak_count, &struct_count, &atom_count);
+      res = refc_check_traverse_pointers0(builtin, refc_inuse_count*2, &nil_count, &strong_count, &weak_count, &struct_count, &atom_count);
       res += refc_check_loop(builtin, refc_inuse_count*2);
     }
     
@@ -782,7 +888,7 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
         if (IsWeak(freelist))
           (void) fprintf(stderr, "!!freelist pointer is weak - unexpected\n");
         
-        res += refc_check_traverse_pointers(freelist, (refc_inuse_count + refc_free_count)*2, &free_nil_count, &free_strong_count, &free_weak_count, &free_struct_count, &free_atom_count);
+        res += refc_check_traverse_pointers0(freelist, (refc_inuse_count + refc_free_count)*2, &free_nil_count, &free_strong_count, &free_weak_count, &free_struct_count, &free_atom_count);
         res += refc_check_loop(freelist, free_struct_count*2);
       }
       

@@ -451,7 +451,7 @@ static void refc_search(pointer start, pointer *pp)
       Srefc(*pp)--;
       PtrBit(*pp) = !NodeBit(*pp); /* Was: PtrBit(p) = !PtrBit(p); */
     } else {
-      /* strong pointer stays strong: recurse (if node contains pointers) */
+      /* strong pointer stays strong: recurse (where node contains pointers) */
       Assert(Srefc(*pp) == 1);
       refc_search(start, &Hd(*pp));
       refc_search(start, &Tl(*pp));
@@ -876,14 +876,6 @@ pointer refc_update_hdtl(pointer n, pointer newhd, pointer newtl)
 
 }
 
-/* refc_moveh2h(from, to) move pointer: Hd(to) becomes Hd(from), setting original Hd(to) to NIL */
-pointer refc_move_h2h(pointer to, pointer from)
-{
-  Hd(to) = Hd(from);
-  Hd(from) = NIL;
-  return to;
-}
-
 /*
  * startup/closedown
  */
@@ -905,7 +897,6 @@ int store_done()
   
   if (debug) {
     fprintf(stderr, "store_done\n");
-    (void) reduce_log_report(stderr);
   }
 
   return 0;
