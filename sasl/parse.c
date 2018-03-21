@@ -34,31 +34,6 @@ static int parse_err(char *f, char *msg1, char *msg2)
  * deprecated for make_bind() style defs: check def  =  check exprlist WHERE (n:namelist:exprlist) = def
  * check (a:x) = isatom a -> (isname a -> ERROR; check x); (check a : check x)?
  */
-pointer parse_check(pointer n, char *msg)
-{
-  /*WIP WIP */
-  /*  return n; *//* crashes with MacOS stack 512 limit!!*/
-  /*WIP WIP */
-  
-  if (IsNil(n))
-    return NIL;
-  
-  if (IsDef(n))
-  /*was
-   return parse_check(DefNames(n), msg);*/
-    return n;
-  
-  if (IsStruct(n)) {
-    H(n) = parse_check(H(n), msg);
-    T(n) = parse_check(T(n), msg);
-  } else {
-    if (IsName(n)) {
-      parse_err("undefined variable", Name(n), msg); /* TODO give indication of where the name occurs in SASL program text */
-    } /* else nothing to do */
-  }
-  return n;
-}
-
 /*
  * Iterative check - MacOS stack is limited to depth 512 then aborts
  */
@@ -70,7 +45,7 @@ static unsigned stack_size = 0;
 #define Push(p) (Assert(Stacked < stack_size), *sp++ = (p))
 #define Pop     (Assert(Stacked > 0),         (*--sp))
 
-static pointer parse_checki(pointer n, char *msg)
+static pointer parse_check_do(pointer n, char *msg)
 {
   
   while (1) {
@@ -92,7 +67,7 @@ static pointer parse_checki(pointer n, char *msg)
   }
 }
 
-pointer parse_check0(pointer n, char *msg)
+pointer prase_check(pointer n, char *msg)
 {
   extern int refc_inuse(void); /**/
   
@@ -101,7 +76,7 @@ pointer parse_check0(pointer n, char *msg)
   stack_size = refc_inuse();
   sp = stack = new_table(stack_size , sizeof(pointer));
   
-  parse_checki(n, msg);
+  parse_check_do(n, msg);
   
   free_table(stack);
   
@@ -640,7 +615,7 @@ pointer parse_program()
     
     if(lex_looking_at(tok_question_mark)) {
       Maker1("program<=defs ?", 14,3);
-      return parse_check(defs, "program<=defs ?");   /*xxx parse_check is NOT correct here or "the most recent"defs? */
+      return prase_check(defs, "program<=defs ?");   /*xxx parse_check is NOT correct here or "the most recent"defs? */
     } else {
       parse_err("parse_program","expecting \'?\'","<program> ::= DEF <defs>?");
       return NIL;
@@ -649,7 +624,7 @@ pointer parse_program()
     parse_expr();
     if(lex_looking_at(tok_question_mark)) {
       Maker1("program<=expr?", 14,1);
-      return parse_check0(root, "program<=expr?");
+      return prase_check(root, "program<=expr?");
     }    else {
       parse_err("parse_program","expecting \'?\'","<program> ::= <expr>?");
       return NIL;
