@@ -136,7 +136,7 @@ static char *zone_pointer_info_do(pointer p, int dbg)
               err_tag_name(Tag(p))
               );
   
-  if (debug >1) {
+  if (!dbg || debug >1) {
     /* add detail of pointed-to nodes */
     if (HasPointers(p)) {
       unsigned seq_hd, seq_tl;

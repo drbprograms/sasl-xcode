@@ -57,7 +57,8 @@ static pointer *sp = stack;
 #define A3 refc_copy(Arg3)
 #define A4 refc_copy(Arg4)
 
-#define Pop(n)	(sp -= (n), sp[n]) /* assert(sp>=base) value is previous Top of stack */
+#define Pop(n)  (sp -= (n), sp[n]) /* assert(sp>=base) value is previous Top of stack */
+#define Push(n) (*++sp = (n))
 
 /*
  * sasl - primitive to sasl functions
@@ -416,9 +417,8 @@ pointer reduce(pointer n)
         (void) err_reduce("stack depth within 90% of max");
         return NIL; /*NOTREACHED*/
     }
-    
-    sp[1] = n; /* Push(n) */
-    sp++;
+
+    Push(n);
     
     while (IsSet(Top) && Stacked > 0) {
         /* Within the loop, Top is set to NIL on error; also halt if nothing on stack - should never happen error */
@@ -621,10 +621,24 @@ pointer reduce(pointer n)
                             Pop(1);
                             return x; /*done*/
 #else
+#if 1
+                            if (debug)
+                                fprintf(stderr,"**I_comb Stacked=2 case\n");/*XXX*/
+                            {
+                                pointer x = refc_copy(Arg1);
+                                refc_delete(&Stack1);
+                                Pop(2);
+                                if (Depth > 0)
+                                    return x;
+                                else
+                                    Push(x);
+                            }
+#else
                             if (debug)
                                 fprintf(stderr,"**I_comb Stacked=2 case\n");/*XXX*/
                             Stack1 = refc_update(Stack1, Arg1);  /* Arg1 may be NIL */
                             Pop(1); /* may leave NIL on stack */
+#endif
 #endif
                         }
                     continue;

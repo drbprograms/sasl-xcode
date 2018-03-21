@@ -49,7 +49,7 @@ typedef enum tag {
   abstract_t,
 #define IsAbstractTag(t) ((t)==abstract_t)
   recursive_abstract_t,
-#define IsRecursiveAbstractTag(t) ((t)==abstract_t)
+#define IsRecursiveAbstractTag(t) ((t)==recursive_abstract_t)
   def_t,
 #define IsDefTag(t) ((t)==def_t)
   

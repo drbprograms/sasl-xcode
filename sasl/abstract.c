@@ -221,25 +221,25 @@ pointer reduce_abstract(pointer pattern, pointer exp, int r)
   } else if (IsMatchName(pattern)) {
     exp = new_apply(refc_copy(pattern), exp);
   } else {
-   if (IsApply(pattern)) {
+    Assert(IsStruct(pattern));
+    if (IsApply(pattern)) {
       /* [a b] E => [a] ([b] E) */
-     exp = reduce_abstract(Hd(pattern),
-                           reduce_abstract(Tl(pattern),
-                                           exp, 0/*nb*/), 0/*nb*/);
+      exp = reduce_abstract(refc_copy(Hd(pattern)),
+                            reduce_abstract(refc_copy(Tl(pattern)), exp, 0/*nb*/),
+                            0/*nb*/);
     } else if (IsNil(Tl(pattern))) {
       Assert(IsCons(pattern));
       /* [x:NIL] E => U ([x] (K_nil E)) */
       exp = new_apply(new_comb(U_comb),
-                      reduce_abstract((Hd(pattern)),
-                                      new_apply(new_comb(K_nil_comb),
-                                                exp),
+                      reduce_abstract(refc_copy(Hd(pattern)),
+                                      new_apply(new_comb(K_nil_comb), exp),
                                       0/*nb*/));
     } else {
       Assert(IsCons(pattern));
       /* [x:y] E => U ([x] ([y] E)) */
       exp = new_apply(new_comb(U_comb),
-                      reduce_abstract((Hd(pattern)),
-                                      reduce_abstract((Tl(pattern)), exp, 0/*nb*/),
+                      reduce_abstract(refc_copy(Hd(pattern)),
+                                      reduce_abstract(refc_copy(Tl(pattern)), exp, 0/*nb*/),
                                       0/*nb*/));
     }
   }
@@ -254,6 +254,8 @@ pointer reduce_abstract(pointer pattern, pointer exp, int r)
     out_debug(exp);
   }
   
+  refc_delete(&pattern);
+
   return exp;
 }
 

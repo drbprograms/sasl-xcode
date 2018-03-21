@@ -55,8 +55,9 @@ static pointer parse_check_do(pointer n, char *msg)
       n = H(n);
     }
     
-    if (IsName(n))
+    if (IsName(n)) {
       parse_err("undefined variable", Name(n), msg); /* TODO give indication of where the name occurs in SASL program text */
+    }
     
     if (Stacked == 0)
       return n;
