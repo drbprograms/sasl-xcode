@@ -215,27 +215,17 @@ pointer reduce_abstract(pointer pattern, pointer exp, int r)
     /* [const] E => MATCH const E */
     /* [NIL]   E => MATCH NIL   E */
     exp = new_apply3(new_comb(MATCH_comb), refc_copy(pattern), exp);
-//    xrefc no copy here:
-//     exp = new_apply3(new_comb(MATCH_comb), pattern, exp);
   } else if (IsName(pattern)) {
     /* [name] E => abstract1(name, E) */
     exp = reduce_abstract1(pattern, exp, 0); /* nb bug was 1; todo remove "r" parameter from abstract1() */
   } else if (IsMatchName(pattern)) {
     exp = new_apply(refc_copy(pattern), exp);
-//    xrefc no copy here:
-//     exp = new_apply(pattern, exp);
-   /*xxx bug need to AVOID putting (K ) around this */
-   
-    
   } else {
    if (IsApply(pattern)) {
       /* [a b] E => [a] ([b] E) */
      exp = reduce_abstract(Hd(pattern),
                            reduce_abstract(Tl(pattern),
                                            exp, 0/*nb*/), 0/*nb*/);
-//     exp = reduce_abstract(refc_copy(Hd(pattern)),
-//                           reduce_abstract(refc_copy(Tl(pattern)),
-//                                           exp, 0/*nb*/), 0/*nb*/);
     } else if (IsNil(Tl(pattern))) {
       Assert(IsCons(pattern));
       /* [x:NIL] E => U ([x] (K_nil E)) */
@@ -244,11 +234,6 @@ pointer reduce_abstract(pointer pattern, pointer exp, int r)
                                       new_apply(new_comb(K_nil_comb),
                                                 exp),
                                       0/*nb*/));
-//      exp = new_apply(new_comb(U_comb),
-//                      reduce_abstract(refc_copy(Hd(pattern)),
-//                                      new_apply(new_comb(K_nil_comb),
-//                                                exp),
-//                                      0/*nb*/));
     } else {
       Assert(IsCons(pattern));
       /* [x:y] E => U ([x] ([y] E)) */
@@ -256,18 +241,7 @@ pointer reduce_abstract(pointer pattern, pointer exp, int r)
                       reduce_abstract((Hd(pattern)),
                                       reduce_abstract((Tl(pattern)), exp, 0/*nb*/),
                                       0/*nb*/));
-//      exp = new_apply(new_comb(U_comb),
-//                      reduce_abstract(refc_copy(Hd(pattern)),
-//                                      reduce_abstract(refc_copy(Tl(pattern)), exp, 0/*nb*/),
-//                                      0/*nb*/));
     }
-//    refc_delete(pattern);
-#ifdef notdef
-    /*bug: means pattern can only be used once - which is wrong */
-    Hd(pattern) = Tl(pattern) = NIL;
-    refc_delete(&pattern);
-#endif
-    
   }
   
   if (r)
