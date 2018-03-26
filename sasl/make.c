@@ -597,8 +597,8 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           /* H(n2) is surplus to requirements, and is deleted below */
         } else {
           /* single clause definition, so far */
-          H(n1) = new_cons(refc_copy(H(n2)), H(n1));
-          T(n1) = new_cons(refc_copy(T(n2)), T(n1));
+          H(n1) = new_cons(refc_copy(H(n2)), H(n1));/*new update(H(n1), H(n2), me)*//* Assert(IsARoot(n1) || IsARoot(n2)) */
+          T(n1) = new_cons(refc_copy(T(n2)), T(n1));/*new update(T(n1), T(n2), me)*//* Assert(IsARoot(n1) || IsARoot(n2)) */
         }
         refc_delete(&n2); /* surplus cons node, possibly with contents */
 #else

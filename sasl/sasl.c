@@ -69,7 +69,7 @@ static int read_file(char *filename)
     }
     
     if (IsSet(root)) {
-      root = reduce_print(root);
+      root = reduce_print(&root);
       printf("\n"); /* in deference to Unix */
       refc_delete(&root);
     }

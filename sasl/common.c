@@ -252,9 +252,9 @@ static int out_out(FILE *where, pointer n)
     fprintf(where, "... ");
     return 0;
   }
-  if (IsNil(n))    
+  if (IsNil(n))
     return fprintf(where, "()");
-  else		  
+  else
     if (IsWeak(n))
       return fprintf(where, "<loop>");	/* can we identify the variable in question? */
     else    {
@@ -262,224 +262,220 @@ static int out_out(FILE *where, pointer n)
       int i;
       
       if (Wrefc(n) > 0)
-	(void) fprintf(where, "@");	/* hint for weak loops */
-
+        (void) fprintf(where, "@");	/* hint for weak loops */
+      
       switch (Tag(n)) {	/* (tag) cast ensures compler warnings for any tags not covered */
-      case int_t:
-	return fprintf(where, "%d",Num(n));
-      case floating_t: 
-	return fprintf(where, "%e",Dbl(n));
-      case char_t:	/* need to be smarter to print strings 'qwerty" */ /* todo decide whether to print special chars as 'TAB' or flatten? */
-	return fprintf(where, "%%%c",Char(n));
-      case bool_t:
-	return fprintf(where, "%s", Bool(n) ? "TRUE" : "FALSE");
-      case fail_t:
-	return fprintf(where, "FAIL");
-
-      case cons_t:
-	sep = ":";
-	if (budget > 0)
-	  budget--;
-
-	for (i = 0; i < Max && IsSet(n) && IsCons(n); i++) {
-	  Push(n);
-	  n = Hd(n);
-	}
-
-	(void) fprintf(where, "(");
-	if (IsSet(n))
-	  (void) out_out(where, n);
-	
-	/* assert(i > 0) */
-	for (/**/; i > 0; i--) {
-	  (void) fprintf(where, "%s", sep);
-	  (void) out_out(where, Tl(Pop(1)));
-	}
-	return fprintf(where, ")");
-
-      case apply_t:
-	sep = " ";
-
-	if (budget > 0)
-	  budget--;
-
-	for (i = 0; i < Max && IsSet(n) && IsApply(n); i++) {
-	  Push(n);
-	  n = Hd(n);
-	}
-
-	/* assert(i > 0) */
-	(void) fprintf(where, "(");
-
-	if (IsSet(n))
-	  (void) out_out(where, n);
-
-	for (/**/; i > 0; i--) {
-	  (void) fprintf(where, "%s", sep);
-	  (void) out_out(where, Tl(Pop(1)));
-	}
-	
-	return fprintf(where, ")");
-
-      case name_t:
-	return fprintf(where, "%s",Name(n));/* todo handle names */
-      case recursive_abstract_t:
-	(void) fprintf(where,"*");
-      case abstract_t:
-	(void) fprintf(where, "[");
-	(void) out_comb_name(where, n);
-	(void) fprintf(where, "]");
-	return out_out(where, Tl(n));
-	
-      case def_t:
-	(void) fprintf(where, "{");
-	(void) out_comb_name(where, n);
-	(void) fprintf(where, ":");
-	(void) out_out(where, Tl(n));
-	return fprintf(where, "}");
-	
-      case cond_op:
-	return fprintf(where, "->");
-      case colon_op:
-	return fprintf(where, ":");
-      case plusplus_op:
-	return fprintf(where, "++");
-      case minusminus_op:
-	return fprintf(where, "--");
-	
-      case range_op:
-	return fprintf(where, "..");
-	
-      case range_unbounded_op:
-	return fprintf(where, "...");
-	
-      case or_op:
-	return fprintf(where, "|");
-	
-      case and_op:
-	return fprintf(where, "&");
-	
-      case much_greater_op:
-	  return fprintf(where, ">>");
-      case greater_op:
-	return fprintf(where, ">");
-      case greater_equal_op:
-	return fprintf(where, ">=");
-      case equal_op:
-	return fprintf(where, "=");
-      case not_equal_op:
-	return fprintf(where, "~=");
-      case less_equal_op:
-	return fprintf(where, "<=");
-      case less_op:
-	return fprintf(where, "<");
-      case much_less_op:
-	return fprintf(where, "<<");
-	
-      case plus_op:
-	return fprintf(where, "+");
-      case minus_op:
-	return fprintf(where, "-");
-	
-      case times_op:
-	return fprintf(where, "*");
-      case divide_op:
-	return fprintf(where, "/");
-      case int_divide_op:
-	return fprintf(where, "div");
-      case rem_op:
-	return fprintf(where, "rem");
-	
-      case power_op:
-	return fprintf(where, "**");
-	
-      case unary_not_op:
-	return fprintf(where, "~");
-	
-      case unary_plus_op:
-	return fprintf(where, " +");
-      case unary_minus_op:
-	return fprintf(where, " -");
-	
-      case unary_count_op:
-	return fprintf(where, "#");
-	
-	/* hd contains debug name ie orginal variable */
-      case I_comb:
-	(void) fprintf(where, "I");
-	return out_comb_name(where, n);
-      case K_comb:
-	(void) fprintf(where, "K");
-	return out_comb_name(where, n);
-      case K_nil_comb:
-	(void) fprintf(where, "K_nil");
-	return out_comb_name(where, n);
-      case Y_comb:
-	(void) fprintf(where, "Y");
-	return out_comb_name(where, n);
-      case Yc_comb:
-	(void) fprintf(where, "Yc");
-	return out_comb_name(where, n);
-      case U_comb:
-	(void) fprintf(where, "U");
-	return out_comb_name(where, n);
-      case S_comb:
-	(void) fprintf(where, "S");
-	return out_comb_name(where, n);
-      case Sc_comb:
-	(void) fprintf(where, "Sc");
-	return out_comb_name(where, n);
-      case Sp_comb:
-	(void) fprintf(where, "Sp");
-	return out_comb_name(where, n);
-      case Spc_comb:
-	(void) fprintf(where, "Spc");
-	return out_comb_name(where, n);
-      case B_comb:
-	(void) fprintf(where, "B");
-	return out_comb_name(where, n);
-      case Bc_comb:
-	(void) fprintf(where, "Bc");
-	return out_comb_name(where, n);
-      case Bp_comb:
-	(void) fprintf(where, "Bp");
-	return out_comb_name(where, n);
-      case Bpc_comb:
-	(void) fprintf(where, "Bpc");
-	return out_comb_name(where, n);
-      case C_comb:
-	(void) fprintf(where, "C");
-	return out_comb_name(where, n);
-      case Cc_comb:
-	(void) fprintf(where, "Cc");
-	return out_comb_name(where, n);
-      case Cp_comb:
-	(void) fprintf(where, "Cp");
-	return out_comb_name(where, n);
-      case Cpc_comb:
-	(void) fprintf(where, "Cpc");
-	return out_comb_name(where, n);
-      case TRY_comb:
-	(void) fprintf(where, "TRY");
-	return out_comb_name(where, n);
-      case TRYn_comb:
-	(void) fprintf(where, "TRYn");
-	return out_comb_name(where, n);
-      case MATCH_comb:
-	(void) fprintf(where, "MATCH");
-	return out_comb_name(where, n);
-      case PAIR_comb:
-	(void) fprintf(where, "PAIR");
-	return out_comb_name(where, n);
-      case H_comb:
-	(void) fprintf(where, "H");
-	return out_comb_name(where, n);
-      case T_comb:
-	(void) fprintf(where, "T");
-	return out_comb_name(where, n);
-      case unary_strict:
+        case int_t:
+          return fprintf(where, "%d",Num(n));
+        case floating_t:
+          return fprintf(where, "%e",Dbl(n));
+        case char_t:	/* need to be smarter to print strings 'qwerty" */ /* todo decide whether to print special chars as 'TAB' or flatten? */
+          return fprintf(where, "%%%c",Char(n));
+        case bool_t:
+          return fprintf(where, "%s", Bool(n) ? "TRUE" : "FALSE");
+        case fail_t:
+          return fprintf(where, "FAIL");
+          
+        case cons_t:
+          sep = ":";
+          if (budget > 0)
+            budget--;
+          
+          for (i = 0; i < Max && IsSet(n) && IsCons(n); i++) {
+            Push(n);
+            n = Hd(n);
+          }
+          
+          (void) fprintf(where, "(");
+          (void) out_out(where, n);
+          /* assert(i > 0) */
+          for (/**/; i > 0; i--) {
+            (void) fprintf(where, "%s", sep);
+            (void) out_out(where, Tl(Pop(1)));
+          }
+          return fprintf(where, ")");
+          
+        case apply_t:
+          sep = " ";
+          
+          if (budget > 0)
+            budget--;
+          
+          for (i = 0; i < Max && IsSet(n) && IsApply(n); i++) {
+            Push(n);
+            n = Hd(n);
+          }
+          
+          /* assert(i > 0) */
+          (void) fprintf(where, "(");
+          (void) out_out(where, n);
+          for (/**/; i > 0; i--) {
+            (void) fprintf(where, "%s", sep);
+            (void) out_out(where, Tl(Pop(1)));
+          }
+          
+          return fprintf(where, ")");
+          
+        case name_t:
+          return fprintf(where, "%s",Name(n));/* todo handle names */
+        case recursive_abstract_t:
+          (void) fprintf(where,"*");
+        case abstract_t:
+          (void) fprintf(where, "[");
+          (void) out_comb_name(where, n);
+          (void) fprintf(where, "]");
+          return out_out(where, Tl(n));
+          
+        case def_t:
+          (void) fprintf(where, "{");
+          (void) out_comb_name(where, n);
+          (void) fprintf(where, ":");
+          (void) out_out(where, Tl(n));
+          return fprintf(where, "}");
+          
+        case cond_op:
+          return fprintf(where, "->");
+        case colon_op:
+          return fprintf(where, ":");
+        case plusplus_op:
+          return fprintf(where, "++");
+        case minusminus_op:
+          return fprintf(where, "--");
+          
+        case range_op:
+          return fprintf(where, "..");
+          
+        case range_unbounded_op:
+          return fprintf(where, "...");
+          
+        case or_op:
+          return fprintf(where, "|");
+          
+        case and_op:
+          return fprintf(where, "&");
+          
+        case much_greater_op:
+          return fprintf(where, ">>");
+        case greater_op:
+          return fprintf(where, ">");
+        case greater_equal_op:
+          return fprintf(where, ">=");
+        case equal_op:
+          return fprintf(where, "=");
+        case not_equal_op:
+          return fprintf(where, "~=");
+        case less_equal_op:
+          return fprintf(where, "<=");
+        case less_op:
+          return fprintf(where, "<");
+        case much_less_op:
+          return fprintf(where, "<<");
+          
+        case plus_op:
+          return fprintf(where, "+");
+        case minus_op:
+          return fprintf(where, "-");
+          
+        case times_op:
+          return fprintf(where, "*");
+        case divide_op:
+          return fprintf(where, "/");
+        case int_divide_op:
+          return fprintf(where, "div");
+        case rem_op:
+          return fprintf(where, "rem");
+          
+        case power_op:
+          return fprintf(where, "**");
+          
+        case unary_not_op:
+          return fprintf(where, "~");
+          
+        case unary_plus_op:
+          return fprintf(where, " +");
+        case unary_minus_op:
+          return fprintf(where, " -");
+          
+        case unary_count_op:
+          return fprintf(where, "#");
+          
+          /* hd contains debug name ie orginal variable */
+        case I_comb:
+          (void) fprintf(where, "I");
+          return out_comb_name(where, n);
+        case K_comb:
+          (void) fprintf(where, "K");
+          return out_comb_name(where, n);
+        case K_nil_comb:
+          (void) fprintf(where, "K_nil");
+          return out_comb_name(where, n);
+        case Y_comb:
+          (void) fprintf(where, "Y");
+          return out_comb_name(where, n);
+        case Yc_comb:
+          (void) fprintf(where, "Yc");
+          return out_comb_name(where, n);
+        case U_comb:
+          (void) fprintf(where, "U");
+          return out_comb_name(where, n);
+        case S_comb:
+          (void) fprintf(where, "S");
+          return out_comb_name(where, n);
+        case Sc_comb:
+          (void) fprintf(where, "Sc");
+          return out_comb_name(where, n);
+        case Sp_comb:
+          (void) fprintf(where, "Sp");
+          return out_comb_name(where, n);
+        case Spc_comb:
+          (void) fprintf(where, "Spc");
+          return out_comb_name(where, n);
+        case B_comb:
+          (void) fprintf(where, "B");
+          return out_comb_name(where, n);
+        case Bc_comb:
+          (void) fprintf(where, "Bc");
+          return out_comb_name(where, n);
+        case Bp_comb:
+          (void) fprintf(where, "Bp");
+          return out_comb_name(where, n);
+        case Bpc_comb:
+          (void) fprintf(where, "Bpc");
+          return out_comb_name(where, n);
+        case C_comb:
+          (void) fprintf(where, "C");
+          return out_comb_name(where, n);
+        case Cc_comb:
+          (void) fprintf(where, "Cc");
+          return out_comb_name(where, n);
+        case Cp_comb:
+          (void) fprintf(where, "Cp");
+          return out_comb_name(where, n);
+        case Cpc_comb:
+          (void) fprintf(where, "Cpc");
+          return out_comb_name(where, n);
+        case TRY_comb:
+          (void) fprintf(where, "TRY");
+          return out_comb_name(where, n);
+        case TRYn_comb:
+          (void) fprintf(where, "TRYn");
+          return out_comb_name(where, n);
+        case MATCH_comb:
+          (void) fprintf(where, "MATCH");
+          return out_comb_name(where, n);
+        case PAIR_comb:
+          (void) fprintf(where, "PAIR");
+          return out_comb_name(where, n);
+        case H_comb:
+          (void) fprintf(where, "H");
+          return out_comb_name(where, n);
+        case T_comb:
+          (void) fprintf(where, "T");
+          return out_comb_name(where, n);
+          
+        case unary_strict:
           return fprintf(where, "strict-%s", Uname(n));
-      case unary_nonstrict:
+        case unary_nonstrict:
           return fprintf(where, "maths-:%s", Uname(n));
       }
     }

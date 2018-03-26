@@ -531,7 +531,7 @@ int refc_check_traverse_pointers(pointer p, int s_limit, int *nil_count,  int *s
       } else {
         char s[512];
         (void) sprintf(s, "strong pointer loop detected (limit=%d) ", s_limit);
-        (void) err_zone(s);
+//        (void) err_zone(s);
         /*NOTREACHED*/
       }
     }
@@ -693,10 +693,11 @@ int refc_check_loop_do(pointer p, int s_limit, int s_count)
 }
 
 /* wrapper */
+#define Limit 24
 int refc_check_loop(pointer p, int s_limit)
 {
   if (refc_check_loop_do(p, s_limit, 0)) {
-    out_debug_limit(p, (debug > 1 ? s_limit : 1));
+    out_debug_limit(p, (debug > 1 ? s_limit : Limit));
     return 1;
   }
 

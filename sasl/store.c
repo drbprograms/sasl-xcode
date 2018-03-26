@@ -738,6 +738,68 @@ pointer refc_copy(pointer p)
   return refc_copyN(p, 1);
 }
 
+/* copy the H of a pointer, propagating weakness
+ * result is strong if p is strong and H(p) is strong, otherwise weak
+ */
+pointer refc_copyH(pointer p)
+{
+  pointer c;
+  
+  refc_copyN_log(p, -1/**/);
+  
+  if (IsNil(p))
+    return NIL;
+
+  c = H(p);
+  
+  if (IsNil(c))
+    return NIL;
+
+  /* IsStrong(p) && IsStrong(c) => Strong */
+  /* IsWeak(p)   && IsWeak(c)   => IsWeak */
+  /* IsStrong(p) && IsWeak(c)   => IsWeak */
+  /* IsWeak(p) && IsWeak(c)     => IsWeak */
+  
+  if (IsStrong(p) && IsStrong(c)) {
+    Srefc(c) += 1;
+  } else {
+    PtrBit(c) = !NodeBit(c); /* make weak, might be already */
+    Wrefc(c) += 1;
+  }
+  
+  return c;
+}
+
+pointer refc_copyT(pointer p)
+{
+  pointer c;
+  
+  refc_copyN_log(p, -2/**/);
+  
+  if (IsNil(p))
+    return NIL;
+
+  c = T(p);
+  
+  if (IsNil(c))
+    return NIL;
+  
+  /* IsStrong(p) && IsStrong(c) => Strong */
+  /* IsWeak(p)   && IsWeak(c)   => IsWeak */
+  /* IsStrong(p) && IsWeak(c)   => IsWeak */
+  /* IsWeak(p) && IsWeak(c)     => IsWeak */
+  
+  if (IsStrong(p) && IsStrong(c)) {
+    Srefc(c) += 1;
+  } else {
+    PtrBit(c) = !NodeBit(c); /* make weak */
+    Wrefc(c) += 1;
+  }
+  
+  return c;
+}
+
+#ifdef notdef
 /* refc_adjust - change refc for a pointer by"delta" (>= -1)
    if delta  > 0 increase refc
    if delta == 0 no change
@@ -752,6 +814,7 @@ void refc_adjust(pointer n, int delta)
 
   return;
 }
+#endif
 
 /*
  * refc_copy_make_cyclic - original COPY(R,<S,T>, TRUE) written as a function to be used "R = COPY(<S,T>)"
@@ -778,6 +841,8 @@ pointer refc_update(pointer n, pointer new)
 {
   tag t;
 
+  Assert (!IsNil(n));
+
   if (!HasPointers(n)) {
     (void) err_refc("trying to update a constant");
     return NIL; /*NOTREACHED*/
@@ -792,7 +857,7 @@ pointer refc_update(pointer n, pointer new)
   t = Tag(new);
   
   if (HasPointers(new)) {
-    n = refc_update_hdtl(n, refc_copy(Hd(new)), refc_copy(Tl(new)));
+    n = refc_update_hdtl(n, refc_copyH(new), refc_copyT(new));
   } else {
     union val v = Val(new);
     n = refc_update_hdtl(n, NIL, NIL);

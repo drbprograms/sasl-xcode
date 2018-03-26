@@ -1,3 +1,46 @@
+2018-03-23
+** progress and issues moved to taiga.com **
+
+update pointer *where, {ap/cons/ ...}, head, tail}
+
+me
+H
+T
+HH
+TH
+HT
+TT
+...
+
+set    pointer *where  {non-struct tag} val}
+
+
+
+---
+refc_copyH
+refc_copyT
+
+abstract.c  [although Assert(istree) so not technically needed...]
+    reduce_abstract - IsStruct() cases - multiple times
+
+make.c  [although Assert(istree) so not technically needed...]
+    make_where - abstracting defs
+    maker_do(7/13,2) - calling make_multi_clause()
+
+
+reduce.c
+    ok H_comb, T_comb
+    deprecated S_comb optimised
+store.c
+    ok refc_update
+
+refc_copyHT
+refc_copyTT
+
+reduce.c
+    cons_t
+
+
 2018-03-05
 checkpoint
 03x Hanoi now working
