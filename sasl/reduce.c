@@ -28,6 +28,39 @@
  * reduce node, look for given type and return value of that type.  If type is wrong raise error.
  */
 
+/*******************************************/
+static pointer **stack0;
+static pointer **sp0;
+static unsigned stack_size = 0;
+
+#define Stacked (sp0-stack0)
+#define Push(p) (Assert(Stacked < stack_size), *sp0++ = (p))
+#define Pop     (Assert(Stacked > 0),         (*--sp0))
+
+pointer reduce0(pointer *pp)
+{
+    pointer **base = sp0;
+#define Depth   (sp0-base)
+
+    while ( !IsNil(*pp)) {
+        switch (Tag(*pp)) {
+            case apply_t:
+                Push(pp);
+                continue;
+            case cons_t:
+                if (Depth > 0) {
+                    
+                }
+                continue;
+        }
+    }
+   
+    return *pp;
+
+#undef Depth
+}
+/*******************************************/
+
 /* the stack - used by reduce */
 
 #define STACK_SIZE (50000) /*was 10000*/
@@ -57,8 +90,10 @@ static pointer *sp = stack;
 #define A3 refc_copy(Arg3)
 #define A4 refc_copy(Arg4)
 
-#define Pop(n)  (sp -= (n), sp[n]) /* assert(sp>=base) value is previous Top of stack */
-#define Push(n) (*++sp = (n))
+#define Pop(n)  (Assert(Stacked >= (n)), sp -= (n), sp[n]) /* assert(sp>=base) value is previous Top of stack */
+#define Push(n) (Assert(Stacked < STACK_SIZE), *++sp = (n))
+
+
 
 /*
  * sasl - primitive to sasl functions
@@ -175,6 +210,17 @@ void reduce_log_report(FILE *where)
         (void) fprintf(where, "%s\t%d\t§%d\n", "Total Error!", check - reductions, opt_check - optimisations);
     
     return;
+}
+
+/*
+ * reduce_final_report(where)
+ * (1) call reduce_log_report(where)
+ * (2) call refc_final_report(where)
+ */
+void reduce_final_report(FILE *where)
+{
+    reduce_log_report(where);
+    refc_final_report(where);
 }
 
 int reduce_int(pointer *nn)
@@ -407,6 +453,7 @@ pointer reduce_print(pointer *p)
  *	after reduce() stack pointer sp is unchanged
  *
  */
+
 pointer reduce(pointer *n)
 {
     pointer *base = sp;	/* remember Top on entry - ?? is this variable really necessary */
@@ -431,10 +478,10 @@ pointer reduce(pointer *n)
             fprintf(stderr, "\tTop\n");
         }
         
-        if (Tag(*sp) == apply_t) {
+        if (Tag(Top) == apply_t) {
             /* travel down the 'spine' */
             Assert(Stacked <= ((STACK_SIZE)*0.95));
-            sp[1] = Hd(*sp);  /* Push(Hd(Top)) */
+            sp[1] = Hd(Top);  /* Push(Hd(Top)) */
             sp++;
             
             continue;	/* loop */
@@ -559,46 +606,7 @@ pointer reduce(pointer *n)
                      */
                     Pop(1);
                     continue;
-                case unary_count_op:
-                case range_unbounded_op:
-                    break;
-#ifdef broken
-                    /* xxx ??? *** zark! */
-                case I_comb: {
-                    
-                    if (Stacked > 2) {
-                        /* I x y => x y */
-                        /* Assert(Stacked >= 3) */
-                        if (debug)
-                            fprintf(stderr, "reduce: I_comb: refc_update_hd()\n");
-                        
-                        Stack2 = refc_update_hd(Stack2, refc_copy(Arg1));
-                        Pop(2);
-                    } else {
-                        tag t = Tag(Arg1);
-                        if (debug)
-                            fprintf(stderr, "reduce: I_comb: Push(x)\n");
-                        
-                        /* this code is refc_update() */
-                        if (HasPointers(Arg1)) {/*WIPWIP */
-                            Stack1 = refc_update_hdtl(Stack1, refc_copy(Hd(Arg1)), refc_copy(Tl(Arg1)));
-                        } else { /*todo wrap this all in simpler update-in-place refc_update() */
-                            union val v = Val(Arg1);
-                            Stack1 = refc_update_hdtl(Stack1, NIL, NIL);
-                            Val(Stack1) = v;
-                            Tag(Stack1) = t;
-                        }
-                        Tag(Stack1) = t;
-                        Pop(1);
-#ifdef was
-                        Pop(2);
-                        sp[1] = x;	/* Push(x) #define Push(x) (sp++, *sp = (x))*/
-                        sp++;
-#endif
-                    }
-                    continue;
-                }
-#endif 
+
                 case I_comb:
                     /* I x => x */
                     if (Stacked > 2) {
@@ -606,11 +614,17 @@ pointer reduce(pointer *n)
                          * Afterwards Arg1 has become H(Stack2), and new stack has old Stack2 on in it
                          */
                         if (debug)
-                            fprintf(stderr,"**I_comb Stacked>2 case\n");/*XXX*/
+                            fprintf(stderr,"**I_comb Stacked>2 case\n");
                         Assert(!SameNode(Stack2, Arg1)); /* avoid stack loops */
-                        Stack2 = refc_update_hd(Stack2, refc_copy(Arg1));  /* Arg1 may be NIL *//*new Pop(2); update(H(sp), T) */
-                        
+                        Stack2 = refc_update_hd(Stack2, refc_copy(Arg1));
                         Pop(/**/ 2 /**/);
+                        
+                        /* TO DO xxx BUG otherwise
+                         Stack2 = refc_update_hd(Stack2, refc_copyT(Stack1)) or better
+                         Stack2 = refc_update_hd(Stack2, refc_copyTH(Stack2))*/
+                        /* new update(%Top, TH, T)
+                         */
+
                     } else                         {
                         if (debug)
                             fprintf(stderr,"**I_comb Stacked==2 case\n");/*XXX*/
@@ -622,62 +636,6 @@ pointer reduce(pointer *n)
                         Assert(Stacked == 1);
                     }
                     continue;
-#ifdef brokenloops
-                        /* reduce (I x) => x */
-                        pointer x;
-                        if (debug)
-                            fprintf(stderr,"**I_comb Stacked=2 case\n");/*XXX*/
-                        Assert(SameNode(*n, Stack1));
-                        x = refc_copy(Arg1);
-                        Pop(2);
-                        Assert(Stacked == 0);
-                        refc_delete(n);
-                        *n = x; /* local root */
-                        return reduce(n);  /* recurse to completely reduce */
-
-                        if (debug)
-                            fprintf(stderr,"**I_comb Stacked==2 case\n");/*XXX*/
-                        Stack1 = refc_update(Stack1, refc_copy(Arg1));  /* Arg1 may be NIL */
-                        Pop(1); /* may leave NIL on stack */
-                    }
-                    
-                    continue;
-#ifdef notdef
-                            pointer x = refc_copy(Arg1);
-                            Assert(Stacked == 2);
-                            fprintf(stderr,"**I_comb Stacked=2 case\n");/*XqXX*/
-                            refc_delete(&Stack1);
-                            Stack1 = x;
-                            Pop(1);
-                            return x; /*done*/
-
-                            
-                            {
-                                if (Stacked == 2) {
-                                    pointer x;
-                                    if (debug)
-                                        fprintf(stderr,"**I_comb Stacked=2 case\n");/*XXX*/
-                                    x = refc_copy(Arg1);
-                                    refc_delete(&Stack1);
-                                    *n = x; /* local root */
-                                    Pop(2);
-                                    Push(*n);
-                                } else {
-                                    if (debug)
-                                        fprintf(stderr,"**I_comb Stacked>2 case\n");/*XXX*/
-                                    Assert(!SameNode(Stack2, Arg2)); /* avoid stack loops */
-                                    Stack2 = refc_update_hd(Stack2, refc_copy(Arg1));
-                                    Pop(1);
-                                }
-                            }
-
-                            if (debug)
-                                fprintf(stderr,"**I_comb Stacked==2 case\n");/*XXX*/
-                            Stack1 = refc_update(Stack1, Arg1);  /* Arg1 may be NIL */
-                            Pop(1); /* may leave NIL on stack */
-
-#endif
-#endif
                     
                 case Yc_comb:
                     Tag(Stack1) = cons_t;

@@ -304,6 +304,7 @@ extern int err_out(char *f, char *msg1, char *msg2, int n);
 extern int err_reduce(char *msg1);
 extern int err_reduce2(char *msg1, char *msg2b);
 extern int err_refc(char *msg1);
+extern int err_refc1(char *msg1, int i);
 extern int err_store(char *msg);
 extern int err_zone(char *msg1);
 

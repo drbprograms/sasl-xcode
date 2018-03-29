@@ -186,7 +186,7 @@ int main(int argc, char **argv)
   main_done();
   
   if (debug)
-    (void) reduce_log_report(stderr);
+    (void) reduce_final_report(stderr);
   
 
 #ifdef notdef

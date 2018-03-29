@@ -55,7 +55,7 @@ static unsigned zone_size_default = 1024;  /* to be updated elsewhere */
 void new_zone_log(zone_header *z)
 {
   if (debug)
-    (void) fprintf(stderr,"%s\t%u\n", "new_zone: size:", z->size);
+    (void) fprintf(stderr, "new_zone: seq: %d\tsize:\t%u\n", z->seq, z->size);
   return;
 }
 
@@ -106,6 +106,11 @@ static int zone_pointer_detail(pointer p, unsigned *seq, long *off, int dbg)
     *off = 0;
   } else {
     z = zone_of_node(Node(p));
+    if (!z) {
+      *seq = 0;
+      *off = 0;
+      return 1; /*fail*/
+    }
     *seq = z->seq;
     if (dbg)
       *off = Node(p) - z->debug_nodes;
@@ -124,8 +129,22 @@ static char *zone_pointer_info_do(pointer p, int dbg)
   if (IsNil(p))
     return "NIL";
   
-  if (zone_pointer_detail(p, &seq, &off, dbg))
+  if (zone_pointer_detail(p, &seq, &off, dbg)) {
+    if (debug)
+      fprintf(stderr,"/%c (s/w %u/%u) [%u.%ld] %s\n",
+              (IsStrong(p)?'s':'w'),
+              Srefc(p),
+              Wrefc(p),
+              seq,
+              off,
+//              err_tag_name(Tag(p))
+              "Tag"
+              );
+//
+w3//   Assert(0);
+//
     err_refc("can't get pointer info");
+  }
   
   c = sprintf(s,"/%c (s/w %u/%u) [%u.%ld] %s",
               (IsStrong(p)?'s':'w'),
@@ -314,6 +333,7 @@ pointer new_node(tag t)
   p.p = n;
   n->bit = p.bit = 0;   /* Strong */
   n->s_refc = 1;
+  n->w_refc = 0;
   
   Tag(p) = t;
   

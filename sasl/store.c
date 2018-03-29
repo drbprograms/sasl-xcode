@@ -604,6 +604,15 @@ void refc_log_report(FILE *where)
   return;
 }
 
+void refc_final_report(FILE *where)
+{
+  if (refc_inuse() >0) {
+    err_refc1("!!final report but %d pointers in use\n", refc_inuse());
+  }
+  else
+    (void) fprintf(where, "final report ok\n");
+}
+
 /* 
  * ref_update_to_TYPE - where TYPE is a constant
  * change apply node to a constant type and set value of that type.

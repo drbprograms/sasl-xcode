@@ -190,6 +190,13 @@ int err_refc(char *msg1)
   return 0; /*NOTEREACHED*/
 }
 
+int err_refc1(char *msg1, int i)
+{
+  (void) fprintf(stderr, "refc: %s%d\n", msg1, i);
+  longjmp(jmpbuffer, 5);
+  return 0; /*NOTEREACHED*/
+}
+
 int err_zone(char *msg1)
 {
   (void) fprintf(stderr, "zone: %s\n", msg1);
