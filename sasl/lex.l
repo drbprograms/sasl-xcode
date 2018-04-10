@@ -34,7 +34,7 @@ NAME       [A-Za-z][A-Za-z0-9_]*
 	char *lex_oper_fix;	/* indicator set when tok_operator found - "i"=infix, "p"=prefix, "o"=postfix also "ip" if can be prefix *or* infix */
 	char lex_oper_assoc;	/* indicator set when tok_operator found - 'r' right associative, 'l' left acssociative, 'n'=non-associative, '? ???*/
 
-	void lex_offside() /* set current column as limit of offside */
+	void lex_offside(void) /* set current column as limit of offside */
 	{
       Assert(m < Max);
 	  m++;
@@ -43,8 +43,8 @@ NAME       [A-Za-z][A-Za-z0-9_]*
 	    fprintf(stderr,"offside:%d\n", lex_margin);
 	}
 
-	static void scan();
-	void lex_onside()
+	static void scan(void);
+	void lex_onside(void)
 	{
       Assert(m>0);
       m--;

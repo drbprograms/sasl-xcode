@@ -141,7 +141,7 @@ static char *zone_pointer_info_do(pointer p, int dbg)
               "Tag"
               );
 //
-w3//   Assert(0);
+//   Assert(0);
 //
     err_refc("can't get pointer info");
   }
