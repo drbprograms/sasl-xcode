@@ -7,8 +7,8 @@
 //
 
 #import <XCTest/XCTest.h>
-#include "common.h"
-#include "store.h"
+#import "common.h"
+#import "store.h"
 
 @interface sasl_test : XCTestCase
 
@@ -19,6 +19,7 @@
 - (void)setUp {
     [super setUp];
     // Put setup code here. This method is called before the invocation of each test method in the class.
+    main(0,0);
 }
 
 - (void)tearDown {
@@ -30,7 +31,8 @@
     // This is an example of a functional test case.
     // Use XCTAssert and related functions to verify your tests produce the correct results.
     printf("hello world\n");
-//    (void) out(NIL);
+    (void) out(NIL);
+    XCTAssert(1==1);
 }
 
 - (void)testPerformanceExample {

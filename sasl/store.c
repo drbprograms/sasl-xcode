@@ -138,7 +138,7 @@ pointer new_def(pointer name, pointer def)
   return n;
 }
 
-/* add_def - add a name's definition to defs list (name may be a simple name or a namelist) */
+/* add_def - add a name|namelist definition to defs list (may be a simple name or a namelist) */
 pointer add_to_def(pointer def, pointer name, pointer d)
 {
   Assert(IsDef(def));
@@ -153,6 +153,27 @@ pointer add_to_def(pointer def, pointer name, pointer d)
   return def;
 }
 
+//
+/*
+ * add (namelist:def) any                  = || recurse over namelist
+ *
+ * add (name:newdef)  ((name:y): (def:z))  = (name:y):(newdef:z)      || replace def with newdef
+ * add (name:newdef)  ((other:y):(def:z))  = (other:y_add):(def:z_add)
+ *                                                   WHERE y_add:z_add = add (name:newdef) (y:z)  || recurse
+ * add (name:newdef)  (():())              = (name:()):(newdef:())    || add_deflist_to_def
+ * add ()             any                  = any
+ *
+ * to allow name *or* namelist, need to introduce 'nameMatch'
+ * nameMatch (a:b) (a:b) = TRUE
+ * nameMatch (a:b) (x:y) = any (member (a:b)) (x:y) -> throw error; FALSE || error case
+ * nameMatch name  (x:y) = member name (x:y)
+ * nameMatch ()     any  = FALSE
+ *
+ */
+
+
+//
+
 /* search def for definition of a name, return NIL is if not found */
 pointer *def_for(pointer def, pointer name)
 {
@@ -163,28 +184,31 @@ pointer *def_for(pointer def, pointer name)
   
   Assert(IsDef(def));
   
-  deflist = T(def);
+  deflist = DefDefs(def);
   if (IsNil(deflist))
     return (pointer *)0;
   
-  /* deflist == (listof names . listof-clauses) */
+  /* deflist == (list-of (name|namelist) . list-of clauses) */
   for (n = H(deflist), d = T(deflist); IsSet(n); n = T(n), d = T(d)) {
     if (IsAtom(H(n))) {
+      /* name */
       if (IsSameName(H(n), name)) {
         if (debug >1)
-          fprintf(stderr, "def_lookup: \"%s\"\n", Name(Hd(n)) );
+          fprintf(stderr, "def_for: \"%s\"\n", Name(Hd(n)) );
         return &H(d);
       }
+      continue; /*loop*/
     } else {
+      /* namelist */
       pointer *h, *t;
       Assert(IsCons(H(n))); /* namelist */
-      
+
       h = def_for(def, HH(n));
-      if (IsSet(*h))
+      if (h)
         return h;
       
       t = def_for(def, TH(n));
-      if (IsSet(*t))
+      if (t)
         return t;
     }
   }
@@ -213,25 +237,28 @@ pointer add_deflist_to_def(pointer def, pointer deflist, char *msg)
     return def;
   
   for (n = H(deflist), d = T(deflist); IsSet(n); n = T(n), d = T(d)) {
-/*WIP WIP todo traverse H(n) which may be a namelist */
-
-    pointer *dp = def_for(def, H(n));
-    
-    if (dp) {
-      /* name already in def: generate error if msg is set, otherwise replace old definition with new */
-      if (msg) {
-        
+    if (IsAtom(n)) {
+      /* name */
+      pointer *dp = def_for(def, H(n));
+      if (dp) {
+        /* name already in def: generate error if msg is set, otherwise replace old definition with new */
+        if (msg) {
+          
+        } else {
+          refc_delete(dp);
+          *dp = H(d);
+        }
       } else {
-        refc_delete(dp);
-        *dp = H(d);
+        /* name not in def: add it */
+        def = add_to_def(def, H(n), H(d));
       }
     } else {
-      def = add_to_def(def, H(n), H(d));
+      /* namelist */
+      HH(n) = add_deflist_to_def(def, HH(n), msg);
+      TH(n) = add_deflist_to_def(def, TH(n), msg);
     }
-    
-    
   }
-
+  
   return def;
 }
 

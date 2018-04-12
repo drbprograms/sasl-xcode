@@ -26,6 +26,8 @@ int debug;
 int no_code;
 int no_prelude = 0;
 
+int unit_test;
+
 static int no_reset;
 /*
  * getenv_int - get int value from named environment variable
@@ -54,7 +56,7 @@ static int getenv_bool(char *var)
 }
 #endif
 
-/* repeatedly parse SASL programs contained in a file */
+/* parse SASL programs contained in a file */
 static int read_file(char *filename)
 {
   pointer p;
@@ -84,15 +86,15 @@ static int read_file(char *filename)
 /* startup */
 static int main_init()
 {
-  debug 		    = getenv_int("debug", 1);	/* default on and low */
+  debug 		    = getenv_int("debug", 1);	    /* default on and low */
   partial_compile 	= getenv_int("partial_compile", 0); /* default off */
   reduce_optimise 	= getenv_int("reduce_optimise", 0); /* default off */
-  no_code		    = getenv_int("no_code", 0); /* default off */
-  no_prelude        = getenv_int("no_prelude", 0); /* default off unless "-p" in argv[] */
-  no_reset		    = getenv_int("no_reset", 1); /* default off - todo change for interactive use */
-
-  store_init();
+  no_code		    = getenv_int("no_code", 0);     /* default off */
+  no_prelude        = getenv_int("no_prelude", 0);  /* default prelude unless "-p" in argv[] */
+  no_reset		    = getenv_int("no_reset", 1);    /* default off - todo change for interactive use */
   
+  unit_test         = getenv_int("unit_test", 0);   /* default off */
+
  return store_init() || reduce_init();
 }
 
@@ -105,6 +107,31 @@ static int main_done()
 }
 
 /* *** test *** test *** test *** test *** test *** test *** test *** test */
+void unit_test_do(void)
+{
+  
+#define N(n) new_name(n)
+#define C(x,y) new_cons(x,y)
+#define I(i) new_int(i)
+#define D(x,i) C(N(x)),I(i))
+  
+  root = new_def(N("test defs"), NIL);
+  
+  root = add_to_def(root, N("a"), I(1));
+  root = add_to_def(root, N("b"), I(22));
+  root = add_to_def(root, N("c"), I(333));
+  out(root);
+
+  out(def_lookup(root, N("b"), "Oops!"));
+  out(def_lookup(root, N("unknown"), "Oops!"));
+  
+//  root = add_to_def(root, C(N("h"), N("t")), C(I(111),I(222)));
+//  out(root);
+//
+//  out(def_lookup(root, N("h"), "Oops!"));
+
+  return;
+}
 /* *** test *** test *** test *** test *** test *** test *** test *** test */
 
 /*
@@ -168,17 +195,20 @@ int main(int argc, char **argv)
     /* read prelude file first */
     read_file("prelude");
   }
-
-  if (argc > i) {
-    /* read file... */
-    for (/**/; argc > i; i++)
-      read_file(argv[i]);
-  } else {
-    /* no files - interactive */
-    (void) fprintf(stderr, "hello from %s\n", argv[0]);
-    read_file("/dev/stdin"); /*todo not quite right - need to say what next after ever program */
-    fprintf(stderr, "what next?\n");
-  }
+  
+  if (unit_test) {
+    unit_test_do();
+  } else
+    if (argc > i) {
+      /* read file... */
+      for (/**/; argc > i; i++)
+        read_file(argv[i]);
+    } else {
+      /* no files - interactive */
+      (void) fprintf(stderr, "hello from %s\n", argv[0]);
+      read_file("/dev/stdin"); /*todo not quite right - need to say what next after ever program */
+      fprintf(stderr, "what next?\n");
+    }
   
   /*
    * all done - wrap up
@@ -188,10 +218,5 @@ int main(int argc, char **argv)
   if (debug)
     (void) reduce_final_report(stderr);
   
-
-#ifdef notdef
-#include "test/test.c" /* unit test */
-#endif
-
   return(0);
 }

@@ -292,20 +292,20 @@ pointer make_abstract(pointer formal, pointer def, int r)
  ([name ...] condexp) (Y expr)
  formals are no longer required
  */
-pointer make_where(pointer condexp, pointer *defs)
+pointer make_where(pointer condexp, pointer defs)
 {
   MAKE_DEBUG("make_where ...\n");
   
-  if (IsNil(*defs))
+  if (IsNil(defs))
     return condexp;
   
-  pointer a1 = make_abstract(refc_copy(Hd(*defs)), condexp, 0/*non-recursive*/);
-  pointer a2 = make_abstract(refc_copy(Hd(*defs)), refc_copy(Tl(*defs)), 1/*recursive*/);
+  pointer a1 = make_abstract(refc_copy(Hd(defs)), condexp, 0/*non-recursive*/);
+  pointer a2 = make_abstract(refc_copy(Hd(defs)), refc_copy(Tl(defs)), 1/*recursive*/);
 
   condexp = new_apply(a1, a2);
   
   /* todo: copy and save defs list Hd/Tl pointers for debugging/ Module definition? */
-  refc_delete(defs); /* surplus cons node */
+  refc_delete(&defs); /* surplus cons node */
   return condexp;
 }
 
@@ -362,12 +362,9 @@ static int count_name(pointer name, pointer p)
  */
 pointer de_dup1(pointer name, pointer old)
 {
-   if (IsNil(old))
+  if (IsNil(old) || IsMatchName(old))
     return old;
-  
-  if (IsMatchName(old))
-    return old;
-  
+
   if (IsStruct(old)) {
     H(old) = de_dup1(name, H(old));
     T(old) = de_dup1(name, T(old));
@@ -387,10 +384,7 @@ pointer de_dup1(pointer name, pointer old)
 pointer de_dup(pointer new, pointer old)
 {
  
-  if (IsNil(new))
-    return old;
-  
-  if (IsMatchName(new))
+  if (IsNil(new) || IsMatchName(new))
     return old;
   
   if (IsStruct(new)) {
@@ -468,7 +462,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
        * (3)  <namelist> ::= <struct> | <struct>, | <struct> [, <struct>]+ where * means 1 or more
        *   *                     1          2                        3N
        
-       namelist <= struct|listof-struct
+       d <= struct|listof-struct
        */
       switch (subrule) {
         case 1: return n1;
@@ -642,7 +636,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
        */
       switch (subrule) {
         case 1: return n1;
-        case 2: n1 = make_where(n1, &n2); return n1;
+        case 2: n1 = make_where(n1, n2); return n1;
       }
       break;
       
@@ -701,19 +695,17 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
         case 1:
           /* substitute for known DEFs; check for unbound names; return pointer to-be-reduced */
 
-          Assert(IsNil(defs) || IsDef(defs));
+          Assert(IsNil(root));
           Assert(IsDef(builtin));
+          Assert(IsNil(defs) || IsDef(defs));
 
 #ifdef def
           n1 = make_bind(builtin, n1, NULL);
           root = make_bind(defs, n1, "undefined name: ");
 #else
-          n2 = refc_copy(DefDefs(builtin));
-          n1 = make_where(n1, &n2);
-          if (IsSet(defs)) {
-            n2 = refc_copy(DefDefs(defs));
-            n1 = make_where(n1, &n2);
-          }
+          n1 = make_where(n1, refc_copy(DefDefs(builtin)));
+          if (IsDef(defs))
+            n1 = make_where(n1, refc_copy(DefDefs(defs)));
 
           refc_delete(&root);
           root = n1;
@@ -721,28 +713,34 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           
           return root;
           
-        case 2: return n1;/* xxx bug nothing on the stack at this point; consider removing 14,2 and just having old 14,3 instead. */
+        case 2: return n1;
           
         case 3: {
           Assert(IsNil(root));
           Assert(IsDef(builtin));
-
-          /* mutual recusion with the deflist */
-          /* [list-of name|namelist] (list-of exprs) */
-//          n1 = make_abstract(H(n1), T(n1), 1 /*recursive*/);
-          
-//          n2 = refc_copy(DefDefs(builtin));
-//          n1 = make_where(n1, &n2);
-//                   T(n1) = make_where(T(n1), refc_copy(DefDefs(builtin)));
-//                    T(n1) = make_where(T(n1), n1); /* mutual recursion in the defs */
-
-          /*WIP WIP 2nd and subsequent DEF */
- 
-          n2 = refc_copy(DefDefs(builtin));
-          T(n1) = make_where(T(n1), &n2);
+          Assert(IsNil(defs) || IsDef(defs));
           
           if (IsNil(defs))
             defs = new_def(new_name("<Top>"), n1);
+
+          T(n1) = make_where(T(n1), refc_copy(DefDefs(builtin)));
+
+          /*TODO 2nd and subsequent DEF */
+          
+//          DefDefs(defs) = make_where(DefDefs(defs), refc_copy(DefDefs(defs)));
+
+          /* update defs */
+//          DefDefs(defs) = make_where(n1, refc_copy(DefDefs(defs)));
+          
+//          if (IsNil(defs)) {
+//            defs = new_def(new_name("<Top>"), n1);
+//          }
+//          else {
+//            n1 = make_where(n1, refc_copy(DefDefs(defs)));
+//          }
+          
+//            T(defs) = make_where(n1, refc_copy(DefDefs(defs)));
+//          }
 //          else
 //            defs = add_deflist_to_def(defs, n1);
 

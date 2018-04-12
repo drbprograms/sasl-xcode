@@ -629,8 +629,7 @@ pointer reduce(pointer *n)
                         if (debug)
                             fprintf(stderr,"**I_comb Stacked==2 case\n");/*XXX*/
                         Assert(SameNode(*n, Stack1));
-                        Pop(2);
-                        Push(refc_copyT(*n)); /*Arg1*/
+                        Pop(2); Push(refc_copyT(*n)); /*Arg1*/
                         refc_delete(n);
                         *n = Top;
                         Assert(Stacked == 1);

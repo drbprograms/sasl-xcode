@@ -68,7 +68,7 @@ static pointer parse_check_do(pointer n, char *msg)
   }
 }
 
-pointer prase_check(pointer n, char *msg)
+pointer parse_check(pointer n, char *msg)
 {
   extern int refc_inuse(void); /**/
   
@@ -611,12 +611,12 @@ pointer parse_program()
   Parse_Debug("parse_program");
   
   if (lex_looking_at(tok_def)) {
-    Maker1("program<=DEF ...", 14,2);
+    Maker0("program<=DEF ...", 14,2);
     parse_deflist();
     
     if(lex_looking_at(tok_question_mark)) {
       Maker1("program<=defs ?", 14,3);
-      return prase_check(defs, "program<=defs ?");   /*xxx parse_check is NOT correct here or "the most recent"defs? */
+      return parse_check(defs, "program<=defs ?");   /*xxx parse_check is NOT correct here or "the most recent"defs? */
     } else {
       parse_err("parse_program","expecting \'?\'","<program> ::= DEF <defs>?");
       return NIL;
@@ -625,7 +625,7 @@ pointer parse_program()
     parse_expr();
     if(lex_looking_at(tok_question_mark)) {
       Maker1("program<=expr?", 14,1);
-      return prase_check(root, "program<=expr?");
+      return parse_check(root, "program<=expr?");
     }    else {
       parse_err("parse_program","expecting \'?\'","<program> ::= <expr>?");
       return NIL;

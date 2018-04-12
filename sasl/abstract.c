@@ -211,6 +211,8 @@ pointer reduce_abstract(pointer pattern, pointer exp, int r)
     out_debug(exp);
   }
   
+  Assert(!IsComb(pattern));
+  
   if (IsNil(pattern) || IsConst(pattern)) {
     /* [const] E => MATCH const E */
     /* [NIL]   E => MATCH NIL   E */
