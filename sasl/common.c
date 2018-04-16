@@ -157,6 +157,13 @@ int err_make(char *f, char *msg1, int i)
   return 0; /*NOTEREACHED*/
 }
 
+int err_make2(char *f, char *msg1)
+{
+  (void) fprintf(stderr, "making: %s%s\n", f, msg1);
+  longjmp(jmpbuffer, 2);
+  return 0; /*NOTEREACHED*/
+}
+
 int err_make1(char *f)
 {
   (void) fprintf(stderr, "making: %s\n", f);

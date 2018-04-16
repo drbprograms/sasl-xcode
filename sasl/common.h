@@ -300,6 +300,7 @@ extern jmp_buf jmpbuffer;
 extern int err_parse(char *f, char *msg1, char *msg2);
 extern int err_make(char *f, char *msg1, int i);
 extern int err_make1(char *f);
+extern int err_make2(char *f, char *msg);
 extern int err_out(char *f, char *msg1, char *msg2, int n);
 extern int err_reduce(char *msg1);
 extern int err_reduce2(char *msg1, char *msg2b);

@@ -172,19 +172,72 @@ pointer add_to_def(pointer def, pointer name, pointer d)
  */
 
 
-//
-
-/* search def for definition of a name, return NIL is if not found */
-pointer *def_for(pointer def, pointer name)
+/*
+ * def_for2 - lookup name n in (list-of names, list-of defs) - returns 0 if not found, else pointer to expression
+ */
+pointer *def_for2(pointer names, pointer defs, pointer n)
 {
-  pointer deflist, n, d;
+  if (IsNil(names))
+    return (pointer *)0;
   
+  Assert(IsCons(names));
+
+  if (IsAtom(H(names))) {
+    /* name */
+    if (IsSameName(H(names), n)) {
+      if (debug >1)
+        fprintf(stderr, "def_for: \"%s\"\n", Name(n) );
+      return &H(defs);
+    }
+  } else {
+    /* namelist */
+    pointer *dp = def_for2(H(names), H(defs), n);
+    Assert(IsCons(H(names)));
+    if (dp)
+      return dp;
+  }
+  
+  return def_for2(T(names), T(defs), n);
+}
+
+/* look for duplicated of name/namelist - return first matching name, otherwise 0 */
+pointer def_any_for2(pointer names, pointer defs, pointer n)
+{
+  if (IsName(n)) {
+    /* name */
+    if (def_for2(names, defs, n))
+      return n;
+  } else {
+    /* namelist */
+    Assert(IsCons(n));
+    for ( /**/; IsSet(n); n = T(n)) {
+      pointer dup = def_any_for2(names, defs, H(n));
+      if (IsSet(dup))
+        return (dup);
+    }
+  }
+  
+  return NIL;
+}
+
+/*
+ * def_for - lookup name n in def - returns 0 if not found, else pointer to expression
+ */
+pointer *def_for(pointer def, pointer n)
+{
   if (IsNil(def))
     return (pointer *)0;
   
   Assert(IsDef(def));
   
-  deflist = DefDefs(def);
+  return def_for2(DefNames(def), DefExprs(def) ,n);
+}
+
+/* search def for definition of a name, return NIL is if not found */
+pointer *def_for0(pointer deflist, pointer name)
+{
+  pointer n, d;
+  
   if (IsNil(deflist))
     return (pointer *)0;
   
@@ -202,12 +255,13 @@ pointer *def_for(pointer def, pointer name)
       /* namelist */
       pointer *h, *t;
       Assert(IsCons(H(n))); /* namelist */
+      Assert(IsCons(H(d)));
 
-      h = def_for(def, HH(n));
+      h = def_for0(HH(d), name);
       if (h)
         return h;
       
-      t = def_for(def, TH(n));
+      t = def_for0(HH(d), name);
       if (t)
         return t;
     }
@@ -218,7 +272,7 @@ pointer *def_for(pointer def, pointer name)
 
 pointer def_lookup(pointer def, pointer name, char *msg)
 {
-  pointer *dp = def_for(def, name);
+  pointer *dp = def_for0(def, name);
   
   if (dp)
     return *dp;
@@ -226,27 +280,24 @@ pointer def_lookup(pointer def, pointer name, char *msg)
     return NIL;
 }
 
-pointer add_deflist_to_def(pointer def, pointer deflist, char *msg)
+pointer add_deflist_to_deflist(pointer def, pointer deflist, char *msg)
 {
   pointer n, d;
 
-  if (IsNil(def))
-    return NIL;
-  
-  if (IsNil(deflist))
+  if (IsNil(def) || IsNil(deflist))
     return def;
   
   for (n = H(deflist), d = T(deflist); IsSet(n); n = T(n), d = T(d)) {
     if (IsAtom(n)) {
       /* name */
-      pointer *dp = def_for(def, H(n));
+      pointer *dp = def_for0(def, H(n));
       if (dp) {
         /* name already in def: generate error if msg is set, otherwise replace old definition with new */
         if (msg) {
           
         } else {
-          refc_delete(dp);
-          *dp = H(d);
+          refc_delete(dp); /* delete old definition */
+          *dp =   H(d);
         }
       } else {
         /* name not in def: add it */
@@ -254,8 +305,8 @@ pointer add_deflist_to_def(pointer def, pointer deflist, char *msg)
       }
     } else {
       /* namelist */
-      HH(n) = add_deflist_to_def(def, HH(n), msg);
-      TH(n) = add_deflist_to_def(def, TH(n), msg);
+      HH(n) = add_deflist_to_deflist(def, HH(n), msg);
+      TH(n) = add_deflist_to_deflist(def, TH(n), msg);
     }
   }
   

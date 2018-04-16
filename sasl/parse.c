@@ -56,7 +56,7 @@ static pointer parse_check_do(pointer n, char *msg)
     }
     
     if (IsName(n)) {
-      parse_err("undefined variable", Name(n), msg); /* TODO give indication of where the name occurs in SASL program text */
+      parse_err("undefined name", Name(n), msg); /* TODO give indication of where the name occurs in SASL program text */
     }
     
     if (Stacked == 0)
@@ -68,6 +68,7 @@ static pointer parse_check_do(pointer n, char *msg)
   }
 }
 
+/* parse_check - error if unbound names found */
 pointer parse_check(pointer n, char *msg)
 {
   extern int refc_inuse(void); /**/

@@ -107,14 +107,30 @@ static int main_done()
 }
 
 /* *** test *** test *** test *** test *** test *** test *** test *** test */
-void unit_test_do(void)
-{
-  
+
 #define N(n) new_name(n)
 #define C(x,y) new_cons(x,y)
 #define I(i) new_int(i)
 #define D(x,i) C(N(x)),I(i))
+
+void unit_test_do002(void)
+{
+  extern pointer make_flatten(pointer p);
+  root = new_def(N("test defs"), NIL);
   
+  root = add_to_def(root, N("a"), I(1));
+//  root = add_to_def(root, N("b"), I(22));
+//  root = add_to_def(root, N("c"), I(333));
+  out(root);
+
+  out(make_flatten(DefDefs(root)));
+  return;
+}
+
+
+void unit_test_do/*001*/(void)
+{
+#define DF(x) {pointer *dp = def_for(root, N(x)); printf("%s = ", (x)); if (dp) out(*dp); else printf("<<undefined>>\n");}
   root = new_def(N("test defs"), NIL);
   
   root = add_to_def(root, N("a"), I(1));
@@ -122,13 +138,16 @@ void unit_test_do(void)
   root = add_to_def(root, N("c"), I(333));
   out(root);
 
-  out(def_lookup(root, N("b"), "Oops!"));
-  out(def_lookup(root, N("unknown"), "Oops!"));
+  DF("b");
+  DF("xxx");
   
-//  root = add_to_def(root, C(N("h"), N("t")), C(I(111),I(222)));
-//  out(root);
-//
-//  out(def_lookup(root, N("h"), "Oops!"));
+  root = add_to_def(root, C(N("h"), C(N("t"), NIL)), C(I(111),C(I(222), NIL)));
+  out(root);
+
+  DF("c");
+  DF("h");
+  DF("yyy");
+  DF("t");
 
   return;
 }

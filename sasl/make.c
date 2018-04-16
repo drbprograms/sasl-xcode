@@ -64,6 +64,14 @@ static pointer make_err1(char *f)
   return NIL;
 }
 
+static pointer make_err2(char *f, char *msg)
+{
+  (void) make_reset();
+  (void) err_make2(f, msg);
+  /*NOTREACHED*/
+  return NIL;
+}
+
 
 /* make_reset delete partially-built code fragments */
 pointer make_reset()
@@ -210,6 +218,7 @@ pointer make_oper()
  * bind def NAME  = def_lookup def NAME  || when def=() will return () and trigger possionble warning
  * bind def const = const
  */
+#ifdef def
 pointer make_bind(pointer def, pointer expr, char *msg)
 {
   if (IsNil(expr))
@@ -242,6 +251,7 @@ pointer make_bind(pointer def, pointer expr, char *msg)
   } /* else { nothing to do } */
   return expr;
 }
+#endif
 
 /* [Turner 1979]
  Mutual recursion following a where is handled by combining all the definitions follow- ing the where into a single definition with a complex left hand side and then proceeding as above. So for example
@@ -396,6 +406,75 @@ pointer de_dup(pointer new, pointer old)
   return de_dup1(new, old);
 }
 
+/*
+ * flatten a clause definition so that namelists appear as list of names in the def
+ *    from: name:expr
+ *    to: (name,):(expr,)
+ * and
+ *    from: namelist:expr
+ *    to: list-of name : list-of expr   || taking care of matchnames
+ 
+ * flatten ((MATCH:x):y):Expr = flatten (y:((MATCH:x) Expr))
+ * flatten (a:x):Expr = (flatten a (H Expr)) ++ (flatten x (T Expr))
+ * flatten n:Expr = (n,):(Expr,)
+ * flatten ()     = ()
+ 
+ */
+/*
+ * list-of (name|namelist) . list-of exp --> list-of name . list-of exp
+ */
+pointer make_flatten(pointer p)
+{
+  if (IsNil(p))
+    return p;
+  
+  if (IsCons(H(p))){
+    /* namelist */
+    if (IsMatchName(HH(p))) {
+      pointer n;
+      n = new_apply(refc_copy(HH(p)), refc_copy(T(p)));
+      n = new_cons( refc_copy(TH(p)), n);
+      
+      refc_delete(&p);
+      
+      return make_flatten(n);
+    } else {
+      pointer h = new_cons(refc_copy(HH(p)), new_apply(new_comb(H_comb), refc_copy(T(p))));
+      pointer t = new_cons(refc_copy(TH(p)), new_apply(new_comb(T_comb), refc_copy(T(p))));
+      
+      refc_delete(&p);
+      
+      return make_append(make_flatten(h), make_flatten(t));
+    }
+  } else {
+    
+    /* name */
+    H(p) = new_cons(H(p), NIL);
+    T(p) = new_cons(T(p), NIL);
+    
+    return p;
+  }
+  
+}
+/*
+ * flatten (a:x):e = (flatten a:(T e))
+ * flatten n:e     = n:e
+ */
+void make_flatten0(pointer *n, pointer *e)
+{
+  if (IsName(*n))
+    return;
+  
+  Assert(IsCons(*n));
+  
+  if (IsMatchName(H(*n))) {
+    
+  } else {
+    make_flatten0(&H(*n), e);
+    make_flatten0(&T(*n), e);
+  }
+  return;
+}
 /*maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker*/
 
 
@@ -462,7 +541,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
        * (3)  <namelist> ::= <struct> | <struct>, | <struct> [, <struct>]+ where * means 1 or more
        *   *                     1          2                        3N
        
-       d <= struct|listof-struct
+       namelist <= struct|listof-struct
        */
       switch (subrule) {
         case 1: return n1;
@@ -488,7 +567,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
        * (4)	<condexp> ::= <opexp> | <opexp>, | <opexp> [, <opexp>]+ | <opexp> → <condexp>; <condexp> where + means 0 or more
        *                         1           2                   3N                   4            5
        
-       srhs     condexp <= cond_op opexp condexp condexp | opexp1 | listof-opexp
+       condexp <= cond_op opexp condexp condexp | opexp1 | listof-opexp
        */
       
       
@@ -573,55 +652,36 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
     switch (subrule) {
       
       case 1:
-      /* first def - re-write n1 as a pair of lists */
+        /* first def - re-write n1 as a pair of lists */
 #ifdef defdef
-      n1 = add_to_def(new_def(""), H(n1), T(n1));
+        n1 = add_to_def(new_def(""), H(n1), T(n1));
 #else
-      H(n1) = new_cons(H(n1), NIL);
-      T(n1) = new_cons(T(n1), NIL);
+        H(n1) = new_cons(H(n1), NIL);
+        T(n1) = new_cons(T(n1), NIL);
 #endif
-      return n1;
-      
+        return n1;
+        
       case 2: {
+        pointer dup;
         /* || clause == names:expr */
-#if 1
-        if (IsSameName(HH(n1), H(n2))) {
-          /*multi-clause definition */
+        if (info > 0 && IsSameName(HH(n1), H(n2))) {
+          /* multi-clause definition - not allowed with zero formals */
           HT(n1) = make_multi_clause(HT(n1), refc_copy(T(n2)), info);
-          /* H(n2) is surplus to requirements, and is deleted below */
         } else {
           /* single clause definition, so far */
           H(n1) = new_cons(refc_copy(H(n2)), H(n1));/*new update(H(n1), H(n2), me)*//* Assert(IsARoot(n1) || IsARoot(n2)) */
           T(n1) = new_cons(refc_copy(T(n2)), T(n1));/*new update(T(n1), T(n2), me)*//* Assert(IsARoot(n1) || IsARoot(n2)) */
         }
+        
+        dup = def_any_for2(TH(n1), TT(n1), H(n2)); /*search for latest name(s) in previous lists */
+        if (IsSet(dup))
+          (void) make_err2("clause: duplicate definition of the name: ", Name(dup));
+        
         refc_delete(&n2); /* surplus cons node, possibly with contents */
-#else
-#ifdef defdef
-        if (IsSameName(H(Defnames(n1)), H(n2))) {
-          /*multi-clause definition */
-          H(DefExprs(n1)) = make_multi_clause(H(DefExprs(n1)), T(n2), info);
-          T(n2) = NIL /*move*/
-        } else {
-          /* single clause definition, so far */
-          n1 = add_to_def(n1, H(n2), T(n2)); /* ?? add_to_def(n1, n2) */
-          H(n2) = T(n2) = NIL; /*move*/
-        }
-#else
-        if (IsSameName(HH(n1), H(n2))) {
-          /*multi-clause definition */
-          HT(n1) = make_multi_clause(HT(n1), T(n2), info); T(n2) = NIL; /*move*/
-          /* H(n2) is surplus to requirements, and is deleted below */
-        } else {
-          /* single clause definition, so far */
-          H(n1) = new_cons(H(n2), H(n1)); H(n2) = NIL; /*move*/
-          T(n1) = new_cons(T(n2), T(n1)); T(n2) = NIL; /*move*/
-        }
-#endif
-        refc_delete(&n2); /* surplus cons node, possibly with contents */
-#endif
+        
         return n1;
       }
-      
+        
     }
     break;
       
@@ -703,9 +763,10 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           n1 = make_bind(builtin, n1, NULL);
           root = make_bind(defs, n1, "undefined name: ");
 #else
-          n1 = make_where(n1, refc_copy(DefDefs(builtin)));
           if (IsDef(defs))
             n1 = make_where(n1, refc_copy(DefDefs(defs)));
+
+          n1 = make_where(n1, refc_copy(DefDefs(builtin)));
 
           refc_delete(&root);
           root = n1;
@@ -722,15 +783,24 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           
           if (IsNil(defs))
             defs = new_def(new_name("<Top>"), n1);
-
-          T(n1) = make_where(T(n1), refc_copy(DefDefs(builtin)));
+          else
+            defs = add_deflist_to_deflist(defs, n1, "");
 
           /*TODO 2nd and subsequent DEF */
+ /*
+          if (IsNil(defs)) {
+            n1 = make_where(n1, refc_copy(DefDefs(builtin)));
+            defs = new_def(new_name("<Top>"), n1);
+          } else {
+            DefDefs(defs) = make_where(n1, refc_copy(DefDefs(defs)));
+            DefDefs(defs) = make_where(DefDefs(defs), refc_copy(DefDefs(builtin)));
+          }
+  */
           
-//          DefDefs(defs) = make_where(DefDefs(defs), refc_copy(DefDefs(defs)));
-
+          //          DefDefs(defs) = make_where(DefDefs(defs), refc_copy(DefDefs(defs)));
+          
           /* update defs */
-//          DefDefs(defs) = make_where(n1, refc_copy(DefDefs(defs)));
+          //          DefDefs(defs) = make_where(n1, refc_copy(DefDefs(defs)));
           
 //          if (IsNil(defs)) {
 //            defs = new_def(new_name("<Top>"), n1);
@@ -766,7 +836,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
 
 /*
  stack map: there are "howmany" items on the stack for maker_do()
- first these are popped, so they are now at
+ these are popped, so they are now at
  sp[1] ... sp[howmany]
  the result of maker_do() is then Pushed onto the stack
  */
