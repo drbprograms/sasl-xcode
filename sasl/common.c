@@ -406,9 +406,9 @@ static int out_out(FILE *where, pointer n)
           return fprintf(where, "~");
           
         case unary_plus_op:
-          return fprintf(where, " +");
+          return fprintf(where, "U+");/* "U" to be different binary plus */
         case unary_minus_op:
-          return fprintf(where, " -");
+          return fprintf(where, "U-"); /* "U" to be different binary minus */
           
         case unary_count_op:
           return fprintf(where, "#");

@@ -221,6 +221,7 @@ pointer reduce_abstract(pointer pattern, pointer exp, int r)
     /* [name] E => abstract1(name, E) */
     exp = reduce_abstract1(pattern, exp, 0); /* nb bug was 1; todo remove "r" parameter from abstract1() */
   } else if (IsMatchName(pattern)) {
+    /* [MATCH name] E => MATCH name E */
     exp = new_apply(refc_copy(pattern), exp);
   } else {
     Assert(IsStruct(pattern));
