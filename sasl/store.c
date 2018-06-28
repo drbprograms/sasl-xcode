@@ -129,6 +129,7 @@ pointer new_abstract(pointer name, pointer def, int r)
   return n;
 }
 
+/* def: (defname:(listof name|namelist):(listof expr)) */
 pointer new_def(pointer name, pointer def)
 {
   pointer n = new_node(def_t);
@@ -142,22 +143,13 @@ pointer new_def(pointer name, pointer def)
 pointer add_to_def(pointer def, pointer name, pointer expr)
 {
   Assert(IsDef(def));
-#ifdef new
   /*TODO XXX use and test this XXX */
   if (IsNil(DefDefs(def)))
     DefDefs(def) = new_cons(NIL,NIL);
   
   DefNames(def) = new_cons(name, DefNames(def));
   DefExprs(def) = new_cons(expr, DefExprs(def));
-#else
-  if (IsNil(T(def))) {/* ToDo make it so that this never happens - new_def() ensures T(def) == (():()) */
-    T(def) = new_cons(new_cons(name, NIL),
-                      new_cons(expr,    NIL));
-  } else {
-    HT(def) = new_cons(name, HT(def));
-    TT(def) = new_cons(expr,    TT(def));
-  }
-#endif
+
   return def;
 }
 
