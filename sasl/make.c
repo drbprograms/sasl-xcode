@@ -208,50 +208,6 @@ pointer make_oper()
   return NIL; /*NOTREACHED*/
 }
 
-/* helper functions to make defs */
-
-/* search expr for unbound names and substitute from definitions in def */
-/* if an error message is provided, treat unbound anmes as errors */
-/*
- * bind def ()    = ()
- * bind def (a:x) = bind def a : bind def x
- * bind def NAME  = def_lookup def NAME  || when def=() will return () and trigger possionble warning
- * bind def const = const
- */
-#ifdef notdef
-pointer make_bind(pointer def, pointer expr, char *msg)
-{
-  if (IsNil(expr))
-    return expr;
-  
-  if (IsStruct(expr)) {    /*new update(expr, make_bind(def, H), make_bind(def, T))*/
-    H(expr) = make_bind(def, H(expr), msg);
-    T(expr) = make_bind(def, T(expr), msg);
-  } else {
-    if (IsName(expr)) {
-      pointer d = def_lookup(def, expr, msg);
-      
-      if (IsSet(d)) {     /* name - replace by it's definition */
-        if (debug) {
-          fprintf(stderr, "make_bind: "); out_debug1(expr); fprintf(stderr, "=>"); out_debug(d);
-        }
-        
-        refc_delete(&expr);/*xxx*/
-        if (1 /*xxx todo wip wip*/)
-          return refc_copy(d);
-        else
-          return refc_copy_make_cyclic(d);
-      } else {        /* name - no definition found */
-        if (msg) {
-          fprintf(stderr, "%s %s\n", msg, Name(expr));
-//          make_err1("program"); /* perhaps should be a parameter, but really ... */
-        }
-      }
-    }
-  } /* else { nothing to do } */
-  return expr;
-}
-#endif
 
 /* [Turner 1979]
  Mutual recursion following a where is handled by combining all the definitions follow- ing the where into a single definition with a complex left hand side and then proceeding as above. So for example
@@ -759,10 +715,6 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           Assert(IsDef(builtin));
           Assert(IsNil(defs) || IsDef(defs));
 
-#ifdef notdef
-          n1 = make_bind(builtin, n1, NULL);
-          root = make_bind(defs, n1, "undefined name: ");
-#else
           /* scope of names: "((expr) WHERE defs) WHERE builtin" */
           if (IsDef(defs))
             n1 = make_where(n1, refc_copy(DefDefs(defs)));
@@ -771,7 +723,6 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
 
           refc_delete(&root);
           root = n1;
-#endif
           
           return root;
           
@@ -819,11 +770,6 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
 //          else
 //            defs = add_deflist_to_def(defs, n1);
 
-#ifdef notdef
-          DefExprs(defs) = make_bind(builtin, DefExprs(defs), NULL); /* resolve builtin references */
-          DefExprs(defs) = make_bind(defs,    DefExprs(defs), "in DEF: undefined name: "); /* resolve internal references */
-          /* XXX todo Y comb here?? */
-#endif
           return defs;
         }
           break;
