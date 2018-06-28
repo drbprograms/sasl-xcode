@@ -139,17 +139,25 @@ pointer new_def(pointer name, pointer def)
 }
 
 /* add_def - add a name|namelist definition to defs list (may be a simple name or a namelist) */
-pointer add_to_def(pointer def, pointer name, pointer d)
+pointer add_to_def(pointer def, pointer name, pointer expr)
 {
   Assert(IsDef(def));
+#ifdef new
+  /*TODO XXX use and test this XXX */
+  if (IsNil(DefDefs(def)))
+    DefDefs(def) = new_cons(NIL,NIL);
   
-  if (IsNil(T(def))) {
+  DefNames(def) = new_cons(name, DefNames(def));
+  DefExprs(def) = new_cons(expr, DefExprs(def));
+#else
+  if (IsNil(T(def))) {/* ToDo make it so that this never happens - new_def() ensures T(def) == (():()) */
     T(def) = new_cons(new_cons(name, NIL),
-                      new_cons(d,    NIL));
+                      new_cons(expr,    NIL));
   } else {
     HT(def) = new_cons(name, HT(def));
-    TT(def) = new_cons(d,    TT(def));
+    TT(def) = new_cons(expr,    TT(def));
   }
+#endif
   return def;
 }
 
@@ -232,7 +240,7 @@ pointer *def_for(pointer def, pointer n)
   
   return def_for2(DefNames(def), DefExprs(def) ,n);
 }
-
+#ifdef notdef
 /* search def for definition of a name, return NIL is if not found */
 pointer *def_for0(pointer deflist, pointer name)
 {
@@ -279,37 +287,57 @@ pointer def_lookup(pointer def, pointer name, char *msg)
   else
     return NIL;
 }
+#endif
 
-pointer add_deflist_to_deflist(pointer def, pointer deflist, char *msg)
+/* add_deflist_to_deflist - add new defs to old */
+pointer add_deflist_to_def(pointer def, pointer deflist)
 {
   pointer n, d;
-
+  Assert(0);// XXX XXX XXX
   if (IsNil(def) || IsNil(deflist))
     return def;
   
+  Assert(IsDef(def));
+  Assert(IsCons(deflist));
+  
   for (n = H(deflist), d = T(deflist); IsSet(n); n = T(n), d = T(d)) {
-    if (IsAtom(n)) {
+    if (IsAtom(H(n))) {
       /* name */
-      pointer *dp = def_for0(def, H(n));
-      if (dp) {
-        /* name already in def: generate error if msg is set, otherwise replace old definition with new */
-        if (msg) {
-          
-        } else {
-          refc_delete(dp); /* delete old definition */
-          *dp =   H(d);
-        }
-      } else {
-        /* name not in def: add it */
-        def = add_to_def(def, H(n), H(d));
-      }
+      pointer *dp = def_for2(H(def), T(def), H(n));
+      if (dp)
+        refc_delete(dp); /* delete old definition *//* todo - remove old name in deflist - complicated as it may be part of namelist; instead rely on def_for() to always find *most recent* definition */
+      def = add_to_def(def, H(n), H(d));
     } else {
       /* namelist */
-      HH(n) = add_deflist_to_deflist(def, HH(n), msg);
-      TH(n) = add_deflist_to_deflist(def, TH(n), msg);
+      def = add_deflist_to_def(def, HH(n));
+      def = add_deflist_to_def(def, TH(n));
     }
   }
+  return def;
+}
+
+/* names - list-of name|namelist, defs = list-of defs, to be added: deflist (list-of name|namelist . list-of defs) */
+pointer add_deflist_to_defNEW2(pointer names, pointer defs, pointer deflist)
+{
+  if (IsNil(deflist))
+    return NIL;
+ 
   
+  
+  return NIL;
+}
+pointer add_deflist_to_defNEW(pointer def, pointer deflist)
+{
+  if (IsNil(def) || IsNil(deflist))
+    return def;
+  
+  Assert(IsDef(def));
+  Assert(IsCons(deflist));
+  
+  
+  
+  (void) add_deflist_to_defNEW2(DefNames(def), DefExprs(def), deflist);
+
   return def;
 }
 
@@ -920,6 +948,7 @@ pointer refc_copy_make_cyclic(pointer p)
   return p;
 }
 
+#ifdef deprecated
 /* refc_update - update-in-place overwriting contents.  
  * NB old contents are deleted before installing new, so refc are incremented to be correct!
  * If new value is NIL, delete and return NIL.
@@ -955,6 +984,7 @@ pointer refc_update(pointer n, pointer new)
 
   return n;
 }
+#endif
 
 /* insert new contents in an apply node, free old, new node can be any kind */
 /* copy hd, tl from new into old; delete hd to */

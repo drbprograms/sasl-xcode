@@ -210,7 +210,7 @@ zone_header *zone_new(unsigned size, struct zone_header *parent)
   
   z =  malloc(debug ? need + (size * sizeof(node)) : need);
   if (z==NULL) {
-    (void) err_zone("zone_new: malloc out of space");
+    (void) err_zone("out of space");
     return 0; /*NOTREACHED*/
   }
   
@@ -454,13 +454,31 @@ static int refc_check_visit_node(pointer p, int s_limit, int *nil_count,  int *s
   node_no = Node(p) - z->nodes;
   
   /* update debug refc */
+#ifdef old
   if (IsStrong(p))
     (z->debug_nodes[node_no].s_refc)++;
   else
     (z->debug_nodes[node_no].w_refc)++;
+#else
+  if (IsStrong(p)) {
+    if (++(z->debug_nodes[node_no].s_refc) > Srefc(p)) {
+      if (debug)
+        fprintf(stderr, "!!visit_node: excess strong pointers to node: %s", zone_pointer_info(p));      ;//      loop detected!
+      //      err_refc("too many strong pointers");
+    }
+  }
+  else {
+    if(++(z->debug_nodes[node_no].w_refc) > Wrefc(p)) {
+      if (debug)
+        fprintf(stderr, "!!visit_node: excess weak pointers to node: %s", zone_pointer_info(p));      ;//      loop detected!
+      //      err_refc("too many weak pointers");
+      
+    }
+  }
+#endif
   
   z->debug_nodes[node_no].t = z->nodes[node_no].t;
-
+  
   return((z->debug_nodes[node_no].s_refc) +
          (z->debug_nodes[node_no].w_refc));
 }
@@ -551,7 +569,7 @@ int refc_check_traverse_pointers(pointer p, int s_limit, int *nil_count,  int *s
       } else {
         char s[512];
         (void) sprintf(s, "strong pointer loop detected (limit=%d) ", s_limit);
-//        (void) err_zone(s);
+        (void) err_zone(s);
         /*NOTREACHED*/
       }
     }
@@ -684,13 +702,15 @@ int refc_check_traverse_nodes(zone_header *z, int zone_no, int *strong_refc_tota
   return res;
 }
 
+//
+#ifdef bug
 /*
  * follow all strong (and only strong) pointers, counting nodes visited (in *s_count).
- * iff there is a strong loop then s_count will exceed s_limit -> report error
+ * iff there is a strong loop then *s_count will exceed s_limit -> report fatal error
  *
  * usage if (refc_loop_check(p, limit)) bad; ok;
  */
-int refc_check_loop_do(pointer p, int s_limit, int s_count)
+static int refc_check_loop_do(pointer p, int s_limit, int *s_count)
 {
  
   if (IsNil(p) ||
@@ -698,31 +718,62 @@ int refc_check_loop_do(pointer p, int s_limit, int s_count)
       ! HasPointers(p))
     return 0;
   
-  if ((s_count++) > s_limit) {
+  (*s_count)++;
+  if (*s_count > s_limit) {
     
     if (debug) {
-      fprintf(stderr, "!!loop_check: found loop size %d: at: %s: ", s_count, zone_pointer_info(p));
+      /* 'size' is the number of pointers (>=1) that comprise the loop */
+      fprintf(stderr, "!!loop_check: limit %d, found loop size %d: at: %s: ", s_limit, *s_count, zone_pointer_info(p));
     }
     
     return 1;
   }
-  
+bug: here SRefc(p) > 1 STOP
   return (
           refc_check_loop_do(H(p), s_limit, s_count) ||
           refc_check_loop_do(T(p), s_limit, s_count));
 }
 
+/*
+ * follow strong pointers printing node debug info.  Used to identify specific problems
+ */
+static int refc_show_loop_do(pointer p, int s_limit, int *s_count)
+{
+  if (IsNil(p) ||
+      IsWeak(p) ||
+      ! HasPointers(p))
+    return 0;
+  
+  (*s_count)++;
+  fprintf(stderr, "%s\n", zone_pointer_info(p));
+  if (*s_count > s_limit) {
+    return 1;
+  }
+  
+  return (
+          refc_show_loop_do(H(p), s_limit, s_count) ||
+          refc_show_loop_do(T(p), s_limit, s_count));
+}
+
 /* wrapper */
-#define Limit 24
 int refc_check_loop(pointer p, int s_limit)
 {
-  if (refc_check_loop_do(p, s_limit, 0)) {
-    out_debug_limit(p, (debug > 1 ? s_limit : Limit));
+  int count = 0;
+  
+  if (refc_check_loop_do(p, s_limit, &count)) {
+    if (debug) {
+      int count2 = 0;
+      out_debug_limit(p, s_limit);
+      refc_show_loop_do(p, s_limit, &count2);
+    }
+    (void) err_zone("storage loop");
+    /*NOTREACHED*/
     return 1;
   }
 
   return 0;
 }
+#endif
 
 /* refc_find_roots
  * search for nodes such that ALLrefc(p) > (count of pointers-to p)
@@ -779,7 +830,6 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
     /* report zone info */
     (void) fprintf(stderr,"%s\t%d\n", "zones in use", zone_new_count);
     (void) fprintf(stderr,"%s\t%d\n", "total zone size", zone_total_size);
-    (void) fprintf(stderr,"%s\t%d\n", "zone nodes used", total_used);
     (void) fprintf(stderr,"%s\t%d\n", "nodes used", refc_inuse_count);
     (void) fprintf(stderr,"%s\t%d\n", "nodes free", refc_free_count);
     
@@ -849,7 +899,7 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
         (void) fprintf(stderr, "!!root pointer is weak - unexpected\n");
       
       res += refc_check_traverse_pointers0(root, refc_inuse_count*2, &nil_count, &strong_count, &weak_count, &struct_count, &atom_count);
-      res += refc_check_loop(root, refc_inuse_count*2); /* stricter to use struct_count */
+//      res += refc_check_loop(root, refc_inuse_count*2); /* stricter to use struct_count */
     }
     
     /* defs - saved definitions */
@@ -861,7 +911,7 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
         (void) fprintf(stderr, "!!defs pointer is weak - unexpected\n");
       
       res = refc_check_traverse_pointers0(defs, refc_inuse_count*2, &nil_count, &strong_count, &weak_count, &struct_count, &atom_count);
-      res += refc_check_loop(defs, refc_inuse_count*2);
+//      res += refc_check_loop(defs, refc_inuse_count*2);
     }
     
     /* sasl - builtin definitions */
@@ -873,7 +923,7 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
         (void) fprintf(stderr, "!!builtin pointer is weak - unexpected\n");
       
       res = refc_check_traverse_pointers0(builtin, refc_inuse_count*2, &nil_count, &strong_count, &weak_count, &struct_count, &atom_count);
-      res += refc_check_loop(builtin, refc_inuse_count*2);
+//      res += refc_check_loop(builtin, refc_inuse_count*2);
     }
     
     (void) fprintf(stderr, "%s\t%d\n", "nil pointers",    nil_count );
@@ -910,7 +960,7 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
           (void) fprintf(stderr, "!!freelist pointer is weak - unexpected\n");
         
         res += refc_check_traverse_pointers0(freelist, (refc_inuse_count + refc_free_count)*2, &free_nil_count, &free_strong_count, &free_weak_count, &free_struct_count, &free_atom_count);
-        res += refc_check_loop(freelist, free_struct_count*2);
+//        res += refc_check_loop(freelist, free_struct_count*2);
       }
       
       (void) fprintf(stderr, "%s\t%d\n", "freelist nodes",    free_strong_count);

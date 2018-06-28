@@ -320,24 +320,24 @@ char reduce_is_equal(pointer *nn1, pointer *nn2)
 static pointer is_logical(pointer p)    { return new_bool(IsBool(p)); }
 static pointer is_char(pointer p)       { return new_bool(IsChar(p)); }
 static pointer is_list(pointer p)       { return new_bool(IsNil(p) || IsCons(p)); }
-static pointer is_func(pointer p)       { return new_bool(IsApply(p) || IsBuiltin(p)); } /* non-strict?? *//*ToDo "function pi WHERE pi = 3? => TRUE which ios probably wrong!*/
+static pointer is_func(pointer p)       { return new_bool(IsApply(p) || IsBuiltin(p)); }
 static pointer is_num(pointer p)        { return new_bool(IsNum(p)); }
 
 /* unary maths */
 /* char -> num */
-static pointer   code(pointer p)    { return new_int( (int)  Char(p)); } /*TODO Check its a CHAR */
+static pointer   code(pointer p)    { return IsChar(p) ? new_int( (int) Char(p)) : new_fail(); }
 
 /* num -> char*/
-static pointer decode(pointer p)    { return new_char((char) Num(p)); } /*TODO Check its a NUM */
+static pointer decode(pointer p)    { return IsNum(p)  ? new_char((int)  Num(p)) : new_fail(); }
 
 /* num -> num */
 /* ToDo make these work with sasl doubles */
 static pointer maths_arctan(pointer p)  { return IsNum(p) ? new_int((int) atan((double) Num(p))) :  new_fail();}
-static pointer maths_cos(pointer p)     { return IsNum(p) ? new_int((int) cos((double)  Num(p))) :   new_fail();}
-static pointer maths_entier(pointer p)  { return IsNum(p) ? new_int((int)               Num(p)) :    new_fail();} /* XXX Todo proper entier implementatin for doubles */
-static pointer maths_exp(pointer p)     { return IsNum(p) ? new_int((int) exp((double)  Num(p))) :   new_fail();}
-static pointer maths_log(pointer p)     { return IsNum(p) ? new_int((int) log((double)  Num(p))) :   new_fail();}
-static pointer maths_sin(pointer p)     { return IsNum(p) ? new_int((int) sin((double)  Num(p))) :   new_fail();}
+static pointer maths_cos(pointer p)     { return IsNum(p) ? new_int((int) cos((double)  Num(p))) :  new_fail();}
+static pointer maths_entier(pointer p)  { return IsNum(p) ? new_int((int)               Num(p)) :   new_fail();} /* XXX Todo proper entier implementatin for doubles */
+static pointer maths_exp(pointer p)     { return IsNum(p) ? new_int((int) exp((double)  Num(p))) :  new_fail();}
+static pointer maths_log(pointer p)     { return IsNum(p) ? new_int((int) log((double)  Num(p))) :  new_fail();}
+static pointer maths_sin(pointer p)     { return IsNum(p) ? new_int((int) sin((double)  Num(p))) :  new_fail();}
 static pointer maths_sqrt(pointer p)    { return IsNum(p) ? new_int((int) sqrt((double) Num(p))) :  new_fail();}
 
 /*
@@ -356,7 +356,7 @@ int reduce_init()
     builtin = add_to_def(builtin, new_name("char"),     new_unary_strict("char",     is_char));
     builtin = add_to_def(builtin, new_name("list"),     new_unary_strict("list",     is_list));
     builtin = add_to_def(builtin, new_name("logical"),  new_unary_strict("logical",  is_logical));
-    builtin = add_to_def(builtin, new_name("function"), new_unary_nonstrict("function", is_func));
+    builtin = add_to_def(builtin, new_name("function"), new_unary_strict("function", is_func));
     builtin = add_to_def(builtin, new_name("num"),      new_unary_strict("num",      is_num ));
     
     /* chars */
@@ -597,6 +597,7 @@ pointer reduce(pointer *n)
                     Stack1 = refc_update_to_bool(Stack1, ! reduce_bool(&Arg1)); Pop(1); continue;
                     
                 case unary_strict:
+                    /* ToDo - reduce_int() reduce_bool() etc to give better warning the "FAIL" */
                     Arg1 = reduce(&Arg1); /* strict */
                 case unary_nonstrict:
                     Assert(Ufun(Top));
@@ -701,10 +702,14 @@ pointer reduce(pointer *n)
                         Stack2 = refc_update_hdtl(Stack2, new_comb(I_comb), make_append(refc_copy(Arg1), refc_copy(Arg2)));
                         Pop(2);
                         continue;
-                    case minusminus_op:
-                    case range_op:
                         
+                    case minusminus_op:
+                        err_reduce("minusminus op not expected");
+                    case range_op:
+                        err_reduce("much_greater op not expected");
                     case much_greater_op:
+                        err_reduce("much_greater op not expected");
+                        Pop(2);
                         return Top; /* todo */
                         
                         
@@ -724,17 +729,11 @@ pointer reduce(pointer *n)
                         
                         /* todo floating point */
                     case much_less_op:
-                        
+                        err_reduce("much_less op not expected");
                     case divide_op:
                         err_reduce("divide op not expected");
-                        Pop(2);
-                        continue;
-                        
                     case rem_op:
                         err_reduce("rem op not expected");
-                        Pop(2);
-                        continue;
-                        
                     case power_op:
                         err_reduce("power op not expected");
                         Pop(2);
@@ -757,7 +756,7 @@ pointer reduce(pointer *n)
                         continue;
                         
                     case U_comb:
-                        /*  U f g => f (H g) (T g) */
+                        /*  U f g => f (H g) (T g)    aka U f (a:x) => f a x */
                         Stack2 = refc_update_hdtl(Stack2,
                                                   new_apply(refc_copy(Arg1), new_apply(new_comb(H_comb), refc_copy(Arg2))),
                                                   new_apply(new_comb(T_comb),  refc_copy(Arg2)));

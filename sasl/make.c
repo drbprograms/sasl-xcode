@@ -218,7 +218,7 @@ pointer make_oper()
  * bind def NAME  = def_lookup def NAME  || when def=() will return () and trigger possionble warning
  * bind def const = const
  */
-#ifdef def
+#ifdef notdef
 pointer make_bind(pointer def, pointer expr, char *msg)
 {
   if (IsNil(expr))
@@ -759,10 +759,11 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           Assert(IsDef(builtin));
           Assert(IsNil(defs) || IsDef(defs));
 
-#ifdef def
+#ifdef notdef
           n1 = make_bind(builtin, n1, NULL);
           root = make_bind(defs, n1, "undefined name: ");
 #else
+          /* scope of names: "((expr) WHERE defs) WHERE builtin" */
           if (IsDef(defs))
             n1 = make_where(n1, refc_copy(DefDefs(defs)));
 
@@ -781,10 +782,14 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           Assert(IsDef(builtin));
           Assert(IsNil(defs) || IsDef(defs));
           
+          /* scope of names: "defs WHERE builtin" */
+//fault xxx          DefExprs(n1) = make_where(DefExprs(n1), refc_copy(DefDefs(builtin)));/*xxx is this right?*/
+          
+          /* record defs for future use*/
           if (IsNil(defs))
             defs = new_def(new_name("<Top>"), n1);
           else
-            defs = add_deflist_to_deflist(defs, n1, "");
+            defs = add_deflist_to_def(defs, n1);
 
           /*TODO 2nd and subsequent DEF */
  /*
@@ -814,7 +819,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
 //          else
 //            defs = add_deflist_to_def(defs, n1);
 
-#ifdef def
+#ifdef notdef
           DefExprs(defs) = make_bind(builtin, DefExprs(defs), NULL); /* resolve builtin references */
           DefExprs(defs) = make_bind(defs,    DefExprs(defs), "in DEF: undefined name: "); /* resolve internal references */
           /* XXX todo Y comb here?? */
