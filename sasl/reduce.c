@@ -332,9 +332,10 @@ static pointer decode(pointer p)    { return IsNum(p)  ? new_char((int)  Num(p))
 
 /* num -> num */
 /* ToDo make these work with sasl doubles */
+static pointer maths_abs(pointer p)     { return IsNum(p) ? new_int((int) fabs((double) Num(p))) :  new_fail();}
 static pointer maths_arctan(pointer p)  { return IsNum(p) ? new_int((int) atan((double) Num(p))) :  new_fail();}
 static pointer maths_cos(pointer p)     { return IsNum(p) ? new_int((int) cos((double)  Num(p))) :  new_fail();}
-static pointer maths_entier(pointer p)  { return IsNum(p) ? new_int((int)               Num(p)) :   new_fail();} /* XXX Todo proper entier implementatin for doubles */
+static pointer maths_entier(pointer p)  { return IsNum(p) ? new_int((int) floor((double) Num(p))):  new_fail();}
 static pointer maths_exp(pointer p)     { return IsNum(p) ? new_int((int) exp((double)  Num(p))) :  new_fail();}
 static pointer maths_log(pointer p)     { return IsNum(p) ? new_int((int) log((double)  Num(p))) :  new_fail();}
 static pointer maths_sin(pointer p)     { return IsNum(p) ? new_int((int) sin((double)  Num(p))) :  new_fail();}
@@ -364,6 +365,7 @@ int reduce_init()
     builtin = add_to_def(builtin, new_name("decode"),   new_unary_strict("decode",   decode));
     
     /* maths */
+    builtin = add_to_def(builtin, new_name("abs"),      new_unary_strict("abs",      maths_abs));
     builtin = add_to_def(builtin, new_name("entier"),   new_unary_strict("entier",   maths_entier));
     builtin = add_to_def(builtin, new_name("arctan"),   new_unary_strict("arctan",   maths_arctan));
     builtin = add_to_def(builtin, new_name("cos"),      new_unary_strict("cos",      maths_cos));
@@ -599,14 +601,10 @@ pointer reduce(pointer *n)
                 case unary_strict:
                     /* ToDo - reduce_int() reduce_bool() etc to give better warning the "FAIL" */
                     Arg1 = reduce(&Arg1); /* strict */
+                    /*FALLTHRU*/
                 case unary_nonstrict:
                     Assert(Ufun(Top));
-                    Stack1 = refc_update_hdtl(Stack1, new_comb(I_comb), Ufun(Top)(Arg1));
-                    /*was - WIP XXX why doesn't this work ..
-                    Stack1 = refc_update(Stack1, Ufun(Top)(Arg1));
-                     */
-                    Pop(1);
-                    continue;
+                    Stack1 = refc_update_hdtl(Stack1, new_comb(I_comb), Ufun(Top)(Arg1)); Pop(1); continue;
 
                 case I_comb:
                     /* I x => x */

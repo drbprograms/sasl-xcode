@@ -463,16 +463,13 @@ static int refc_check_visit_node(pointer p, int s_limit, int *nil_count,  int *s
   if (IsStrong(p)) {
     if (++(z->debug_nodes[node_no].s_refc) > Srefc(p)) {
       if (debug)
-        fprintf(stderr, "!!visit_node: excess strong pointers to node: %s", zone_pointer_info(p));      ;//      loop detected!
-      //      err_refc("too many strong pointers");
+        fprintf(stderr, "!!visit_node: %d strong pointers to node: %s\n", z->debug_nodes[node_no].s_refc, zone_pointer_info(p));
     }
   }
   else {
     if(++(z->debug_nodes[node_no].w_refc) > Wrefc(p)) {
       if (debug)
-        fprintf(stderr, "!!visit_node: excess weak pointers to node: %s", zone_pointer_info(p));      ;//      loop detected!
-      //      err_refc("too many weak pointers");
-      
+        fprintf(stderr, "!!visit_node: %d weak pointers to node: %s\n", z->debug_nodes[node_no].w_refc,zone_pointer_info(p));
     }
   }
 #endif
