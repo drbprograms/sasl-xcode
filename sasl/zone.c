@@ -130,20 +130,21 @@ static char *zone_pointer_info_do(pointer p, int dbg)
     return "NIL";
   
   if (zone_pointer_detail(p, &seq, &off, dbg)) {
+    /* fail */
     if (debug)
-      fprintf(stderr,"/%c (s/w %u/%u) [%u.%ld] %s\n",
+      fprintf(stderr,"zone_pointer_detail: /%c (s/w %u/%u) [%u.%ld] %s\n",
               (IsStrong(p)?'s':'w'),
               Srefc(p),
               Wrefc(p),
               seq,
               off,
 //              err_tag_name(Tag(p))
-              "Tag"
+              "can't get Tag"
               );
-//
-//   Assert(0);
-//
-    err_refc("can't get pointer info");
+    if (dbg)
+      err_refc("can't get pointer zone info");
+    else
+      err_refc("can't get pointer debug zone info");
   }
   
   c = sprintf(s,"/%c (s/w %u/%u) [%u.%ld] %s",

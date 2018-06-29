@@ -620,6 +620,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
       case 2: {
         pointer dup;
         /* || clause == names:expr */
+        /* "info" gives the number of arguments */
         if (info > 0 && IsSameName(HH(n1), H(n2))) {
           /* multi-clause definition - not allowed with zero formals */
           HT(n1) = make_multi_clause(HT(n1), refc_copy(T(n2)), info);
