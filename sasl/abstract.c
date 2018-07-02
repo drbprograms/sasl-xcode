@@ -233,7 +233,7 @@ pointer reduce_abstract(pointer pattern, pointer exp, int r)
     } else if (IsNil(Tl(pattern))) {
       Assert(IsCons(pattern));
       /* [x:NIL] E => U ([x] (K_nil E)) */
-#ifdef notdef
+#ifdef matchtag
       exp = new_apply(new_apply(new_comb(MATCH_TAG_comb), new_cons(NIL,NIL)),
                       new_apply(new_comb(U_comb),
                                 reduce_abstract(refc_copy(Hd(pattern)),

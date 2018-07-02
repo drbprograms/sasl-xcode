@@ -138,7 +138,7 @@ typedef enum tag {
   TRY_comb,
   TRYn_comb,
   MATCH_comb,
-#ifdef notdef
+#ifdef matchtag
   MATCH_TAG_comb,
 #endif
 
@@ -225,11 +225,11 @@ typedef struct node
 #define IsThisComb(p,t) (IsComb(p) && (Tag(p) == (t))
 
 /* has a name be replaced by (MATCH name) for de-duplication */
-#ifdef notdef
-#define IsMatchName(p)  (IsSet(p) && IsComb(Hd(p)) && ((Tag(Hd(p)) == MATCH_comb) || (Tag(Hd(p))== MATCH_TAG_comb)) && \
+#ifdef matchtag
+#define IsMatchName(p)  (IsApply(p) && IsComb(Hd(p)) && ((Tag(Hd(p)) == MATCH_comb) || (Tag(Hd(p))== MATCH_TAG_comb)) && \
      (IsName(Tl(p))))
 #else
-#define IsMatchName(p)  (IsSet(p) && IsComb(Hd(p)) && ((Tag(Hd(p)) == MATCH_comb)) && \
+#define IsMatchName(p)  (IsApply(p) && IsComb(Hd(p)) && (Tag(Hd(p)) == MATCH_comb) && \
 (IsName(Tl(p))))
 #endif
 

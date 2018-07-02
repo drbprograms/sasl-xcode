@@ -94,7 +94,7 @@ static char *tag_names[] = {
   "TRY_comb",
   "TRYn_comb",
   "MATCH_comb",
-#ifdef notdef
+#ifdef matchtag
   "MATCH_TAG_comb",
 #endif
 

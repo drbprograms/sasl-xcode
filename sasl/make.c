@@ -349,7 +349,8 @@ pointer de_dup1(pointer name, pointer old)
 
 pointer de_dup(pointer new, pointer old)
 {
- 
+  MAKE_DEBUG("de_dup: "); out_debug1(new); out_debug(old);
+
   if (IsNil(new) || IsMatchName(new))
     return old;
   
@@ -579,7 +580,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
             for (i = howmany - 2; i > 0; i--) /* rest of formals */
               s = new_apply(sp[i], de_dup(sp[i], s));
             
-#ifdef notdef
+#ifdef matchtag
             return make_assemble(s, howmany, sp[howmany]);
           } else {
             return n1;

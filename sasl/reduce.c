@@ -818,7 +818,7 @@ pointer reduce(pointer *n)
                         continue;
                     }
                         
-#ifdef notdef
+#ifdef matchtag
                     case MATCH_TAG_comb: {
                         /* MATCH tag E x => tag = Tag(x) -> E; FAIL */
                         /* NB "tag" must be a fully reduced constant */
