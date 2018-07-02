@@ -138,7 +138,10 @@ typedef enum tag {
   TRY_comb,
   TRYn_comb,
   MATCH_comb,
-  
+#ifdef notdef
+  MATCH_TAG_comb,
+#endif
+
   PAIR_comb,
   H_comb,	/* hd / tl combinators - lazy */
   T_comb,
@@ -222,9 +225,13 @@ typedef struct node
 #define IsThisComb(p,t) (IsComb(p) && (Tag(p) == (t))
 
 /* has a name be replaced by (MATCH name) for de-duplication */
-#define IsMatchName(p) ((IsSet(p) && IsComb(Hd(p)) && (Tag(Hd(p)) == MATCH_comb)) && \
+#ifdef notdef
+#define IsMatchName(p)  (IsSet(p) && IsComb(Hd(p)) && ((Tag(Hd(p)) == MATCH_comb) || (Tag(Hd(p))== MATCH_TAG_comb)) && \
      (IsName(Tl(p))))
-
+#else
+#define IsMatchName(p)  (IsSet(p) && IsComb(Hd(p)) && ((Tag(Hd(p)) == MATCH_comb)) && \
+(IsName(Tl(p))))
+#endif
 
 #define IsNilList(p)	IsNilListTag(Tag(p)))/*deprecated*/
 

@@ -576,6 +576,7 @@ pointer reduce(pointer *n)
                         if (partial_compile) {
                             
                             ;	/* not allowing this tag at run time */
+                            /* Here is just-in-time code generation ...*/
                         }
                         else {
                             
@@ -816,6 +817,22 @@ pointer reduce(pointer *n)
                         Pop(3);
                         continue;
                     }
+                        
+#ifdef notdef
+                    case MATCH_TAG_comb: {
+                        /* MATCH tag E x => tag = Tag(x) -> E; FAIL */
+                        /* NB "tag" must be a fully reduced constant */
+                        Arg3 = reduce(&Arg3);
+                        if (Tag(Arg1) == Tag(Arg3)) {
+                            Stack3 = refc_update_hdtl(Stack3, new_comb(I_comb), refc_copy(Arg2));
+                        } else {
+                            Stack3 = refc_update_to_fail(Stack3);
+                        }
+                        Pop(3);
+                        continue;
+                    }
+                        
+#endif
 #ifdef match_with_test
                     case MATCH_comb: {
                         /* MATCH test E x => (test x)= FALSE -> FAIL; E */

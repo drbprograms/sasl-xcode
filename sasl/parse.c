@@ -153,7 +153,7 @@ int parse_formal()
 }
 
 /*
- * (2)	<struct> ::= <struct> ::= (<formal>) | <formal> [:<struct> ]* where * means 0 or more NB this differes from the grammar in [Tuenr 1983] - otherwise can't parse "1 WHERE f (a:x) = ..."
+ * (2)	<struct> ::= (<formal>) | <formal> [:<struct> ]* where * means 0 or more NB this differes from the grammar in [Tuenr 1983] - otherwise can't parse "1 WHERE f (a:x) = ..."
  *	                              1           2        3
  * return length of list of structs or else 1 for (<formal>)
  */
@@ -289,33 +289,27 @@ int parse_condexp()
 /*
  *	<rhs> ::= <formal><rhs> | <formal> = <expr>
  * rewritten as
- * (5)  <rhs> ::= = <formal>+ = <expr> | = <expr>    + means 1 or more
- *                      1          2        3
+ * (5)  <rhs> ::= <formal>+ = <expr> | = <expr>    + means 1 or more
+ *                               1         2
  * returns how many formals (>=0)
  */
 
 int parse_rhs()
 {
-  int count;
+  int formals;
   
   Parse_Debug("parse_rhs");
   
-  for (count = 0; !lex_looking_at_operator(op_equal); count++)
+  for (formals = 0; !lex_looking_at_operator(op_equal); formals++)
     parse_formal();
-  
-  if (count > 0)
-    MakerN(count, "rhs<=[formal]+ = ...",5,1);
   
   lex_offside();
   parse_expr();
   lex_onside();
   
-  if (count > 0)
-    Maker2i("rhs<=[formal]+ = expr",5,2,count);
-  else
-    Maker1("rhs<=expr",5,3);
+  MakerN(1 + formals /* include the expr */, "rhs<=formal* = expr",5,1);
   
-  return count;
+  return formals;
 }
 
 /*
@@ -330,7 +324,8 @@ int parse_clause()
   Parse_Debug("parse_clause");
 
   s = parse_namelist();
-
+  //?bug xxx should parse "a=1" as namelist=expr but does not;  changing this could simplify parse_rhs() nicely
+//  ... or not
   if (s > 1) { /* namelist */
     Maker1("clause<=namelist ...",6,1);
     if (lex_looking_at_operator(op_equal)) {
@@ -410,7 +405,7 @@ int parse_defs()
 /*
  *	<expr> ::= <expr> WHERE <defs> | <condexp>
  *	re-written to:
- * (8)	<expr> ::= <condexp> [WHERE <defs>]1	* means 0 or more - how can there be more than one?  "(expr where defs) where defs"  eg (a+b where a=1) where b=2?
+ * (8)	<expr> ::= <condexp> [WHERE <defs>]1	* means 0 or more - xxx how can there be more than one?  "(expr where defs) where defs"  eg (a+b where a=1) where b=2?
  *                     1               2
  */
 int parse_expr()

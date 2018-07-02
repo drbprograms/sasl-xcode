@@ -198,9 +198,9 @@ static pointer reduce_abstract1(pointer name, pointer exp, int r)
 /* [NIL]   E   => MATCH NIL   E */
 /* [name] E    => abstract1(name, E) */
 /* [MATCH n] E => MATCH n E */
+// [x:NIL] E   => MATCH_tag CONS U ([x] (K_nil E))
+// [x:y] E     => MATCH_tag CONS U ([x] ([y] E)) 
 /* [a b] E     => [a] ([b] E) */
-/* [x:NIL] E   => U ([x] (K_nil E)) */
-/* [x:y] E     => U ([x] ([y] E)) */
 
 pointer reduce_abstract(pointer pattern, pointer exp, int r)
 {
@@ -233,17 +233,35 @@ pointer reduce_abstract(pointer pattern, pointer exp, int r)
     } else if (IsNil(Tl(pattern))) {
       Assert(IsCons(pattern));
       /* [x:NIL] E => U ([x] (K_nil E)) */
+#ifdef notdef
+      exp = new_apply(new_apply(new_comb(MATCH_TAG_comb), new_cons(NIL,NIL)),
+                      new_apply(new_comb(U_comb),
+                                reduce_abstract(refc_copy(Hd(pattern)),
+                                                new_apply(new_comb(K_nil_comb), exp),
+                                      0/*nb*/)));
+#else
       exp = new_apply(new_comb(U_comb),
                       reduce_abstract(refc_copy(Hd(pattern)),
                                       new_apply(new_comb(K_nil_comb), exp),
                                       0/*nb*/));
+#endif
+      
     } else {
       Assert(IsCons(pattern));
-      /* [x:y] E => U ([x] ([y] E)) */
+      /* [x:y] E => MATCH_TAG cons (U ([x] ([y] E)))  || make sure the argument is a cons, otherwise FAIL */
+#ifdef notdef
+      exp = new_apply(new_apply(new_comb(MATCH_TAG_comb), new_cons(NIL, NIL)),
+                      new_apply(new_comb(U_comb),
+                                reduce_abstract(refc_copy(Hd(pattern)),
+                                                reduce_abstract(refc_copy(Tl(pattern)), exp, 0/*nb*/),
+                                                0/*nb*/)));
+#else
       exp = new_apply(new_comb(U_comb),
                       reduce_abstract(refc_copy(Hd(pattern)),
                                       reduce_abstract(refc_copy(Tl(pattern)), exp, 0/*nb*/),
                                       0/*nb*/));
+#endif
+
     }
   }
   

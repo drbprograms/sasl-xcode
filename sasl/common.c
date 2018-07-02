@@ -94,7 +94,10 @@ static char *tag_names[] = {
   "TRY_comb",
   "TRYn_comb",
   "MATCH_comb",
-  
+#ifdef notdef
+  "MATCH_TAG_comb",
+#endif
+
   "PAIR_comb",
   "H_comb",
   "T_comb",
@@ -477,6 +480,11 @@ static int out_out(FILE *where, pointer n)
         case MATCH_comb:
           (void) fprintf(where, "MATCH");
           return out_comb_name(where, n);
+#ifdef notdef
+        case MATCH_TAG_comb:
+          (void) fprintf(where, "MATCH_TAG");
+          return out_comb_name(where, n);
+#endif
         case PAIR_comb:
           (void) fprintf(where, "PAIR");
           return out_comb_name(where, n);

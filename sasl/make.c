@@ -344,7 +344,7 @@ pointer de_dup1(pointer name, pointer old)
 }
 
 /* de-duplicate new names
- for every new name "n", replace instances of that name in old by (MATCH "n")
+ for every name in new, replace instances of that name n in old by (MATCH n)
  */
 
 pointer de_dup(pointer new, pointer old)
@@ -379,6 +379,7 @@ pointer de_dup(pointer new, pointer old)
 /*
  * list-of (name|namelist) . list-of exp --> list-of name . list-of exp
  */
+// deprecated - only used in unit test.
 pointer make_flatten(pointer p)
 {
   if (IsNil(p))
@@ -430,6 +431,12 @@ void make_flatten0(pointer *n, pointer *e)
     make_flatten0(&T(*n), e);
   }
   return;
+}
+
+static pointer make_assemble(pointer args, int n, pointer expr)
+{
+  Assert(0);//WIP
+  return expr;
 }
 /*maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker*/
 
@@ -552,9 +559,9 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
       /*
        *	<rhs> ::= <formal><rhs> | <formal> = <expr>
        * rewritten as
-       * (5)  <rhs> ::= = <formal>+ = <expr> | = <expr>    + means 1 or more
-       *                      1          2        3
-       *    || rhs <= expr
+       * (5)  <rhs> ::= <formal>* = <expr>     * means 0 or more
+       *                               1
+	       *    || rhs <= expr
        !! ToDo consider check "name" is not present in Lhs.formal - its an error isn't it eg sasl "f a f = a?"!!
        */
       switch (subrule) {
@@ -562,18 +569,28 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           /* use stack N reverse order of SASL text - abstract "rightmost" formal first */
           /* "f x y = E compiles to [x] ([y] E) where the innermost abstraction is performed first" [Turner] */
           /* this ensures correct de-dup'ing */
-          pointer s = sp[howmany];
+          pointer s;
           int i;
-          Assert(howmany >= 1);
-          for (i = howmany - 1; i > 0; i--)
-            s = new_apply(sp[i], de_dup(sp[i], s));
-          return s;
+          Assert(howmany >= 1); /* expr */
+          
+          if (howmany > 1) {
+            /* formal+ */
+            s = sp[howmany - 1];  /* last/only formal */
+            for (i = howmany - 2; i > 0; i--) /* rest of formals */
+              s = new_apply(sp[i], de_dup(sp[i], s));
+            
+#ifdef notdef
+            return make_assemble(s, howmany, sp[howmany]);
+          } else {
+            return n1;
+          }
+#else
+          return make_abstract(s, sp[howmany], 0/*nonrecursive*/);
+        } else {
+          return n1;/*sp[1]*/
+          }
+#endif
         }
-        case 2: {
-          pointer result = make_abstract(n1, n2, 0/*nonrecursive*/);
-          return result;
-        }
-        case 3: return n1;
       }
       break;
       
