@@ -153,8 +153,8 @@ int parse_formal()
 }
 
 /*
- * (2)	<struct> ::= (<formal>) | <formal> [:<struct> ]* where * means 0 or more NB this differes from the grammar in [Tuenr 1983] - otherwise can't parse "1 WHERE f (a:x) = ..."
- *	                              1           2        3
+ * (2)  <struct> ::= (<formal>) | <formal> [:<struct> ]* where * means 0 or more NB this differes from the grammar in [Tuenr 1983] - otherwise can't parse "1 WHERE f (a:x) = ..."
+ *                                1           2        3
  * return length of list of structs or else 1 for (<formal>)
  */
 int parse_struct()
