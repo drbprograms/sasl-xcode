@@ -321,7 +321,7 @@ static pointer is_logical(pointer p)    { return new_bool(IsBool(p)); }
 static pointer is_char(pointer p)       { return new_bool(IsChar(p)); }
 static pointer is_list(pointer p)       { return new_bool(IsNil(p) || IsCons(p)); }
 static pointer is_func(pointer p)       { return new_bool(IsApply(p) || IsBuiltin(p)); }
-static pointer is_num(pointer p)        { return new_bool(IsNum(p)); }
+static pointer is_number(pointer p)     { return new_bool(IsNum(p)); }
 
 /* unary maths */
 /* char -> num */
@@ -358,7 +358,7 @@ int reduce_init()
     builtin = add_to_def(builtin, new_name("list"),     new_unary_strict("list",     is_list));
     builtin = add_to_def(builtin, new_name("logical"),  new_unary_strict("logical",  is_logical));
     builtin = add_to_def(builtin, new_name("function"), new_unary_strict("function", is_func));
-    builtin = add_to_def(builtin, new_name("num"),      new_unary_strict("num",      is_num ));
+    builtin = add_to_def(builtin, new_name("number"),   new_unary_strict("number",   is_number));
     
     /* chars */
     builtin = add_to_def(builtin, new_name("code"),     new_unary_strict("code",     code));
@@ -560,14 +560,21 @@ pointer reduce(pointer *n)
                         refc_delete(sp+1);  /* delete "FAIL anything" */
                         return here; /* return FAIL */
                     }
-                    case abstract_t:
-                        sp = base;
-                        (void) err_reduce("abstract_t unexpected");
-                        return NIL; /*NOTREACHED*/
-                    case recursive_abstract_t:
-                        sp = base;
-                        (void) err_reduce("recursive_abstract_t unexpected");
-                        return NIL; /*NOTREACHED*/
+                case abstract_condexp_t: {
+                    sp = base;
+                    (void) err_reduce("abstract_condexp_t unexpected");
+                    return NIL; /*NOTREACHED*/
+                }
+                case abstract_formals_t: {
+                    sp = base;
+                    (void) err_reduce("abstract_formals_t unexpected");
+                    return NIL; /*NOTREACHED*/
+                }
+                case abstract_defs_t: {
+                    sp = base;
+                    (void) err_reduce("abstract_defs_t unexpected");
+                    return NIL; /*NOTREACHED*/
+                }
                     case def_t:
                         sp = base;
                         (void) err_reduce("def_t unexpected");
@@ -818,13 +825,13 @@ pointer reduce(pointer *n)
                         continue;
                     }
                         
-#ifdef matchtag
                     case MATCH_TAG_comb: {
-                        /* MATCH tag E x => tag = Tag(x) -> E; FAIL */
-                        /* NB "tag" must be a fully reduced constant */
+                        /* MATCH tag E x => tag = Tag(x) -> E x; FAIL */
+                        Assert(!IsApply(Arg1)); /* must be fully reduced, as we don't reduce it below */
+
                         Arg3 = reduce(&Arg3);
                         if (Tag(Arg1) == Tag(Arg3)) {
-                            Stack3 = refc_update_hdtl(Stack3, new_comb(I_comb), refc_copy(Arg2));
+                            Stack3 = refc_update_hdtl(Stack3, refc_copy(Arg2), refc_copy(Arg3));
                         } else {
                             Stack3 = refc_update_to_fail(Stack3);
                         }
@@ -832,7 +839,6 @@ pointer reduce(pointer *n)
                         continue;
                     }
                         
-#endif
 #ifdef match_with_test
                     case MATCH_comb: {
                         /* MATCH test E x => (test x)= FALSE -> FAIL; E */

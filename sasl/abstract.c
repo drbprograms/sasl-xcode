@@ -202,16 +202,25 @@ static pointer reduce_abstract1(pointer name, pointer exp, int r)
 // [x:y] E     => MATCH_tag CONS U ([x] ([y] E)) 
 /* [a b] E     => [a] ([b] E) */
 
-pointer reduce_abstract(pointer pattern, pointer exp, int r)
+pointer reduce_abstract(pointer pattern, pointer exp, tag t)
 {
+  int recursive = 0;
+  
   if (debug) {
-    fprintf(stderr, "%s[", (r?"recursive_abstract":"abstract"));
+    fprintf(stderr, "%s%d[", "abstract", (int) t);
     out_debug1(pattern);
     fprintf(stderr, "] ");
     out_debug(exp);
   }
-  
+
+  Assert(t == abstract_condexp_t || t== abstract_formals_t || t == abstract_defs_t);
   Assert(!IsComb(pattern));
+
+  /* only apply "Y" at outermost level, so "downgrade" t, and set "recursive" for use below  */
+  if (t == abstract_defs_t) {
+    recursive = 1;
+    t = abstract_condexp_t;
+  }
   
   if (IsNil(pattern) || IsConst(pattern)) {
     /* [const] E => MATCH const E */
@@ -228,48 +237,34 @@ pointer reduce_abstract(pointer pattern, pointer exp, int r)
     if (IsApply(pattern)) {
       /* [a b] E => [a] ([b] E) */
       exp = reduce_abstract(refc_copy(Hd(pattern)),
-                            reduce_abstract(refc_copy(Tl(pattern)), exp, 0/*nb*/),
-                            0/*nb*/);
-    } else if (IsNil(Tl(pattern))) {
-      Assert(IsCons(pattern));
-      /* [x:NIL] E => U ([x] (K_nil E)) */
-#ifdef matchtag
-      exp = new_apply(new_apply(new_comb(MATCH_TAG_comb), new_cons(NIL,NIL)),
-                      new_apply(new_comb(U_comb),
-                                reduce_abstract(refc_copy(Hd(pattern)),
-                                                new_apply(new_comb(K_nil_comb), exp),
-                                      0/*nb*/)));
-#else
-      exp = new_apply(new_comb(U_comb),
-                      reduce_abstract(refc_copy(Hd(pattern)),
-                                      new_apply(new_comb(K_nil_comb), exp),
-                                      0/*nb*/));
-#endif
-      
+                            reduce_abstract(refc_copy(Tl(pattern)), exp, t),
+                            t);
     } else {
       Assert(IsCons(pattern));
-      /* [x:y] E => MATCH_TAG cons (U ([x] ([y] E)))  || make sure the argument is a cons, otherwise FAIL */
-#ifdef notdef
-      exp = new_apply(new_apply(new_comb(MATCH_TAG_comb), new_cons(NIL, NIL)),
-                      new_apply(new_comb(U_comb),
-                                reduce_abstract(refc_copy(Hd(pattern)),
-                                                reduce_abstract(refc_copy(Tl(pattern)), exp, 0/*nb*/),
-                                                0/*nb*/)));
-#else
-      exp = new_apply(new_comb(U_comb),
-                      reduce_abstract(refc_copy(Hd(pattern)),
-                                      reduce_abstract(refc_copy(Tl(pattern)), exp, 0/*nb*/),
-                                      0/*nb*/));
-#endif
-
+      if (IsNil(Tl(pattern))) {
+        /* [x:NIL] E => U ([x] (K_nil E)) */
+        exp = new_apply(new_comb(U_comb),
+                        reduce_abstract(refc_copy(Hd(pattern)),
+                                        new_apply(new_comb(K_nil_comb), exp),
+                                        t));
+      } else {
+        /* [x:y] E => U ([x] ([y] E)) */
+        exp = new_apply(new_comb(U_comb),
+                        reduce_abstract(refc_copy(Hd(pattern)),
+                                        reduce_abstract(refc_copy(Tl(pattern)), exp, t),
+                                        t));
+      }
+      
+      if (t == abstract_formals_t)
+        exp = new_apply3(new_comb(MATCH_TAG_comb), new_cons(NIL,NIL), exp);
+      
+      if (recursive) /*t == abstract_defs_t && at-top-level */
+        exp = new_apply(new_comb(Y_comb), exp);
     }
   }
   
-  if (r)
-    exp = new_apply(new_comb(Y_comb), exp);
-  
   if (debug) {
-    fprintf(stderr, "%s[", (r?"recursive_abstract":"abstract"));
+    fprintf(stderr, "%s%d[", "abstract", (int) t);
     out_debug1(pattern);
     fprintf(stderr, "] --> ");
     out_debug(exp);

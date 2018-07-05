@@ -13,7 +13,7 @@ extern pointer new_apply4(pointer hhh, pointer thh, pointer th, pointer t);
 
 
 extern pointer new_cons(pointer hd, pointer tl);
-extern pointer new_abstract(pointer name, pointer def, int r);
+extern pointer new_abstract(pointer name, pointer def, tag t);
 extern pointer new_def(pointer name, pointer def);
 extern pointer add_to_def(pointer def, pointer name, pointer d);
 extern pointer add_deflist_to_def(pointer def, pointer deflist);

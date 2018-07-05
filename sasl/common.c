@@ -25,8 +25,9 @@ static char *tag_names[] = {
   
   /* Name/Abstract tags used for partially compiled code - todo decide whether these are prohibited post-compilation */
   "name_t",
-  "abstract_t",
-  "recursive_abstract_t",
+  "abstract_condexp_t",
+  "abstract_formals_t",
+  "abstract_defs_t",
   "def_t",
   
   /* Operators - tl contains first argument (or NIL) */
@@ -94,9 +95,7 @@ static char *tag_names[] = {
   "TRY_comb",
   "TRYn_comb",
   "MATCH_comb",
-#ifdef matchtag
   "MATCH_TAG_comb",
-#endif
 
   "PAIR_comb",
   "H_comb",
@@ -335,9 +334,11 @@ static int out_out(FILE *where, pointer n)
           
         case name_t:
           return fprintf(where, "%s",Name(n));/* todo handle names */
-        case recursive_abstract_t:
+        case abstract_defs_t:
           (void) fprintf(where,"*");
-        case abstract_t:
+        case abstract_condexp_t:
+          (void) fprintf(where,"*");
+        case abstract_formals_t:
           (void) fprintf(where, "[");
           (void) out_comb_name(where, n);
           (void) fprintf(where, "]");
@@ -480,11 +481,9 @@ static int out_out(FILE *where, pointer n)
         case MATCH_comb:
           (void) fprintf(where, "MATCH");
           return out_comb_name(where, n);
-#ifdef notdef
         case MATCH_TAG_comb:
           (void) fprintf(where, "MATCH_TAG");
           return out_comb_name(where, n);
-#endif
         case PAIR_comb:
           (void) fprintf(where, "PAIR");
           return out_comb_name(where, n);

@@ -120,9 +120,20 @@ pointer new_cons(pointer hd, pointer tl)
   return n;
 }
 
-pointer new_abstract(pointer name, pointer def, int r)
+pointer new_abstract(pointer name, pointer def, tag t)
 {
-  pointer n = new_node(r ? recursive_abstract_t : abstract_t);
+  pointer n;
+  
+  switch (t) {
+  case abstract_condexp_t:
+  case abstract_formals_t:
+  case abstract_defs_t:
+    n = new_node(t);
+    break;
+  default:
+      err_refc1("new_abstract: bad tag: ", (int) t);
+    /*NOTREACHED*/
+  }
   Hd(n) = name;
   Tl(n) = def;
   store_log_new(n);
@@ -416,6 +427,7 @@ pointer make_comb_name(pointer n, tag t, pointer name)
 {
   n = make_node(n, t);
   Hd(n) = name;
+  Tl(n) = NIL; /*WIP is this needed?*/
   store_log_new(n);
   return n;  
 }
@@ -617,13 +629,12 @@ void refc_delete(pointer *pp)
     }
     else { /* is in a loop */
       
-      /* Assert(HasPointer(p)); */
+      /* Assert(Srefc(p) == 0 && Wrefc(p) > 0) */
       if (!HasPointers(p)) {
         if (IsStrong(p))
-          (void) err_refc("constant has weak references (deleting strong pointer)");
+          store_log("constant has only weak references (deleting last strong pointer)", p); /*NOTREACHED*//* this never happens */
         else
-          (void) err_refc("constant has weak references (deleting weak pointer)");
-        return; /*NOTREACHED*/
+          (void) err_refc("constant has only weak references (deleting weak pointer)");
       }
       
       /* invert pointers */
@@ -633,25 +644,30 @@ void refc_delete(pointer *pp)
       Srefc(p) = Wrefc(p);	/* !!! was this done correctly in 1985? */
       Wrefc(p) = 0;		/* !!! was this done correctly in 1985? */
       
-      /* recursive search */
-      refc_search(p, &Hd(p));
-      refc_search(p, &Tl(p));
-      
-      refc_delete_post_search_log(p);
-      
-      /* Srefc(p) and/or Wrefc(p) may be changed by the searches */
-      if (Srefc(p) == 0) {
-        refc_delete(&Hd(p));
-        refc_delete(&Tl(p));
+      if (HasPointers(p)) {
+        /* recursive search */
+        refc_search(p, &Hd(p));
+        refc_search(p, &Tl(p));
         
-        refc_delete_post_delete_log(p);
-        /* assert(IsFree(p)) - has been freed above */
-        if ( !refc_isfree(p))
+        refc_delete_post_search_log(p);
+        
+        /* Srefc(p) and/or Wrefc(p) may be changed by the searches */
+        if (Srefc(p) == 0) {
+          refc_delete(&Hd(p));
+          refc_delete(&Tl(p));
+      
+          refc_delete_post_delete_log(p);
+          /* assert(IsFree(p)) - has been freed above */
+          if ( !refc_isfree(p))
 #if toocautious
-          (void) err_refc("loop not freed");
+        (void) err_refc("loop not freed");
 #else
-        store_log("loop not freed", p);
+      store_log("loop not freed", p); /*XXX under what conditions is this valid - Assert(Wrefc(p) == 0) --- or not?  */
 #endif
+        }
+      } else {
+          /*!HasPointers(p)*/
+        refc_delete_post_delete_log(p);
       }
     }
   }

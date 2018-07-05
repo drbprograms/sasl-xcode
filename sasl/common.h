@@ -46,14 +46,16 @@ typedef enum tag {
   /* Name/Abstract tags used for partially compiled code - todo decide whether these are prohibited post-compilation */
   name_t,
 #define IsNameTag(t) ((t)==name_t)
-  abstract_t,
-#define IsAbstractTag(t) ((t)==abstract_t)
-  recursive_abstract_t,
-#define IsRecursiveAbstractTag(t) ((t)==recursive_abstract_t)
+  abstract_condexp_t,
+  abstract_formals_t,
+  abstract_defs_t,
+
+#define IsAbstractTag(t) ((t)==abstract_condexp_t || (t)==abstract_formals_t || (t)==abstract_defs_t)
+
   def_t,
 #define IsDefTag(t) ((t)==def_t)
   
-#define HasPointersTag(t) (IsStructTag(t) || IsCombTag(t) || IsAbstractTag(t) || IsRecursiveAbstractTag(t) || IsDefTag(t))
+#define HasPointersTag(t) (IsStructTag(t) || IsCombTag(t) || IsAbstractTag(t) || IsDefTag(t))
   /* TODO when there's time to conduct before/aafter testing 
      # define HasPointers(t) ((t) >= apply_t) */
 
@@ -138,9 +140,7 @@ typedef enum tag {
   TRY_comb,
   TRYn_comb,
   MATCH_comb,
-#ifdef matchtag
   MATCH_TAG_comb,
-#endif
 
   PAIR_comb,
   H_comb,	/* hd / tl combinators - lazy */
@@ -224,14 +224,9 @@ typedef struct node
 /* is a particular combinator */
 #define IsThisComb(p,t) (IsComb(p) && (Tag(p) == (t))
 
-/* has a name be replaced by (MATCH name) for de-duplication */
-#ifdef matchtag
+/* has a name be replaced by (MATCH name) or (MATCH_TAG tag) for de-duplication */
 #define IsMatchName(p)  (IsApply(p) && IsComb(Hd(p)) && ((Tag(Hd(p)) == MATCH_comb) || (Tag(Hd(p))== MATCH_TAG_comb)) && \
      (IsName(Tl(p))))
-#else
-#define IsMatchName(p)  (IsApply(p) && IsComb(Hd(p)) && (Tag(Hd(p)) == MATCH_comb) && \
-(IsName(Tl(p))))
-#endif
 
 #define IsNilList(p)	IsNilListTag(Tag(p)))/*deprecated*/
 
@@ -243,8 +238,7 @@ typedef struct node
 #define IsFail(p)  (IsSet(p) && IsFailTag(Tag(p)))
 #define IsFun(p)  (IsSet(p) && IsFunTag(Tag(p)))
 
-#define IsAbstract(p)	(IsSet(p) && IsAbstractTag(Tag(p)))
-#define IsRecursiveAbstract(p)	(IsSet(p) && IsRecursiveAbstractTag(Tag(p)))
+#define IsAbstract(p)	(IsSet(p) &&  IsAbstractTag(Tag(p)))
 #define IsDef(p)	(IsSet(p) && IsDefTag(Tag(p)))
 
 

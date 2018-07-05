@@ -229,24 +229,26 @@ pointer make_oper()
 
 /* make_abstract() - make ([name] def) - abstract name from def */
 /* here we either carry out the abstraction (reduce_abstract) or leave a placeholder for delayed abstraction (new_abstract) */
-pointer make_abstract(pointer formal, pointer def, int r)
+pointer make_abstract(pointer formal, pointer def, tag t)
 {
   pointer n;
   
   if (debug > 1) {
-    fprintf(stderr, "%s[", (r?"make_recursive_abstract":"make_abstract"));
+    fprintf(stderr, "%s%d[", "make_abstract", (int)t);
     out_debug1(formal);
     fprintf(stderr, "] ");
     out_debug(def);
   }
   
   if (partial_compile)
-    n = new_abstract(formal, def, r);
+    n = new_abstract(formal, def, t);
   else
-    n = reduce_abstract(formal, def, r);
+    n = reduce_abstract(formal, def, t);
   
-  if (debug > 1)
-    fprintf(stderr, "%s--> ", (r?"make_recursive_abstract":"make_abstract")); out_debug(n);
+  if (debug > 1) {
+    fprintf(stderr, "%s%d--> ", "make_abstract", (int)t);
+    out_debug(n);
+  }
   
   return n;
 }
@@ -265,8 +267,8 @@ pointer make_where(pointer condexp, pointer defs)
   if (IsNil(defs))
     return condexp;
   
-  pointer a1 = make_abstract(refc_copy(Hd(defs)), condexp, 0/*non-recursive*/);
-  pointer a2 = make_abstract(refc_copy(Hd(defs)), refc_copy(Tl(defs)), 1/*recursive*/);
+  pointer a1 = make_abstract(refc_copy(Hd(defs)), condexp, abstract_condexp_t);
+  pointer a2 = make_abstract(refc_copy(Hd(defs)), refc_copy(Tl(defs)), abstract_defs_t);
 
   condexp = new_apply(a1, a2);
   
@@ -434,11 +436,6 @@ void make_flatten0(pointer *n, pointer *e)
   return;
 }
 
-static pointer make_assemble(pointer args, int n, pointer expr)
-{
-  Assert(0);//WIP
-  return expr;
-}
 /*maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker*/
 
 
@@ -575,22 +572,15 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           Assert(howmany >= 1); /* expr */
           
           if (howmany > 1) {
-            /* formal+ */
+            /* formal+ expr */
             s = sp[howmany - 1];  /* last/only formal */
             for (i = howmany - 2; i > 0; i--) /* rest of formals */
               s = new_apply(sp[i], de_dup(sp[i], s));
             
-#ifdef matchtag
-            return make_assemble(s, howmany, sp[howmany]);
+            return make_abstract(s, sp[howmany], abstract_formals_t);  /* [formal+] expr */
           } else {
-            return n1;
+            return n1;/*sp[1]*//* expr */
           }
-#else
-          return make_abstract(s, sp[howmany], 0/*nonrecursive*/);
-        } else {
-          return n1;/*sp[1]*/
-          }
-#endif
         }
       }
       break;
@@ -603,6 +593,16 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
        */
       switch (subrule) {
         case 1: return n1;
+//          matchtag
+//          something cleverer needed
+//          x WHERE 1, x, x = 1,42,42? ==> 42
+//          *one* new variable introduced 'x'
+          
+//          just like f 1 2 2 WHERE f 1 x x = 42
+//          the only name to be abstracted from "f 1 x x = 42" is 'x' ALSO.
+//
+//          how to arrange this?
+//
         case 2: return new_cons(n1, n2);
         case 3: return n1;
         case 4: return new_cons(n1, n2);
