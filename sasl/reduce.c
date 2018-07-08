@@ -53,7 +53,7 @@ pointer reduce0(pointer *pp)
                 }
                 continue;
         }
-    }
+    } 
    
     return *pp;
 
@@ -91,8 +91,11 @@ static pointer *sp = stack;
 #define A4 refc_copy(Arg4)
 
 #define Pop(n)  (Assert(Stacked >= (n)), sp -= (n), sp[n]) /* assert(sp>=base) value is previous Top of stack */
+#if !new
+#define Push(n) (Assert(Stacked < STACK_SIZE),sp[1] = (n), sp++) /* sequencing to ensure Push(*sp) works correctly */
+#else
 #define Push(n) (Assert(Stacked < STACK_SIZE), *++sp = (n))
-
+#endif
 
 
 /*
@@ -483,8 +486,7 @@ pointer reduce(pointer *n)
         if (Tag(Top) == apply_t) {
             /* travel down the 'spine' */
             Assert(Stacked <= ((STACK_SIZE)*0.95));
-            sp[1] = Hd(Top);  /* Push(Hd(Top)) */
-            sp++;
+            Push(Hd(Top));
             
             continue;	/* loop */
             /*NOTREACHED*/

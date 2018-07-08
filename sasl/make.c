@@ -28,7 +28,7 @@ static pointer stack[STACK_SIZE];
 static pointer *sp = stack; /* sp points to top-of-stack (note: stack[0] never used) */
 
 #define Depth (sp-stack)    /* >=0 */
-#define Push(x)  (*++sp=(x))
+#define Push(x)  (*++sp=(x)) /* xxx 'x' must not reference sp!! */
 #define Pop(n)  (sp -= (n), sp[n])
 #define Top   (*sp)
 
