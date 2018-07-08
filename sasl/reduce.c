@@ -91,11 +91,7 @@ static pointer *sp = stack;
 #define A4 refc_copy(Arg4)
 
 #define Pop(n)  (Assert(Stacked >= (n)), sp -= (n), sp[n]) /* assert(sp>=base) value is previous Top of stack */
-#if !new
 #define Push(n) (Assert(Stacked < STACK_SIZE),sp[1] = (n), sp++) /* sequencing to ensure Push(*sp) works correctly */
-#else
-#define Push(n) (Assert(Stacked < STACK_SIZE), *++sp = (n))
-#endif
 
 
 /*

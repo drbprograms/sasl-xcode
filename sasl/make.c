@@ -27,9 +27,9 @@ pointer make_reset(void);
 static pointer stack[STACK_SIZE];
 static pointer *sp = stack; /* sp points to top-of-stack (note: stack[0] never used) */
 
-#define Depth (sp-stack)    /* >=0 */
-#define Push(x)  (*++sp=(x)) /* xxx 'x' must not reference sp!! */
-#define Pop(n)  (sp -= (n), sp[n])
+#define Stacked (sp-stack)    /* >=0 */
+#define Pop(n)  (Assert(Stacked >= (n)), sp -= (n), sp[n]) /* assert(sp>=base) value is previous Top of stack */
+#define Push(n) (Assert(Stacked < STACK_SIZE),sp[1] = (n), sp++) /* sequencing to ensure Push(*sp) works correctly */
 #define Top   (*sp)
 
 
@@ -81,7 +81,7 @@ pointer make_reset()
   
   for (/**/; sp > stack; sp--) {
     if (debug)
-      fprintf(stderr, "make_reset[%ld]: ", Depth); out_debug(Top);
+      fprintf(stderr, "make_reset[%ld]: ", Stacked); out_debug(Top);
     refc_delete(sp);
   }
   
@@ -824,7 +824,7 @@ int maker(int howmany, char *ruledef, int rule, int subrule, int info)
   Push(n);
   
   if(debug){
-    fprintf(stderr, "%s %d,%d,%d,%d (Depth=%ld) <= ", ruledef, rule, subrule, info, howmany, Depth);
+    fprintf(stderr, "%s %d,%d,%d,%d (Stacked=%ld) <= ", ruledef, rule, subrule, info, howmany, Stacked);
     out_debug_limit(sp[0], Limit);
   }
   
