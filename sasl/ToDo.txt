@@ -1,3 +1,84 @@
+2018.07.08
+WIP here imrpoving reduce() - no shewn in Taiga.com
+
+Pop() in the C code *once only for each arg on the stack, rather than for each tag being reduced.
+
+Stack Map
+
+Top - node being reduced/re-written
+
+Arg0 = Tl(Top);
+...
+PPop(1);
+Arg1 = Tl(Top);
+... unary
+PPop(1);
+Arg2 = Tl(Top);
+... binary
+PPop(1);
+Arg3 = Tl(Top);
+... ternary
+... ....
+
+todo
+fail anything ...
+
+
+
+Top *sp
+Arg1 Tl(Top)
+Arg2 Tl(sp[1])
+Arg3 Tl(sp[2])
+Arg4 Tl(sp[3])
+Arg3 Tl(sp[4])
+
+
+----
+#define Stack1    sp[-1]
+#define Stack2    sp[-2]
+#define Stack3    sp[-3]
+#define Stack4    sp[-4]
+
+#define Arg1    Tl(Stack1)
+#define Arg2    Tl(Stack2)
+#define Arg3    Tl(Stack3)
+#define Arg4    Tl(Stack4)
+----
+#define Stack1    sp[1]
+#define Stack2    sp[2]
+#define Stack3    sp[3]
+#define Stack4    sp[4]
+
+#define Arg1    Tl(Stack1)
+#define Arg2    Tl(Stack2)
+#define Arg3    Tl(Stack3)
+#define Arg4    Tl(Stack4)
+----
+
+...if (Stacked >= 2)
+
+case .... Pop(2); continue;
+case .... Pop(2); continue;
+case .... Pop(2); continue;
+
+---
+
+... if (Stacked >= 1)
+
+Pop(1);
+
+case ....  continue;
+case ....  continue;
+case ....  continue;
+
+----
+
+*Specials*
+
+I_comb  ... Stacked > 2 case ==> Stacked > 0
+    else
+        ...
+
 2018-03-23
 ** progress and issues moved to taiga.com **
 

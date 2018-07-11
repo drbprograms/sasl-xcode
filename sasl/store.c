@@ -1040,6 +1040,16 @@ pointer refc_update_tl(pointer n, pointer new)
   return n;
 }
 
+
+/*
+ * refc_update_Itl
+ *  hd gets I_comb always
+ */
+pointer refc_update_Itl(pointer n, pointer newtl)
+{
+  return refc_update_hdtl(n, new_comb(I_comb), newtl);
+}
+
 /*
  * refc_update_hdtl
  *	update in place - replace hd and tl with new contents; requires n to be a pointer node already; content of n are deleted

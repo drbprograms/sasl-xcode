@@ -29,6 +29,7 @@
  */
 
 /*******************************************/
+#ifdef notyet
 static pointer **stack0;
 static pointer **sp0;
 static unsigned stack_size = 0;
@@ -41,7 +42,7 @@ pointer reduce0(pointer *pp)
 {
     pointer **base = sp0;
 #define Depth   (sp0-base)
-
+    
     while ( !IsNil(*pp)) {
         switch (Tag(*pp)) {
             case apply_t:
@@ -53,12 +54,13 @@ pointer reduce0(pointer *pp)
                 }
                 continue;
         }
-    } 
-   
+    }
+    
     return *pp;
-
+    
 #undef Depth
 }
+#endif
 /*******************************************/
 
 /* the stack - used by reduce */
@@ -73,24 +75,21 @@ static pointer *sp = stack;
 #define Stacked (sp-base)
 
 /* reduce: local shortcuts to make reduce() 'clearer' to read */
+
+/* Stack map at point of reduction:
+ base
+ ...
+ sp[-2]                 Stacked == 3
+ sp[-1]                 Stacked == 2
+
+ sp[0] &Tl=arg1 <<--Top Stacked == 1
+ sp[1] &Tl=arg2
+ ...
+ reduction re-writes Top
+ */
 #define Top	sp[0]
 
-#define Stack1	sp[-1]
-#define Stack2	sp[-2]
-#define Stack3	sp[-3]
-#define Stack4	sp[-4]
-
-#define Arg1	Tl(Stack1)
-#define Arg2	Tl(Stack2)
-#define Arg3	Tl(Stack3)
-#define Arg4	Tl(Stack4)
-
-#define A1 refc_copy(Arg1)
-#define A2 refc_copy(Arg2)
-#define A3 refc_copy(Arg3)
-#define A4 refc_copy(Arg4)
-
-#define Pop(n)  (Assert(Stacked >= (n)), sp -= (n), sp[n]) /* assert(sp>=base) value is previous Top of stack */
+#define Pop(n)  (Assert(Stacked >= (n)), sp -= (n), sp[n]) /* assert((sp+n)>=base) value is previous Top of stack */
 #define Push(n) (Assert(Stacked < STACK_SIZE),sp[1] = (n), sp++) /* sequencing to ensure Push(*sp) works correctly */
 
 
@@ -129,20 +128,21 @@ void reduce_log(pointer *base, pointer *sp)
     
     if (debug) {
         int i = 0;
-       
+        
         fprintf(stderr, "\n");
-            fprintf(stderr, "reduction %d: %s (%ld/%ld Depth/Stacked)\n",  reductions, refc_pointer_info(*sp), Depth, Stacked);
+        fprintf(stderr, "reduction %d: %s (%ld/%ld Depth/Stacked)\n",  reductions, refc_pointer_info(Top), Depth, Stacked);
         
         indent(stderr, Depth);
-        out_debug_limit1(sp[0], Limit); /*arbitrary limit to output */
+        out_debug_limit1(Top, Limit); /*arbitrary limit to output */
         fprintf(stderr, " ");
         for (i=1; i < ArgLimit && i < Stacked; i++) {
             out_debug_limit1(Tl(sp[-i]), Limit); /*arbitrary limit to output */
             fprintf(stderr, " ");
         }
         fprintf(stderr, "\n");
+        
         (void) refc_check();
-
+        
         fprintf(stderr, "\n");
     }
     
@@ -226,9 +226,12 @@ int reduce_int(pointer *nn)
 {
     *nn = reduce(nn);
     
-    if (Tag(*nn) != int_t)
+    if (Tag(*nn) != int_t) {
+        if (debug)
+            fprintf(stderr, "reduce_int: got %s\n", err_tag_name(Tag(*nn)));
         (void) err_reduce("expecting int");
-   
+    }
+    
     return Num(*nn);
 }
 
@@ -236,8 +239,11 @@ char reduce_bool(pointer *nn)
 {
     *nn = reduce(nn);
     
-    if (Tag(*nn) != bool_t)
+    if (Tag(*nn) != bool_t) {
+        if (debug)
+            fprintf(stderr, "reduce_bool: got %s\n", err_tag_name(Tag(*nn)));
         (void) err_reduce("expecting bool");
+    }
     
     return Bool(*nn);
 }
@@ -246,8 +252,11 @@ char reduce_char(pointer *nn)
 {
     *nn = reduce(nn);
     
-    if (Tag(*nn) != char_t)
+    if (Tag(*nn) != char_t) {
+        if (debug)
+            fprintf(stderr, "reduce_char: got %s\n", err_tag_name(Tag(*nn)));
         (void) err_reduce("expecting char");
+    }
     
     return Char(*nn);
 }
@@ -263,8 +272,9 @@ pointer reduce_cons(pointer *nn)
 {
     *nn = reduce(nn);
     
-    if (!IsCons(*nn))
+    if (!IsCons(*nn)) {
         (void) err_reduce("expecting cons");
+    }
     
     return *nn;
 }
@@ -288,7 +298,7 @@ char reduce_is_equal(pointer *nn1, pointer *nn2)
         return (IsCons(n2) &&
                 reduce_is_equal(&Hd(n1), &Hd(n2)) &&
                 reduce_is_equal(&Tl(n1), &Tl(n2)));
-   
+    
     
     if (IsNil(n1) || IsConst(n1)) {
         
@@ -319,7 +329,7 @@ char reduce_is_equal(pointer *nn1, pointer *nn2)
 static pointer is_logical(pointer p)    { return new_bool(IsBool(p)); }
 static pointer is_char(pointer p)       { return new_bool(IsChar(p)); }
 static pointer is_list(pointer p)       { return new_bool(IsNil(p) || IsCons(p)); }
-static pointer is_func(pointer p)       { return new_bool(IsApply(p) || IsBuiltin(p)); }
+static pointer is_func(pointer p)       { return new_bool(IsApply(p) || IsFun(p)); }
 static pointer is_number(pointer p)     { return new_bool(IsNum(p)); }
 
 /* unary maths */
@@ -457,126 +467,129 @@ pointer reduce_print(pointer *p)
 
 pointer reduce(pointer *n)
 {
-    pointer *base = sp;	/* remember Top on entry - ?? is this variable really necessary */
+    pointer *base = sp;	/* remember Top on entry - used to calculate Stacked */
     
     if (IsNil(*n))
-        return *n;
+        return NIL;
     
     /* stack size is arbitrary, so check for potential overflow */
-    if ((sp-stack) >= ((STACK_SIZE)*0.9)) {
+    if (Stacked >= ((STACK_SIZE)*0.9)) {
         (void) err_reduce("stack depth within 90% of max");
-        return NIL; /*NOTREACHED*/
+        /*NOTREACHED*/
     }
-
+    
     Push(*n);
     
     while (IsSet(Top) && Stacked > 0) {
         /* Within the loop, Top is set to NIL on error; also halt if nothing on stack - should never happen error */
         
-        if (debug > 2) {
+        if (debug > 1) {
             indent(stderr, Depth); out_debug1(Top);
-            fprintf(stderr, "\t%s (%ld/%ld Depth/Stacked)", refc_pointer_info(*sp), Depth, Stacked);
+            fprintf(stderr, "\t%s (%ld/%ld Depth/Stacked)", refc_pointer_info(Top), Depth, Stacked);
             fprintf(stderr, "\tTop\n");
         }
         
+//      while (Tag(Top) == apply_t) {
         if (Tag(Top) == apply_t) {
             /* travel down the 'spine' */
-            Assert(Stacked <= ((STACK_SIZE)*0.95));
+            Assert(Stacked <= ((STACK_SIZE)*0.9));
             Push(Hd(Top));
             
             continue;	/* loop */
             /*NOTREACHED*/
         }
-        
-        /* evaluate / return */
+
+        /* Top is not apply_t, evaluate / return */
         reduce_log(base, sp);
         {
-            
-            if (Stacked >= 1)
-            switch (Tag(Top)) {
-                
-                case cons_t: {
-                    int n;
-                    
-                    if (Stacked == 1)
-                        return Pop(1); /* xxx like constants */
-                    
-                    Arg1 = reduce(&Arg1); /* strict */
-                    if (!IsNum(Arg1))
-                        err_reduce("applying a list to something that is not a number");
-                    
-                    n = Num(Arg1);
-                    if (n < 1)
-                        err_reduce("applying a list to something that is not a number");
-                    /* Future: use this for awk-style arrays (('a",1),('b",42),('c",99) 'b" => 42 */
-                    
-                    /* (list n) - return nth element of list numbered from 1 */
-                    /* traverse n-1 tails and a then head:
-                     n = 1: H(Arg2)
-                     n = 2: HT(Arg2)
-                     n = 3: HTT(Arg2) etc
-                     */
-                    
-                    /* n-1 tails */
-                    while (--n >= 1) {
-                        T(Top) = reduce(&T(Top)); /* force cons into existence */
-                        if (IsCons(T(Top)))
-                            Top = refc_update_hdtl(Top, refc_copy(HT(Top)), refc_copy(TT(Top)));
-                        else
-                            err_reduce("not enough tails when applying list to a number");
+            if (Stacked >= 1) {
+                tag tt = Tag(Top);
+                /* zero args: const => const | list => list */
+                /* >0 args:   list number => nth item of list */
+                switch (tt) {
+                        
+                    case cons_t: {
+                        int i;
+                        pointer *arg1, p;
+
+                        if (Stacked == 1)
+                            return (*n = Top, Pop(Stacked), *n);
+                        
+                        Pop(1);
+                        arg1 = &Tl(Top);
+                        *arg1 = reduce(arg1); /* strict */
+                        if (!IsNum(*arg1))
+                            err_reduce("applying a list to something that is not a number");
+                        
+                        i = Num(*arg1);
+                        if (i < 1)
+                            err_reduce("applying a list to a number less then 1");
+                        /* Future: use this for awk-style array lookups (('a",1),('b",42),('c",99)) 'b" => 42 */
+                        
+                        /* (list n) - return nth element of list numbered from 1 */
+                        /* traverse n-1 tails and a then head:
+                         n = 1: H(Arg2)
+                         n = 2: HT(Arg2)
+                         n = 3: HTT(Arg2) etc
+                         */
+
+                        /* n-1 tails */
+                        p = H(Top);
+                        while (--i >= 1) {
+                            T(p) = reduce(&T(p)); /* force cons into existence */
+                            if ( !IsCons(T(p)))
+                                err_reduce("not enough tails when applying list to a number");
+                            p = refc_update_hdtl(p,refc_copy(HT(p)), refc_copy(TT(p)));
+                        }
+                        
+                        /* .. and 1 head */
+                        if ( !IsCons(p))
+                            err_reduce("no head when applying list to a number");
+                        
+                        Top = refc_update_Itl(Top, refc_copy(H(p))); /* NB H(p) here */
+                        Tag(Top) = apply_t;
+                        continue;
                     }
-                    
-                    /* .. and 1 head */
-                    if ( !IsCons(Top))
-                        err_reduce("no head when applying list to a number");
-                    
-                    Stack1 = refc_update_hdtl(Stack1, new_comb(I_comb), refc_copy(H(Top))); /* NB H(Top) here */
-                    Tag(Top) = apply_t;
-                    Pop(1); /* and one only */
-                    continue;
-                }
-                
-                
-                    /* constants -  no further reductions here */
+                        
+                        
+                        /* constants -  no further reductions here */
                     case int_t:
                     case floating_t:
                     case char_t:
                     case bool_t:
+                        //                                                        Assert(SameNode(*n, Top));
                         if (Stacked == 1)
-                            return Pop(1);
+                            return (*n = Top, Pop(Stacked), *n);
                         err_reduce("applying a constant as a function");
-                    /*NOTREACHED*/
-                   case name_t:
+                        /*NOTREACHED*/;
+                    case name_t:
                         if (Stacked == 1)
-                            return Pop(1);
+                            return (*n = Top, Pop(Stacked), *n);
                         err_reduce2("name undefined:", Name(Top));
-                        /*NOTREACHED*/
-
+                        /*NOTREACHED*/;
                     case fail_t:  {/* FAIL anything => FAIL */
-                        pointer here = refc_copy(Top);
+                        if (Stacked == 1)
+                            return (*n = Top, Pop(Stacked), *n);
+                        *n = refc_copy(Top);
                         Pop(Stacked);
-                        refc_delete(sp+1);  /* delete "FAIL anything" */
-                        return here; /* return FAIL */
+                   /*XXX*/     refc_delete(sp + 1);  /* delete "FAIL anything ..." */
+                        return (*n); /* return the FAIL */
                     }
-                case abstract_condexp_t: {
-                    sp = base;
-                    (void) err_reduce("abstract_condexp_t unexpected");
-                    return NIL; /*NOTREACHED*/
-                }
-                case abstract_formals_t: {
-                    sp = base;
-                    (void) err_reduce("abstract_formals_t unexpected");
-                    return NIL; /*NOTREACHED*/
-                }
-                case abstract_defs_t: {
-                    sp = base;
-                    (void) err_reduce("abstract_defs_t unexpected");
-                    return NIL; /*NOTREACHED*/
-                }
+                    case abstract_condexp_t: {
+                        (void) err_reduce("abstract_condexp_t unexpected");
+                        /*NOTREACHED*/
+                    }
+                    case abstract_formals_t: {
+                        (void) err_reduce("abstract_formals_t unexpected");
+                        /*NOTREACHED*/
+                    }
+                    case abstract_defs_t: {
+                        (void) err_reduce("abstract_defs_t unexpected");
+                        /*NOTREACHED*/
+                    }
                     case def_t:
-                        sp = base;
                         (void) err_reduce("def_t unexpected");
-                        return NIL; /*NOTREACHED*/
+                        /*NOTREACHED*/
 #ifdef notdef
                         if (partial_compile) {
                             
@@ -592,421 +605,406 @@ pointer reduce(pointer *n)
                         ; /*FALLTHRU*/
                         
                 }
-            if (Stacked >= 2)
-            /* unary: op arg => res */
-                switch (Tag(Top))
-            {
-                    /* unary: op arg  => res*/
-                case unary_minus_op:
-                    Stack1 = refc_update_to_int (Stack1, - reduce_int(&Arg1)); Pop(1); continue;
-                case unary_plus_op:
-                    Stack1 = refc_update_to_int (Stack1,   reduce_int(&Arg1)); Pop(1); continue;
-                case unary_not_op:
-                    Stack1 = refc_update_to_bool(Stack1, ! reduce_bool(&Arg1)); Pop(1); continue;
-                    
-                case unary_strict:
-                    /* ToDo - reduce_int() reduce_bool() etc to give better warning the "FAIL" */
-                    Arg1 = reduce(&Arg1); /* strict */
-                    /*FALLTHRU*/
-                case unary_nonstrict:
-                    Assert(Ufun(Top));
-                    Stack1 = refc_update_hdtl(Stack1, new_comb(I_comb), Ufun(Top)(Arg1)); Pop(1); continue;
-
-                case I_comb:
-                    /* I x => x */
-                    if (Stacked > 2) {
-                        /* elide (I x) on stack
-                         * Afterwards Arg1 has become H(Stack2), and new stack has old Stack2 on in it
-                         */
-                        if (debug)
-                            fprintf(stderr,"**I_comb Stacked>2 case\n");
-                        Assert(!SameNode(Stack2, Arg1)); /* avoid stack loops */
-                        Stack2 = refc_update_hd(Stack2, refc_copy(Arg1));
-                        Pop(/**/ 2 /**/);
-                        
-                        /* TO DO xxx BUG otherwise
-                         Stack2 = refc_update_hd(Stack2, refc_copyT(Stack1)) or better
-                         Stack2 = refc_update_hd(Stack2, refc_copyTH(Stack2))*/
-                        /* new update(%Top, TH, T)
-                         */
-
-                    } else                         {
-                        if (debug)
-                            fprintf(stderr,"**I_comb Stacked==2 case\n");/*XXX*/
-                        Assert(SameNode(*n, Stack1));
-                        Pop(2); Push(refc_copyT(*n)); /*Arg1*/
-                        refc_delete(n);
-                        *n = Top;
-                        Assert(Stacked == 1);
-                    }
-                    continue;
-                    
-                case Yc_comb:
-                    Tag(Stack1) = cons_t;
-                    /*FALLTHRU*/
-                case Y_comb: {
-                    refc_delete(&Hd(Stack1)); /* loose the "Y" *//*new Pop(1); update(sp, T, me)*/
-                    Hd(Stack1) = Tl(Stack1);
-                    Tl(Stack1) = refc_copy_make_cyclic(Stack1);
+                if (Stacked > 1) {
+                    pointer *arg1;
                     Pop(1);
-                    continue;
-                }
-                    
-                    /* H (a:x) => a */
-                    /* H other => FAIL */
-                case H_comb:
-                    Arg1 = reduce(&Arg1);
-                    if (IsCons(Arg1))
-                        Stack1 = refc_update_hdtl(Stack1, new_comb(I_comb), refc_copyH(Arg1));
-                    else
-                        err_reduce("taking head of non-cons");
-                    Tag(Top) = apply_t;
-                    Pop(1);
-                    continue;
-                    
-                    /* T (a:x) => x */
-                    /* T other => FAIL */
-                case T_comb:
-                    Arg1 = reduce(&Arg1);
-                    if (IsCons(Arg1))
-                        Stack1 = refc_update_hdtl(Stack1, new_comb(I_comb), refc_copyT(Arg1));
-                    else
-                        err_reduce("taking tail of non-cons");
-                    Tag(Top) = apply_t;
-                    Pop(1);
-                    continue;
-                    
-                default:
-                    ;	/*FALLTHRU*/
-            }
-            if (Stacked >= 3)
-            /* binary: op arg1 arg2 => res */
-                switch (Tag(Top)) {
-                    case plus_op:	Stack2 = refc_update_to_int(Stack2, reduce_int(&Arg1) + reduce_int(&Arg2));	Pop(2);	continue;
-                    case minus_op:	Stack2 = refc_update_to_int(Stack2, reduce_int(&Arg1) - reduce_int(&Arg2));	Pop(2);	continue;
-                    case times_op:	Stack2 = refc_update_to_int(Stack2, reduce_int(&Arg1) * reduce_int(&Arg2));	Pop(2);	continue;
-                    case int_divide_op:	Stack2 = refc_update_to_int(Stack2, reduce_int(&Arg1) / reduce_int(&Arg2));	Pop(2);	continue;
-                        
-                    case or_op:	Stack2 = refc_update_to_bool(Stack2, reduce_bool(&Arg1) || reduce_bool(&Arg2));	Pop(2);	continue;
-                    case and_op:	Stack2 = refc_update_to_bool(Stack2, reduce_bool(&Arg1) && reduce_bool(&Arg2));	Pop(2);	continue;
-                     
-                    case colon_op:
-                        /* (P x y) => (x:y)
-                         ((: a) b) => (a:b) */
-                        Stack2 = refc_update_hdtl(Stack2, refc_copy(Arg1), refc_copy(Arg2));
-                        Tag(Stack2) = cons_t;
-                        Pop(2);
-                        continue;
-
-                    case plusplus_op:
-                        /* ++ list1 list2 => append list2 to end of list1 NB () ++ x => x */
-                        Arg1 = reduce(&Arg1);
-                        if ( ! (IsCons(Arg1) || IsNil(Arg1)))
-                            err_reduce("plusplus_op - non-list first arg");
-                        Stack2 = refc_update_hdtl(Stack2, new_comb(I_comb), make_append(refc_copy(Arg1), refc_copy(Arg2)));
-                        Pop(2);
-                        continue;
-                        
-                    case minusminus_op:
-                        err_reduce("minusminus op not expected");
-                    case range_op:
-                        err_reduce("much_greater op not expected");
-                    case much_greater_op:
-                        err_reduce("much_greater op not expected");
-                        Pop(2);
-                        return Top; /* todo */
-                        
-                        
-                    case greater_op:	Stack2 = refc_update_to_bool(Stack2, reduce_int(&Arg1) >  reduce_int(&Arg2));	Pop(2);	continue;
-                    case greater_equal_op:
-                        Stack2 = refc_update_to_bool(Stack2, reduce_int(&Arg1) >= reduce_int(&Arg2));	Pop(2);	continue;
-                    case equal_op:
-                        Stack2 = refc_update_to_bool(Stack2, reduce_is_equal(&Arg1, &Arg2));
-                        Pop(2);	continue;
-                        
-                    case not_equal_op:	Stack2 = refc_update_to_bool(Stack2, reduce_int(&Arg1) != reduce_int(&Arg2));	Pop(2);	continue;
-                        
-                    case less_equal_op:	Stack2 = refc_update_to_bool(Stack2, reduce_int(&Arg1) <= reduce_int(&Arg2));	Pop(2);	continue;
-                    case less_op:	Stack2 = refc_update_to_bool(Stack2, reduce_int(&Arg1) <  reduce_int(&Arg2));	Pop(2);	continue;
-                        
-                        
-                        
-                        /* todo floating point */
-                    case much_less_op:
-                        err_reduce("much_less op not expected");
-                    case divide_op:
-                        err_reduce("divide op not expected");
-                    case rem_op:
-                        err_reduce("rem op not expected");
-                    case power_op:
-                        err_reduce("power op not expected");
-                        Pop(2);
-                        continue;
-                        
-                        /* comb arg1 arg2 */
-                    case K_nil_comb:
-                        if ( ! (IsNil(Arg2) ||
-                                IsCons(Arg2) ||
-                                (IsApply(Arg2) &&
-                                 ((Tag(Hd(Arg2)) == H_comb) ||
-                                  (Tag(Hd(Arg2)) == T_comb))) /* allow "lazy" lists */
-                                ))
-                            err_reduce("K_nil_comb - non-list second arg");
-                    case K_comb:
-                        /* K x y => I x  [i node] */
-                        Stack2 = refc_update_hdtl(Stack2, new_comb(I_comb), refc_copy(Arg1));
-                        
-                        Pop(2);
-                        continue;
-                        
-                    case U_comb:
-                        /*  U f g => f (H g) (T g)    aka U f (a:x) => f a x */
-                        Stack2 = refc_update_hdtl(Stack2,
-                                                  new_apply(refc_copy(Arg1), new_apply(new_comb(H_comb), refc_copy(Arg2))),
-                                                  new_apply(new_comb(T_comb),  refc_copy(Arg2)));
-                        Pop(2);
-                        continue;
-                        
-                    case TRY_comb: {
-                        /* TRY FAIL y => y
-                         * TRY x    y => x */
-                        Arg1 = reduce(&Arg1);
-                        if (IsFail(Arg1)) {
-                            Stack2 = refc_update_hdtl(Stack2, new_comb(I_comb), refc_copy(Arg2));
-                        } else {
-                            Stack2 = refc_update_hdtl(Stack2, new_comb(I_comb), refc_copy(Arg1));
+                    arg1 = &Tl(Top);
+                    /* unary: op arg1 => res */
+                    switch (tt)
+                    {
+                            /* unary: op arg  => res*/
+                        case unary_minus_op:
+                            Top = refc_update_to_int (Top, - reduce_int(arg1)); continue;
+                        case unary_plus_op:
+                            Top = refc_update_to_int (Top,   reduce_int(arg1)); continue;
+                        case unary_not_op:
+                            Top = refc_update_to_bool(Top, ! reduce_bool(arg1)); continue;
+                            
+                        case unary_strict:
+                            /* ToDo - reduce_int() reduce_bool() etc to give better warning the "FAIL" */
+                            *arg1 = reduce(arg1); /* strict */
+                            /*FALLTHRU*/
+                        case unary_nonstrict:
+                            Assert(IsFun(H(Top)));
+                            Top = refc_update_hdtl(Top, new_comb(I_comb), Ufun(H(Top))(*arg1)); continue;
+                            
+                        case I_comb:
+                            /* I x => x */
+                            if (Stacked > 1) {
+                                /* elide (I x) y ==> x y on stack
+                                 * Afterwards Arg1 has become H(Top')
+                                 */
+                                /* new update(%Top, TH, T) */
+                                if (debug)
+                                    fprintf(stderr,"**I_comb Stacked>1 case\n");
+                                Pop(1);
+                                Assert(!SameNode(Top, *arg1)); /* avoid stack loops!?! */
+                                Top = refc_update_hd(Top, refc_copy(*arg1));
+                            } else {
+                                /* reduce: special case - leave Top node; replace it with arg1 as top of stack */
+                                if (debug)
+                                    fprintf(stderr,"**I_comb Stacked==1 case\n");/*XXX*/
+                                Assert(SameNode(*n, Top));
+                                Pop(1);
+                                Push(refc_copy(*arg1));
+                                refc_delete(n);
+                                *n = Top;
+                                Assert(Stacked == 1);
+                            }
+                            continue;
+                            
+                        case Yc_comb:
+                            Tag(Top) = cons_t;
+                            /*FALLTHRU*/
+                        case Y_comb: {
+                            refc_delete(&Hd(Top)); /* loose the "Y" *//*new update(sp, T, me)*/
+                            Hd(Top) = Tl(Top);
+                            Tl(Top) = refc_copy_make_cyclic(Top);
+                            continue;
                         }
-                        Pop(2);
-                        continue;
+                            
+                            /* H (a:x) => a */
+                            /* H other => FAIL */
+                        case H_comb:
+                            *arg1 = reduce(arg1);
+                            if (IsCons(*arg1))
+                                Top = refc_update_hdtl(Top, new_comb(I_comb), refc_copyH(*arg1));
+                            else
+                                err_reduce("taking head of non-cons");
+                            Tag(Top) = apply_t;
+                            continue;
+                            
+                            /* T (a:x) => x */
+                            /* T other => FAIL */
+                        case T_comb:
+                            *arg1 = reduce(arg1);
+                            if (IsCons(*arg1))
+                                Top = refc_update_hdtl(Top, new_comb(I_comb), refc_copyT(*arg1));
+                            else
+                                err_reduce("taking tail of non-cons");
+                            Tag(Top) = apply_t;
+                            continue;
+                            
+                        default:
+                            ;	/*FALLTHRU*/
                     }
-                        
+                    if (Stacked > 1) {
+                        /* binary: op arg1 arg2 => res */
+                        pointer *arg2;
+                        Pop(1);
+                        arg2 = &Tl(Top);
+                        switch (tt) {
+                            case plus_op:	Top = refc_update_to_int(Top, reduce_int(arg1) + reduce_int(arg2));	continue;
+                            case minus_op:	Top = refc_update_to_int(Top, reduce_int(arg1) - reduce_int(arg2));	continue;
+                            case times_op:	Top = refc_update_to_int(Top, reduce_int(arg1) * reduce_int(arg2));	continue;
+                            case int_divide_op:	Top = refc_update_to_int(Top, reduce_int(arg1) / reduce_int(arg2));	continue;
+                                
+                            case or_op:	Top = refc_update_to_bool(Top, reduce_bool(arg1) || reduce_bool(arg2));	continue;
+                            case and_op:	Top = refc_update_to_bool(Top, reduce_bool(arg1) && reduce_bool(arg2));	continue;
+                                
+                            case colon_op:
+                                /* (P x y) => (x:y)
+                                 ((: a) b) => (a:b) */
+                                Top = refc_update_hdtl(Top, refc_copy(*arg1), refc_copy(*arg2));
+                                Tag(Top) = cons_t;
+                                continue;
+                                
+                            case plusplus_op:
+                                /* ++ list1 list2 => append list2 to end of list1 NB () ++ x => x */
+                                /* xxx check list2 is a list?? */
+                                *arg1 = reduce(arg1);
+                                if ( ! (IsCons(*arg1) || IsNil(*arg1)))
+                                    err_reduce("plusplus_op - non-list first arg");
+                                Top = refc_update_hdtl(Top, new_comb(I_comb), make_append(refc_copy(*arg1), refc_copy(*arg2)));
+                                continue;
+                                
+                            case minusminus_op:
+                                err_reduce("minusminus op not expected");
+                                /*FALLTHRU*/
+                            case range_op:
+                                err_reduce("much_greater op not expected");
+                                /*FALLTHRU*/
+                            case much_greater_op:
+                                err_reduce("much_greater op not expected");
+                                continue;
+                                
+                            case greater_op:        Top = refc_update_to_bool(Top, reduce_int(arg1) >  reduce_int(arg2)); continue;
+                            case greater_equal_op:  Top = refc_update_to_bool(Top, reduce_int(arg1) >= reduce_int(arg2)); continue;
+
+                            case equal_op:          Top = refc_update_to_bool(Top, reduce_is_equal(arg1, arg2)); continue;
+                            case not_equal_op:      Top = refc_update_to_bool(Top, !reduce_is_equal(arg1, arg2)); continue;
+#ifdef old
+//       ?????                     case not_equal_op:        Top = refc_update_to_bool(Top, reduce_int(arg1) != reduce_int(arg2)); continue;
+#endif
+                            case less_equal_op:	    Top = refc_update_to_bool(Top, reduce_int(arg1) <= reduce_int(arg2));	continue;
+                            case less_op:	        Top = refc_update_to_bool(Top, reduce_int(arg1) <  reduce_int(arg2));	continue;
+                                
+                                
+                                
+                                /* todo floating point */
+                            case much_less_op:
+                                err_reduce("much_less op not expected");
+                            case divide_op:
+                                err_reduce("divide op not expected");
+                            case rem_op:
+                                err_reduce("rem op not expected");
+                            case power_op:
+                                err_reduce("power op not expected");
+                                continue;
+                                
+                                /* comb arg1 arg2 */
+                            case K_nil_comb:
+                                if ( ! (IsNil(*arg2) ||
+                                        IsCons(*arg2) ||
+                                        (IsApply(*arg2) &&
+                                         ((Tag(Hd(*arg2)) == H_comb) ||
+                                          (Tag(Hd(*arg2)) == T_comb))) /* allow "lazy" lists */
+                                        ))
+                                    err_reduce("K_nil_comb - non-list second arg");
+                            case K_comb:
+                                /* K x y => I x  [i node] */
+                                Top = refc_update_hdtl(Top, new_comb(I_comb), refc_copy(*arg1));
+                                continue;
+                                
+                            case U_comb:
+                                /*  U f g => f (H g) (T g)    aka U f (a:x) => f a x */
+                                Top = refc_update_hdtl(Top,
+                                                          new_apply(refc_copy(*arg1), new_apply(new_comb(H_comb), refc_copy(*arg2))),
+                                                          new_apply(new_comb(T_comb),  refc_copy(*arg2)));
+                                continue;
+                                
+                            case TRY_comb: {
+                                /* TRY FAIL y => y
+                                 * TRY x    y => x */
+                                *arg1 = reduce(arg1);
+                                if (IsFail(*arg1)) {
+                                    Top = refc_update_hdtl(Top, new_comb(I_comb), refc_copy(*arg2));
+                                } else {
+                                    Top = refc_update_hdtl(Top, new_comb(I_comb), refc_copy(*arg1));
+                                }
+                                continue;
+                            }
+                                
 #ifdef incorrect
-                    case U_comb:
-                        /*  U f (x:y) => (f x) y
-                         *  U f other => FAIL */
-                        Arg2 = reduce(Arg2);
-                        if (IsCons(Arg2)) {
-                            Stack2 = refc_update_hdtl(Stack2, new_apply(refc_copy(Arg1), refc_copy(Hd(Arg2))), refc_copy(Tl(Arg2)));
-                        }
-                        else {
-                            Stack2 = refc_update_to_fail(Stack2);
-                        }
-                        Pop(2);
-                        continue;
+                            case U_comb:
+                                /*  U f (x:y) => (f x) y
+                                 *  U f other => FAIL */
+                                *arg2 = reduce(arg2);
+                                if (IsCons(*arg2)) {
+                                    Top = refc_update_hdtl(Top, new_apply(refc_copy(*arg1), refc_copy(Hd(*arg2))), refc_copy(Tl(*arg2)));
+                                }
+                                else {
+                                    Top = refc_update_to_fail(Top);
+                                }
+                                continue;
 #endif
-                        
-                    default:
-                        ;	/*FALLTHRU*/
-                }
-            if (Stacked >= 4)
-            /* ternary: op arg1 arg2 arg3 => res */
-                switch (Tag(Top)) {
-                        
-                    case cond_op:	{
-                        /* cond b t f => t (or f) */
-                        if (reduce_bool(&Arg1))
-                            Stack3 = refc_update_hdtl(Stack3, new_comb(I_comb), refc_copy(Arg2));
-                        else
-                            Stack3 = refc_update_hdtl(Stack3, new_comb(I_comb), refc_copy(Arg3));
-                        
-                        Pop(3);
-                        continue;
-                    }
-                    case MATCH_comb: {
-                        /* MATCH const E x => const = x -> E; FAIL*/
-                        if (reduce_is_equal(&Arg1, &Arg3)) {
-                            Stack3 = refc_update_hdtl(Stack3, new_comb(I_comb), refc_copy(Arg2));
-                        } else {
-                            Stack3 = refc_update_to_fail(Stack3);
+                                
+                            default:
+                                ;	/*FALLTHRU*/
                         }
-                        Pop(3);
-                        continue;
-                    }
-                        
-                    case MATCH_TAG_comb: {
-                        /* MATCH tag E x => tag = Tag(x) -> E x; FAIL */
-                        Assert(!IsApply(Arg1)); /* must be fully reduced, as we don't reduce it below */
-
-                        Arg3 = reduce(&Arg3);
-                        if (Tag(Arg1) == Tag(Arg3)) {
-                            Stack3 = refc_update_hdtl(Stack3, refc_copy(Arg2), refc_copy(Arg3));
-                        } else {
-                            Stack3 = refc_update_to_fail(Stack3);
-                        }
-                        Pop(3);
-                        continue;
-                    }
-                        
+                        if (Stacked > 1) {
+                            pointer *arg3;
+                            Pop(1);
+                            arg3 = &Tl(Top);
+                            /* ternary: op arg1 arg2 arg3 => res */
+                            switch (tt) {
+                                    
+                                case cond_op:	{
+                                    /* cond b t f => t (or f) */
+                                    if (reduce_bool(arg1))
+                                        Top = refc_update_hdtl(Top, new_comb(I_comb), refc_copy(*arg2));
+                                    else
+                                        Top = refc_update_hdtl(Top, new_comb(I_comb), refc_copy(*arg3));
+                                    continue;
+                                }
+                                case MATCH_comb: {
+                                    /* MATCH const E x => const = x -> E; FAIL*/
+                                    if (reduce_is_equal(arg1, arg3)) {
+                                        Top = refc_update_hdtl(Top, new_comb(I_comb), refc_copy(*arg2));
+                                    } else {
+                                        Top = refc_update_to_fail(Top);
+                                    }
+                                    continue;
+                                }
+                                    
+                                case MATCH_TAG_comb: {
+                                    /* MATCH tag E x => tag = Tag(x) -> E x; FAIL */
+                                    Assert(!IsApply(*arg1)); /* must be fully reduced, as we don't reduce it below */
+                                    
+                                    *arg3 = reduce(arg3);
+                                    if (Tag(*arg1) == Tag(*arg3)) {
+                                        Top = refc_update_hdtl(Top, refc_copy(*arg2), refc_copy(*arg3));
+                                    } else {
+                                        Top = refc_update_to_fail(Top);
+                                    }
+                                    continue;
+                                }
+                                    
 #ifdef match_with_test
-                    case MATCH_comb: {
-                        /* MATCH test E x => (test x)= FALSE -> FAIL; E */
-                        pointer res = new_apply(refc_copy(Arg1), refc_copy(Arg3));
-                        char c = reduce_bool(res);
-                        refc_delete(&res);
-                        
-                        if (c) {
-                            Stack3 = refc_update_hdtl(Stack3, new_comb(I_comb), refc_copy(Arg2));
-                        } else {
-                            Stack3 = refc_update_to_fail(Stack3);
-                        }
-                        Pop(3);
-                        continue;
-                    }
+                                case MATCH_comb: {
+                                    /* MATCH test E x => (test x)= FALSE -> FAIL; E */
+                                    pointer res = new_apply(refc_copy(*arg1), refc_copy(*arg3));
+                                    char c = reduce_bool(res);
+                                    refc_delete(&res);
+                                    
+                                    if (c) {
+                                        Top = refc_update_hdtl(Top, new_comb(I_comb), refc_copy(*arg2));
+                                    } else {
+                                        Top = refc_update_to_fail(Top);
+                                    }
+                                    continue;
+                                }
 #endif
-                        /*[x] f g			=> S f g x	=> (f x) (g x)*/
-                        /*[x] f g0	=> S f (K g)	=> C f g x	=> f x g */
-                        /*[x] f0 g	=> S (K f) g	=> B f g x	=> f (g x) */
-                        /*[x] f0 g0	=> S (K f)(K g)			=> f g */
-                    case Sc_comb:	 /* Sc f g x => (f x):(g x) */
-                        Tag(Stack3) = cons_t;
-                        /*FALLTHRU*/
-                    case S_comb:	 /* S f g x => (f x)(g x) */
-                    {
-                        long int got = 0;
-                        if (got >= 2) {
-                            /* optimise - update in place, no reference counts changed, apart from new pointer to Arg3 */
-                            reduce_optimise_log(*sp, 2);
-                            refc_delete(&Hd(Stack1)); /* loose the 'S' */
-                            Hd(Stack1) = Tl(Stack1); Tl(Stack1) = Tl(Stack3);
-                            Hd(Stack2) = Tl(Stack2); Tl(Stack2) = refc_copy(Tl(Stack3));
-                            Hd(Stack3) = Stack1;     Tl(Stack3) = Stack2;
-                        }
-                        else {
-                            /*new update top-of-stack ap(ap(THH,T), ap(TH,T))*/
-                            pointer n1 = new_apply(refc_copy(Arg1), refc_copy(Arg3));
-                            pointer n2 = new_apply(refc_copy(Arg2), refc_copy(Arg3));
-                            Stack3 = refc_update_hdtl(Stack3, n1, n2);
-                        }
-                        Pop(3);
-                        continue;
-                    }
-                    case Bc_comb:	/* Bc f g x => f:(g x) */
-                        Tag(Stack3) = cons_t;
-                    case B_comb:	/* B  f g x => f (g x) */
-                        Stack3 = refc_update_hdtl(Stack3,
-                                                  refc_copy(Arg1),
-                                                  new_apply(refc_copy(Arg2), refc_copy(Arg3)));
-                        Pop(3);
-                        continue;
-                        
-                    case Cc_comb:	/* Cc f g x => f x:g */
-                        Tag(Stack3) = cons_t;
-                    case C_comb:	/* C  f g x => f x g */
-                        Stack3 = refc_update_hdtl(Stack3,
-                                                  new_apply(refc_copy(Arg1), refc_copy(Arg3)),
-                                                  refc_copy(Arg2));
-                        Pop(3);
-                        continue;
-                        
-                        
-                        /* WIP WIP WIP */
+                                    /*[x] f g			=> S f g x	=> (f x) (g x)*/
+                                    /*[x] f g0	=> S f (K g)	=> C f g x	=> f x g */
+                                    /*[x] f0 g	=> S (K f) g	=> B f g x	=> f (g x) */
+                                    /*[x] f0 g0	=> S (K f)(K g)			=> f g */
+                                case Sc_comb:	 /* Sc f g x => (f x):(g x) */
+                                    Tag(Top) = cons_t;
+                                    /*FALLTHRU*/
+                                case S_comb:	 /* S f g x => (f x)(g x) */
+                                {
+                                    long int got = 0;
+                                    if (got >= 2) {
+                                        /* optimise - update in place, no reference counts changed, apart from new pointer to Arg3 */
+                                        reduce_optimise_log(*sp, 2);
+                                        refc_delete(&Hd(Top)); /* loose the 'S' */
+                                        Hd(Top) = Tl(Top); Tl(Top) = Tl(Top);
+                                        Hd(Top) = Tl(Top); Tl(Top) = refc_copy(Tl(Top));
+                                        Hd(Top) = Top;     Tl(Top) = Top;
+                                    }
+                                    else {
+                                        /*new update top-of-stack ap(ap(THH,T), ap(TH,T))*/
+                                        pointer n1 = new_apply(refc_copy(*arg1), refc_copy(*arg3));
+                                        pointer n2 = new_apply(refc_copy(*arg2), refc_copy(*arg3));
+                                        Top = refc_update_hdtl(Top, n1, n2);
+                                    }
+                                    continue;
+                                }
+                                case Bc_comb:	/* Bc f g x => f:(g x) */
+                                    Tag(Top) = cons_t;
+                                case B_comb:	/* B  f g x => f (g x) */
+                                    Top = refc_update_hdtl(Top,
+                                                              refc_copy(*arg1),
+                                                              new_apply(refc_copy(*arg2), refc_copy(*arg3)));
+                                    continue;
+                                    
+                                case Cc_comb:	/* Cc f g x => f x:g */
+                                    Tag(Top) = cons_t;
+                                case C_comb:	/* C  f g x => f x g */
+                                    Top = refc_update_hdtl(Top,
+                                                              new_apply(refc_copy(*arg1), refc_copy(*arg3)),
+                                                              refc_copy(*arg2));
+                                    continue;
+                                    
+                                    
+                                    /* WIP WIP WIP */
 #ifdef V2
-                        
-                    {
-                        pointer
-                        f = Arg1,
-                        g = Arg2,
-                        x = Arg3;
-                        
-                        int got = (reduce_optimise ? (sp - last) : 0);
-                        reduce_optimise_log(*sp, got);
-                        if (got == 0) {	 /* no optimisations */
-                            Pointers(Stack3) = (struct pointers) {new_apply(f, x), new_apply(g, refc_copy(x))};
-                        }
-                        else if (got == 1) { /* one optimisation - Stack1 is apply_t with ALLrefc==1 so re-usable */
-                            Pointers(Stack1) = (struct pointers) {f, x};
-                            Pointers(Stack3) = (struct pointers) {Stack1, new_apply(g, refc_copy(x))};
-                        }
-                        else {	/* two optimisations assert got >= 2 */
-                            Pointers(Stack1) = (struct pointers) {f, x};
-                            Pointers(Stack2) = (struct pointers) {g, x};
-                            Pointers(Stack3) = (struct pointers) {Stack1, Stack2};
-                        }
-                        /*
-                         sp -= 2;
-                         *sp = n1;
-                         */
-                        Pop(3);
-                        continue;
-                    }
-                        
+                                    
+                                {
+                                    pointer
+                                    f = Arg1,
+                                    g = Arg2,
+                                    x = Arg3;
+                                    
+                                    int got = (reduce_optimise ? (sp - last) : 0);
+                                    reduce_optimise_log(*sp, got);
+                                    if (got == 0) {	 /* no optimisations */
+                                        Pointers(Top) = (struct pointers) {new_apply(f, x), new_apply(g, refc_copy(x))};
+                                    }
+                                    else if (got == 1) { /* one optimisation - Top is apply_t with ALLrefc==1 so re-usable */
+                                        Pointers(Top) = (struct pointers) {f, x};
+                                        Pointers(Top) = (struct pointers) {Top, new_apply(g, refc_copy(x))};
+                                    }
+                                    else {	/* two optimisations assert got >= 2 */
+                                        Pointers(Top) = (struct pointers) {f, x};
+                                        Pointers(Top) = (struct pointers) {g, x};
+                                        Pointers(Top) = (struct pointers) {Top, Top};
+                                    }
+                                    /*
+                                     sp -= 2;
+                                     *sp = n1;
+                                     */
+                                    continue;
+                                }
+                                    
 #endif
 #ifdef V3
-                    {
-                        pointer
-                        f = Arg1,
-                        g = Arg2,
-                        x = Arg3;
-                        
-                        int got = (reduce_optimise ? (sp - last) : 0);
-                        reduce_optimise_log(*sp, got);
-                        if (got == 0) {	 /* no optimisations */
-                            Hd(Stack3) = new_apply(f, x); Tl(Stack3) = new_apply(f, refc_copy(x));
-                        }
+                                {
+                                    pointer
+                                    f = Arg1,
+                                    g = Arg2,
+                                    x = Arg3;
+                                    
+                                    int got = (reduce_optimise ? (sp - last) : 0);
+                                    reduce_optimise_log(*sp, got);
+                                    if (got == 0) {	 /* no optimisations */
+                                        Hd(Top) = new_apply(f, x); Tl(Top) = new_apply(f, refc_copy(x));
+                                    }
 #ifdef notdef
-                        else if (got == 1) { /* one optimisation - Stack1 is apply_t with ALLrefc==1 so re-usable */
-                            Hd(Stack1) = f; Tl(Stack1) = x;
-                            Hd(Stack3) = Stack1; Tl(Stack3) = new_apply(f, refc_copy(x));
-                        }
+                                    else if (got == 1) { /* one optimisation - Top is apply_t with ALLrefc==1 so re-usable */
+                                        Hd(Top) = f; Tl(Top) = x;
+                                        Hd(Top) = Top; Tl(Top) = new_apply(f, refc_copy(x));
+                                    }
 #endif
-                        else if (got >= 2) /*WIP*/{	/* two optimisations assert got >= 2 */
-                            Hd(Stack1) = f; Tl(Stack1) = x;
-                            Hd(Stack2) = g; Tl(Stack2) = refc_copy(x);
-                            Hd(Stack3) = Stack1; Tl(Stack3) = Stack2;
-                        }
-                        /*
-                         sp -= 2;
-                         *sp = n1;
-                         */
-                        Pop(3);
-                        continue;
-                    }
+                                    else if (got >= 2) /*WIP*/{	/* two optimisations assert got >= 2 */
+                                        Hd(Top) = f; Tl(Top) = x;
+                                        Hd(Top) = g; Tl(Top) = refc_copy(x);
+                                        Hd(Top) = Top; Tl(Top) = Top;
+                                    }
+                                    /*
+                                     sp -= 2;
+                                     *sp = n1;
+                                     */
+                                    continue;
+                                }
 #endif
-                    default:
-                        ;	/*FALLTHRU*/
-                }
-            
-            if (Stacked >= 5)
-            /* quaternary: op arg1 arg2 arg3 arg4 => res */
-                switch (Tag(Top)) {
-                        
-                    case TRYn_comb: {
-                        /* TRYn 0 f g x => FAIL       || should never happen! */
-                        /* TRYn 1 f g x => TRY        (f x) (g x) */
-                        /* TRYn n f g x => TRYn (n-1) (f x) (g x)*/
-                        if (!IsNum(Arg1) || (Num(Arg1) < 1)) {
-                            Stack4 = refc_update_to_fail(Stack4);
-                        } else if (Num(Arg1) == 1) {
-                            Stack4 = refc_update_hdtl(Stack4,
-                                                      new_apply(new_comb(TRY_comb),
-                                                                new_apply(refc_copy(Arg2), refc_copy(Arg4))),
-                                                      new_apply(refc_copy(Arg3), refc_copy(Arg4)));
-                        } else {
-                           Stack4 = refc_update_hdtl(Stack4,
-                                                      new_apply3(new_comb(TRYn_comb),
-                                                                 new_int(Num(Arg1) - 1),
-                                                                 new_apply(refc_copy(Arg2), refc_copy(Arg4))),
-                                                      new_apply(refc_copy(Arg3), refc_copy(Arg4)));
+                                default:
+                                    ;	/*FALLTHRU*/
+                            }
                             
-                        }
-                        Pop(4);
-                        continue;
-                    }
-                        
-                    case Sp_comb:	{
-                        /* Sp f g h x => f (g x) (h x) */
-                        /*todo make this less tedious to specify!*/
-                        Stack4 = refc_update_hdtl(Stack4,
-                                                  new_apply(refc_copy(Arg1), new_apply(refc_copy(Arg2), refc_copy(Arg4))),
-                                                  new_apply(refc_copy(Arg3), refc_copy(Arg4)));
-                        Pop(4);
-                        continue;
-                    }
-                        
-                    default:
-                        ; /*FALLTHRU*/
-                }
-        }
+                            if (Stacked > 1) {
+                                pointer *arg4;
+                                Pop(1);
+                                arg4 = &Tl(Top);
+                                /* quaternary: op arg1 arg2 arg3 arg4 => res */
+                                switch (tt) {
+                                        
+                                    case TRYn_comb: {
+                                        /* TRYn 0 f g x => FAIL       || should never happen! */
+                                        /* TRYn 1 f g x => TRY        (f x) (g x) */
+                                        /* TRYn n f g x => TRYn (n-1) (f x) (g x)*/
+                                        if (!IsNum(*arg1) || (Num(*arg1) < 1)) {
+                                            Top = refc_update_to_fail(Top);
+                                        } else if (Num(*arg1) == 1) {
+                                            Top = refc_update_hdtl(Top,
+                                                                      new_apply(new_comb(TRY_comb),
+                                                                                new_apply(refc_copy(*arg2), refc_copy(*arg4))),
+                                                                      new_apply(refc_copy(*arg3), refc_copy(*arg4)));
+                                        } else {
+                                            Top = refc_update_hdtl(Top,
+                                                                      new_apply3(new_comb(TRYn_comb),
+                                                                                 new_int(Num(*arg1) - 1),
+                                                                                 new_apply(refc_copy(*arg2), refc_copy(*arg4))),
+                                                                      new_apply(refc_copy(*arg3), refc_copy(*arg4)));
+                                            
+                                        }
+                                        continue;
+                                    }
+                                        
+                                    case Sp_comb:	{
+                                        /* Sp f g h x => f (g x) (h x) */
+                                        /*todo make this less tedious to specify!*/
+                                        Top = refc_update_hdtl(Top,
+                                                                  new_apply(refc_copy(*arg1), new_apply(refc_copy(*arg2), refc_copy(*arg4))),
+                                                                  new_apply(refc_copy(*arg3), refc_copy(*arg4)));
+                                        continue;
+                                    }
+                                        
+                                    default:
+                                        ; /*FALLTHRU*/
+                                }
+                            }}}}}}
         /* nothing found */
         if (debug) {
             int i=0;
@@ -1014,14 +1012,15 @@ pointer reduce(pointer *n)
             
             do {fprintf(stderr, "Stack[%d]: ",i--); out_debug(sp[i]); } while (-i < Stacked);
         }
-        return ((void)(err_reduce("unimplemented tag")), /*NOTREACHED*/ (pointer) NIL);
+        err_reduce("unimplemented tag");
+        /*NOTREACHED*/
     }
     {
+        /* THN - this never happens? */
         if (debug)
             fprintf(stderr, "reduce done Stacked=%ld\n",  Stacked);/*XXX*/
         Assert(Stacked == 1 || IsCons(Top));
-        Pop(Stacked);
-        return sp[1];
+        return (*n = Top, Pop(Stacked), *n);
     }
 }
 

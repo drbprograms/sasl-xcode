@@ -42,6 +42,7 @@ extern pointer refc_copyT(pointer p);
 
 extern pointer refc_update_hd(pointer n, pointer new);
 extern pointer refc_update_tl(pointer n, pointer new);
+extern pointer refc_update_Itl(pointer n, pointer newtl);
 extern pointer refc_update_hdtl(pointer n, pointer newhd, pointer newtl);
 extern pointer refc_move_h2h(pointer from, pointer to);
 
