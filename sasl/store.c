@@ -922,6 +922,51 @@ pointer refc_copyT(pointer p)
   return c;
 }
 
+/*
+ * copy p xyz...
+ *  p or x or y or z ... weak -> make weak; make strong
+ *
+ */
+
+static pointer refc_copyS(pointer p, char *s)
+{
+  pointer new = p;
+  int weak = IsWeak(new) ? 1 : 0;
+  
+  for ( /**/ ; *s; s++) {/*!!!xxx better big endian like caadr: s = s+strlen(s)-1; s-- */
+    if (*s == 'H') 
+      new = H(new);
+    else if (*s == 'T')
+      new = T(new);
+    else
+      err_refc1("refc_copyS: bad selector", *s);
+    
+    weak += IsWeak(new) ? 1 : 0;
+  }
+  
+  // log p, s, weak XXX todo
+  
+  if (weak)  {
+    Srefc(new) += 1;
+  } else {
+    PtrBit(new) = !NodeBit(new); /* force weak */
+    Wrefc(new) += 1;
+  }
+  
+  return new;
+}
+
+pointer refc_copyHT(pointer p)
+{
+  return refc_copyS(p, "TH");
+}
+
+pointer refc_copyTT(pointer p)
+{
+  return refc_copyS(p, "TT");
+}
+
+
 #ifdef notdef
 /* refc_adjust - change refc for a pointer by"delta" (>= -1)
    if delta  > 0 increase refc

@@ -39,6 +39,8 @@ extern pointer refc_copy(pointer p);
 extern pointer refc_copy_make_cyclic(pointer p);
 extern pointer refc_copyH(pointer p);
 extern pointer refc_copyT(pointer p);
+extern pointer refc_copyHT(pointer p);
+extern pointer refc_copyTT(pointer p);
 
 extern pointer refc_update_hd(pointer n, pointer new);
 extern pointer refc_update_tl(pointer n, pointer new);
