@@ -514,11 +514,12 @@ pointer reduce(pointer *n)
                         
                     case cons_t: {
                         int i;
-                        pointer *arg1, p;
+                        pointer *arg1, the_cons;
 
                         if (Stacked == 1)
                             return R;
                         
+                        the_cons = Top; /* shorthand */
                         Pop(1);
                         arg1 = &Tl(Top);
                         *arg1 = reduce(arg1); /* strict */
@@ -547,23 +548,24 @@ pointer reduce(pointer *n)
                             p = refc_update_hdtl(p,refc_copy(HT(p)), refc_copy(TT(p)));
                         }
 #else
-                        p = H(Top); /* shorthand */
                         while (--i >= 1) {
-                            T(p) = reduce(&T(p)); /* force cons into existence */
-                            if ( !IsCons(T(p)))
+                            T(the_cons) = reduce(&T(the_cons)); /* force cons into existence */
+                            if ( !IsCons(T(the_cons)))
                                 err_reduce("not enough tails when applying list to a number");
-                            p = refc_update_hdtl(p, refc_copyT(p), refc_copyTT(p));
+                            refc_updateSS(&the_cons, "TH", "TT");
                         }
 
 #endif
         
                         
                         /* .. and 1 head */
-                        if ( !IsCons(p))
+                        if ( !IsCons(the_cons))
                             err_reduce("no head when applying list to a number");
                         
-                        Top = refc_update_Itl(Top, refc_copyH(p)); /* NB H(p) here */
+//                        Top = refc_update_Itl(Top, refc_copyH(the_cons)); /* NB H(the_cons) here */
+                        Assert(SameNode(the_cons, H(Top)));
                         Tag(Top) = apply_t;
+                        refc_updateIS(&Top, "HH"); /* NB H(the_cons) here */
                         continue;
                     }
 
@@ -681,8 +683,9 @@ pointer reduce(pointer *n)
                             /* H other => FAIL */
                         case H_comb:
                             *arg1 = reduce(arg1);
+                            /*xxx*/ Assert(SameNode(T(H(Top)), *arg1));
                             if (IsCons(*arg1))
-                                Top = refc_update_Itl(Top, refc_copyH(*arg1));  /* NOT refc_copy(H(*arg1)) - need to observe weakness inside refc_copy */
+                                refc_updateIS(&Top, "HTH");
                             else
                                 err_reduce("taking head of non-cons");
                             Tag(Top) = apply_t;
@@ -692,8 +695,9 @@ pointer reduce(pointer *n)
                             /* T other => FAIL */
                         case T_comb:
                             *arg1 = reduce(arg1);
+                            /*xxx*/ Assert(SameNode(T(H(Top)), *arg1));
                             if (IsCons(*arg1))
-                                Top = refc_update_Itl(Top, refc_copyT(*arg1));
+                                refc_updateIS(&Top, "HTT");
                             else
                                 err_reduce("taking tail of non-cons");
                             Tag(Top) = apply_t;

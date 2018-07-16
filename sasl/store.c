@@ -512,6 +512,22 @@ void refc_copyN_log(pointer p, int n)
   return;
 }
 
+void refc_copyS_log(pointer p, char *s, pointer new_p, int weak)
+{
+  if (debug)
+    (void) fprintf(stderr,"refc_copyS(%s, \"%s\"): %s (found %d weak)\n", zone_pointer_info(p), s, zone_pointer_info(new_p), weak);
+  
+  if (IsNil(p))
+    refc_copy_NILcount++;
+  else {
+    if (IsStrong(p))
+      refc_copy_Scount++;
+    else
+      refc_copy_Wcount++;
+  }
+  return;
+}
+
 void refc_copy_make_cyclic_log(pointer p)
 {
   if (IsNil(p))
@@ -923,49 +939,77 @@ pointer refc_copyT(pointer p)
 }
 
 /*
+ copy NIL () = NIL
+ copy anyStrong () = strong++
+ copy anyWeak ()   = weak+
+
+ copy (a:x) (H:y) = copy a y
+ copy (a:x) (T:y) = copy x y
+ 
+ copy NIL y = Err selecting on NIL
+ copy atom y = Err selecting on atom
+ 
+ */
+
+/*
  * copy p xyz...
  *  p or x or y or z ... weak -> make weak; make strong
  *
  */
-
-static pointer refc_copyS(pointer p, char *s)
+pointer refc_copyS(pointer p, char *s)
 {
-  pointer new = p;
-  int weak = IsWeak(new) ? 1 : 0;
+  pointer old_p = p;
+  int weak = 0;
   
-  for ( /**/ ; *s; s++) {/*!!!xxx better big endian like caadr: s = s+strlen(s)-1; s-- */
-    if (*s == 'H') 
-      new = H(new);
+  if (IsNil(p)) {
+    refc_copyS_log(old_p, s, p, weak);
+    return p;
+  }
+  
+  if (IsWeak(p))
+    weak++;
+  
+  if (*s == '\0') {
+    /* simple case: non-nil, no selector string */
+    if (weak)
+      Wrefc(p) += 1;
+    else
+      Srefc(p) += 1;
+    
+    refc_copyS_log(old_p, s, p, weak);
+
+    return p;
+  }
+  
+  /* indirect case: selector encodes "path" to pointed-to node, visit each in turn, noting weaks */
+  for ( /**/ ; *s; s++) {
+    if (! HasPointers(p))
+      err_refc("refc_copyS: node does not contain pointers");
+    
+    if (*s == 'H')
+      p = H(p);
     else if (*s == 'T')
-      new = T(new);
+      p = T(p);
     else
       err_refc1("refc_copyS: bad selector", *s);
     
-    weak += IsWeak(new) ? 1 : 0;
+    if (! IsNil(p) && IsWeak(p))
+      weak++;
   }
   
-  // log p, s, weak XXX todo
-  
-  if (weak)  {
-    Srefc(new) += 1;
-  } else {
-    PtrBit(new) = !NodeBit(new); /* force weak */
-    Wrefc(new) += 1;
+  if (! IsNil(p)) {
+    if (weak) {
+      PtrBit(p) = !NodeBit(p); /* force non-NIL pointer to be weak */
+      Wrefc(p) += 1;
+    } else {
+      Srefc(p) += 1;
+    }
   }
   
-  return new;
+  refc_copyS_log(old_p, s, p, weak);
+  
+  return p;
 }
-
-pointer refc_copyHT(pointer p)
-{
-  return refc_copyS(p, "TH");
-}
-
-pointer refc_copyTT(pointer p)
-{
-  return refc_copyS(p, "TT");
-}
-
 
 #ifdef notdef
 /* refc_adjust - change refc for a pointer by"delta" (>= -1)
@@ -1085,6 +1129,26 @@ pointer refc_update_tl(pointer n, pointer new)
   return n;
 }
 
+/*
+ * refc_updateSS - update hd and tl to nodes pointed-to by selectors
+ * NB to prevent loops, selector strings must not be empty!
+ */
+void refc_updateSS(pointer *pp, char *h, char *t)
+{
+  Assert(*h && *t);
+  *pp = refc_update_hdtl(*pp, refc_copyS(*pp, h), refc_copyS(*pp, t));
+}
+
+/*
+ * refc_updateIS - update hd to be I combinator and tl to node pointed-to by selectors
+ * NB to prevent loops, selector strings must not be empty!
+ */
+
+void refc_updateIS(pointer *pp, char *t)
+{
+  Assert(*t);
+  *pp = refc_update_hdtl(*pp, new_comb(I_comb), refc_copyS(*pp, t));
+}
 
 /*
  * refc_update_Itl
