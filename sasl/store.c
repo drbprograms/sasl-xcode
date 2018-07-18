@@ -512,7 +512,7 @@ void refc_copyN_log(pointer p, int n)
   return;
 }
 
-void refc_copyS_log(pointer p, char *s, pointer new_p, int weak)
+void refc_copyS_log(pointer p, const char *s, pointer new_p, int weak)
 {
   if (debug)
     (void) fprintf(stderr,"refc_copyS(%s, \"%s\"): %s (found %d weak)\n", zone_pointer_info(p), s, zone_pointer_info(new_p), weak);
@@ -737,7 +737,7 @@ void refc_log_report(FILE *where)
 void refc_final_report(FILE *where)
 {
   if (refc_inuse() >0) {
-    err_refc1("!!final report but %d pointers in use\n", refc_inuse());
+    err_refc1("!!final report but number of pointers in use=", refc_inuse());
   }
   else
     (void) fprintf(where, "final report ok\n");
@@ -958,7 +958,9 @@ pointer refc_copyT(pointer p)
  */
 pointer refc_copyS(pointer p, char *s)
 {
-  pointer old_p = p;
+  const pointer old_p = p; /*for logging*/
+  const char *old_s = s; /*for logging*/
+
   int weak = 0;
   
   if (IsNil(p)) {
@@ -1006,7 +1008,7 @@ pointer refc_copyS(pointer p, char *s)
     }
   }
   
-  refc_copyS_log(old_p, s, p, weak);
+  refc_copyS_log(old_p, old_s, p, weak);
   
   return p;
 }

@@ -323,6 +323,20 @@ char reduce_is_equal(pointer *nn1, pointer *nn2)
     return 0;
 }
 
+/*
+ * like reduce_is_equal, but on the tags have to match
+ * NB NIL never has same tag as *anything*
+ */
+int reduce_is_equal_tag(pointer *nn1, pointer *nn2)
+{
+    pointer n1, n2;
+    
+    n1 = *nn1 = reduce(nn1); /* update in place */
+    n2 = *nn2 = reduce(nn2); /* update in place */
+    
+    return (IsSet(n1) && IsSet(n1) && Tag(n1) == Tag(n2));
+}
+
 /* unary stricts
  * anything -> BOOL
  */
@@ -661,6 +675,7 @@ pointer reduce(pointer *n)
                                 if (debug)
                                     fprintf(stderr,"**I_comb Stacked==1 case\n");/*XXX*/
                                 Assert(SameNode(*n, Top));  /* should always be the case for Depth==1 */
+                                /*xxx*/    Assert(n && ! IsNil(*n));
                                 Pop(1);
                                 Push(refc_copy(*arg1));
                                 refc_delete(n);
@@ -683,9 +698,9 @@ pointer reduce(pointer *n)
                             /* H other => FAIL */
                         case H_comb:
                             *arg1 = reduce(arg1);
-                            /*xxx*/ Assert(SameNode(T(H(Top)), *arg1));
+                            /*xxx*/ Assert(SameNode(T(Top), *arg1));
                             if (IsCons(*arg1))
-                                refc_updateIS(&Top, "HTH");
+                                refc_updateIS(&Top, "TH");
                             else
                                 err_reduce("taking head of non-cons");
                             Tag(Top) = apply_t;
@@ -695,9 +710,8 @@ pointer reduce(pointer *n)
                             /* T other => FAIL */
                         case T_comb:
                             *arg1 = reduce(arg1);
-                            /*xxx*/ Assert(SameNode(T(H(Top)), *arg1));
                             if (IsCons(*arg1))
-                                refc_updateIS(&Top, "HTT");
+                                refc_updateIS(&Top, "TT");
                             else
                                 err_reduce("taking tail of non-cons");
                             Tag(Top) = apply_t;
@@ -770,7 +784,7 @@ pointer reduce(pointer *n)
                                 err_reduce("power op not expected");
                                 continue;
                                 
-                                /* comb arg1 arg2 */
+                                /* comb arg1 arg2 *//*xxx shoulndt we only allow NIL here -> and be strict?*/
                             case K_nil_comb:
                                 if ( ! (IsNil(*arg2) ||
                                         IsCons(*arg2) ||
@@ -785,7 +799,7 @@ pointer reduce(pointer *n)
                                 continue;
                                 
                             case U_comb:
-                                /*  U f g => f (H g) (T g)    aka U f (a:x) => f a x */
+                                /*  U f g => f (H g) (T g)    lazy version of U f (a:x) => f a x */
                                 Top = refc_update_hdtl(Top,
                                                           new_apply(refc_copy(*arg1), new_apply(new_comb(H_comb), refc_copy(*arg2))),
                                                           new_apply(new_comb(T_comb),  refc_copy(*arg2)));
@@ -838,7 +852,8 @@ pointer reduce(pointer *n)
                                 case MATCH_comb: {
                                     /* MATCH const E x => const = x -> E; FAIL*/
                                     if (reduce_is_equal(arg1, arg3)) {
-                                        Top = refc_update_Itl(Top, refc_copy(*arg2));
+                                        refc_updateIS(&Top, "HT");
+//                                        Top = refc_update_Itl(Top, refc_copy(*arg2));
                                     } else {
                                         Top = refc_update_to_fail(Top);
                                     }
@@ -847,10 +862,8 @@ pointer reduce(pointer *n)
                                     
                                 case MATCH_TAG_comb: {
                                     /* MATCH tag E x => tag = Tag(x) -> E x; FAIL */
-                                    Assert(!IsApply(*arg1)); /* must be fully reduced, as we don't reduce it below */
                                     
-                                    *arg3 = reduce(arg3);
-                                    if (Tag(*arg1) == Tag(*arg3)) {
+                                    if (reduce_is_equal_tag(arg1,  arg3)) {
                                         Top = refc_update_hdtl(Top, refc_copy(*arg2), refc_copy(*arg3));
                                     } else {
                                         Top = refc_update_to_fail(Top);
