@@ -646,7 +646,7 @@ void refc_delete(pointer *pp)
     else { /* is in a loop */
       
       /* Assert(Srefc(p) == 0 && Wrefc(p) > 0) */
-      if (!HasPointers(p)) {
+      if (! HasPointers(p)) {
         if (IsStrong(p))
           store_log("constant has only weak references (deleting last strong pointer)", p); /*NOTREACHED*//* this never happens */
         else
@@ -1179,7 +1179,7 @@ pointer refc_update_hdtl(pointer n, pointer newhd, pointer newtl)
   refc_delete(&Tl(n)); 
   Tl(n) = newtl;
 
-    /*WIP*/
+  /*WIP*/
   if (!HasPointers(n) && Wrefc(n) > 0)
     (void) fprintf(stderr,"refc_update: making constant with Wrefc>0: %s\n", zone_pointer_info(n));
 

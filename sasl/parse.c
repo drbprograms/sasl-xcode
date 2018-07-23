@@ -34,6 +34,7 @@ static int parse_err(char *f, char *msg1, char *msg2)
  * deprecated for make_bind() style defs: check def  =  check exprlist WHERE (n:namelist:exprlist) = def
  * check (a:x) = isatom a -> (isname a -> ERROR; check x); (check a : check x)?
  */
+
 /*
  * Iterative check - MacOS stack is limited to depth 512 then aborts
  */
@@ -44,6 +45,19 @@ static unsigned stack_size = 0;
 #define Stacked (sp-stack)
 #define Push(p) (Assert(Stacked < stack_size), *sp++ = (p))
 #define Pop     (Assert(Stacked > 0),         (*--sp))
+
+#define Limit 12  /*arbitrary limit to output */
+
+static void parse_check_log()
+{
+  pointer *pp;
+  
+  /* ToDo user friendly diagnostics */
+  for (pp = sp - 1; pp > stack; pp--)
+    out_debug_limit(*pp, Limit);
+
+  return;
+}
 
 static pointer parse_check_do(pointer n, char *msg)
 {
@@ -56,7 +70,8 @@ static pointer parse_check_do(pointer n, char *msg)
     }
     
     if (IsName(n)) {
-      parse_err("undefined name", Name(n), msg); /* TODO give indication of where the name occurs in SASL program text */
+      parse_check_log();
+      parse_err("undefined name", Name(n), msg);
     }
     
     if (Stacked == 0)

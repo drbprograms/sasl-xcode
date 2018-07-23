@@ -484,10 +484,13 @@ static int refc_check_visit_node(pointer p, int s_limit, int *nil_count,  int *s
 int refc_check_traverse_pointers_do(pointer p, int s_limit, int *nil_count,  int *s_count, int *w_count, int *struct_count, int *atom_count)
 {
   while (1) {
-    /* pointer nodes, not previosuly visited */
+    /* pointer nodes, not previously visited */
     while (HasPointers(p)) {
-      if (refc_check_visit_node(p, s_limit, nil_count, s_count, w_count, struct_count, atom_count) == 1)
+      if (refc_check_visit_node(p, s_limit, nil_count, s_count, w_count, struct_count, atom_count) == 1) {
         (*struct_count)++;
+        if (mem_dump)
+          fprintf(stderr, "mem_dump:%s\n",zone_pointer_info(p));
+      }
       else
         break; /* only visit/count pointed-to node first time through */
       
@@ -498,8 +501,11 @@ int refc_check_traverse_pointers_do(pointer p, int s_limit, int *nil_count,  int
     if (IsNil(p)) {
       (*nil_count)++;
     } else if (!HasPointers(p)) {
-      if (refc_check_visit_node(p, s_limit, nil_count, s_count, w_count, struct_count, atom_count) == 1)
+      if (refc_check_visit_node(p, s_limit, nil_count, s_count, w_count, struct_count, atom_count) == 1) {
         (*atom_count)++;
+        if (mem_dump)
+          fprintf(stderr, "mem_dump:%s\n",zone_pointer_info(p));
+      }
     }
     
     if (Stacked == 0)

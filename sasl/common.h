@@ -314,6 +314,7 @@ extern int err_zone(char *msg1);
  * debugging
  */
 extern int debug;
+extern int mem_dump;
 /* 
  * defaults and environment variables
  */

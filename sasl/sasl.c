@@ -27,6 +27,7 @@ int no_code;
 int no_prelude = 0;
 
 int unit_test;
+int mem_dump;
 
 static int no_reset;
 /*
@@ -73,6 +74,11 @@ static int read_file(char *filename)
     if (IsSet(root)) {
       root = reduce_print(&root);
       printf("\n"); /* in deference to Unix */
+      
+      fprintf(stderr,"Start extra\n");
+      (void) reduce_log_report(stderr);
+      fprintf(stderr,"End extra\n");
+
       refc_delete(&root);
     }
     
@@ -94,6 +100,7 @@ static int main_init()
   no_reset		    = getenv_int("no_reset", 1);    /* default off - todo change for interactive use */
   
   unit_test         = getenv_int("unit_test", 0);   /* default off */
+  mem_dump          = getenv_int("mem_dump", 0);   /* default off */
 
  return store_init() || reduce_init();
 }

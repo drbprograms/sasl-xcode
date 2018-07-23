@@ -719,83 +719,51 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
       }
       break;
     
-    case 14:
+    case 14: {
       /* (14)	<program> ::= <expr>? | def <deflist>?
        *                          1        2     3
        reduce expr | save defs
        */
+      Assert(IsNil(root));
+      Assert(IsDef(builtin));
+      Assert(IsNil(defs) || IsDef(defs));
       
       switch (subrule) {
           
-        case 1:
-          /* substitute for known DEFs; check for unbound names; return pointer to-be-reduced */
-
-          Assert(IsNil(root));
-          Assert(IsDef(builtin));
-          Assert(IsNil(defs) || IsDef(defs));
-
+        case 1: {
+          /* substitute for builtins and known DEFs; return pointer to-be-reduced; parser then checks for unbound names */
           /* scope of names: "((expr) WHERE defs) WHERE builtin" */
           if (IsDef(defs))
             n1 = make_where(n1, refc_copy(DefDefs(defs)));
-
+          
           n1 = make_where(n1, refc_copy(DefDefs(builtin)));
-
+          
           refc_delete(&root);
-          root = n1;
+          root = n1; /* this is the global root */
           
           return root;
-          
+        }
         case 2: return n1;
           
         case 3: {
-          Assert(IsNil(root));
-          Assert(IsDef(builtin));
-          Assert(IsNil(defs) || IsDef(defs));
-          
+          /* update global DEFs; substitute for builtins; return pointer to-be-reduced; parser then checks for unbound names */
           /* scope of names: "defs WHERE builtin" */
-//fault xxx          DefExprs(n1) = make_where(DefExprs(n1), refc_copy(DefDefs(builtin)));/*xxx is this right?*/
+          //fault xxx          DefExprs(n1) = make_where(DefExprs(n1), refc_copy(DefDefs(builtin)));/*xxx is this right?*/
+          //issue - if there are unbound names in "n1" then globals defs will contain them;  could then add and recompile and ok?
           
           /* record defs for future use*/
           if (IsNil(defs))
             defs = new_def(new_name("<Top>"), n1);
           else
-            defs = add_deflist_to_def(defs, n1);
-
-          /*TODO 2nd and subsequent DEF */
- /*
-          if (IsNil(defs)) {
-            n1 = make_where(n1, refc_copy(DefDefs(builtin)));
-            defs = new_def(new_name("<Top>"), n1);
-          } else {
-            DefDefs(defs) = make_where(n1, refc_copy(DefDefs(defs)));
-            DefDefs(defs) = make_where(DefDefs(defs), refc_copy(DefDefs(builtin)));
-          }
-  */
+            defs = add_deflist_to_def(defs, n1);//deprecated
           
-          //          DefDefs(defs) = make_where(DefDefs(defs), refc_copy(DefDefs(defs)));
-          
-          /* update defs */
-          //          DefDefs(defs) = make_where(n1, refc_copy(DefDefs(defs)));
-          
-//          if (IsNil(defs)) {
-//            defs = new_def(new_name("<Top>"), n1);
-//          }
-//          else {
-//            n1 = make_where(n1, refc_copy(DefDefs(defs)));
-//          }
-          
-//            T(defs) = make_where(n1, refc_copy(DefDefs(defs)));
-//          }
-//          else
-//            defs = add_deflist_to_def(defs, n1);
-
-          return defs;
+          return defs; /* this is the global defs */
         }
-          break;
           
         default:
           break;
       }
+    }
   }
   
   (void) make_err("got unrecognised rule", ruledef, rule);

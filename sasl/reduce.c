@@ -38,10 +38,11 @@ static unsigned stack_size = 0;
 #define Push(p) (Assert(Stacked < stack_size), *sp0++ = (p))
 #define Pop     (Assert(Stacked > 0),         (*--sp0))
 
+#define Depth   (sp0-base)
+
 pointer reduce0(pointer *pp)
 {
     pointer **base = sp0;
-#define Depth   (sp0-base)
     
     while ( !IsNil(*pp)) {
         switch (Tag(*pp)) {
@@ -58,8 +59,8 @@ pointer reduce0(pointer *pp)
     
     return *pp;
     
-#undef Depth
 }
+#undef Depth
 #endif
 /*******************************************/
 
