@@ -302,10 +302,9 @@ int refc_free()
 int refc_isfree(pointer p)
 {
   pointer f;
-  node *np = Node(p);
-  
+
   for (f = refc_freelist; IsSet(f); f = Tl(f)) {
-    if (Node(f) == np)
+    if (SameNode(p, f))
       return 1;
   }
   return 0;
@@ -370,8 +369,8 @@ void free_node(pointer p)
   
   /* add to freelist - refc_frelist is Hd linked list of strong pointers (possibly NIL) */
   Tag(p) = cons_t;
-  Hd(p) = refc_freelist;
-  Tl(p) = NIL; // not needed
+  Hd(p) = NIL; // not needed
+  Tl(p) = refc_freelist;
   
   PtrBit(p)= NodeBit(p) = PtrBit(refc_freelist);  /* link with strong pointers */
   Srefc(p) = 1;

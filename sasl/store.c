@@ -39,6 +39,18 @@ void store_log(char *s, pointer p)
   }
 }
 
+/*
+ * error reporting
+ */
+static int refc_err(char *msg, pointer p)
+{
+  if (debug) {
+    fprintf(stderr, "refc_err: %s: %s\n", msg, zone_pointer_info(p));
+    refc_check();
+  }
+  return err_refc(msg);
+}
+
 void store_log_new(pointer p)
 {
   store_log("new", p);
@@ -647,10 +659,8 @@ void refc_delete(pointer *pp)
       
       /* Assert(Srefc(p) == 0 && Wrefc(p) > 0) */
       if (! HasPointers(p)) {
-        if (IsStrong(p))
-          store_log("constant has only weak references (deleting last strong pointer)", p); /*NOTREACHED*//* this never happens */
-        else
-          (void) err_refc("constant has only weak references (deleting weak pointer)");
+          refc_err("constant has only weak references", p);
+        /*NOTREACHED*/
       }
       
       /* invert pointers */
@@ -660,34 +670,26 @@ void refc_delete(pointer *pp)
       Srefc(p) = Wrefc(p);	/* !!! was this done correctly in 1985? */
       Wrefc(p) = 0;		/* !!! was this done correctly in 1985? */
       
-      if (HasPointers(p)) {
-        /* recursive search */
-        refc_search(p, &Hd(p));
-        refc_search(p, &Tl(p));
-        
-        refc_delete_post_search_log(p);
-        
-        /* Srefc(p) and/or Wrefc(p) may be changed by the searches */
-        if (Srefc(p) == 0) {
-          refc_delete(&Hd(p));
-          refc_delete(&Tl(p));
+      /* recursive search */
+      refc_search(p, &Hd(p));
+      refc_search(p, &Tl(p));
       
-          refc_delete_post_delete_log(p);
-          /* assert(IsFree(p)) - has been freed above */
-          if ( !refc_isfree(p))
-#if toocautious
-        (void) err_refc("loop not freed");
-#else
-      store_log("loop not freed", p); /*XXX under what conditions is this valid - Assert(Wrefc(p) == 0) --- or not?  */
-#endif
-        }
-      } else {
-          /*!HasPointers(p)*/
-        refc_delete_post_delete_log(p);
+      refc_delete_post_search_log(p);
+      
+      /* Srefc(p) and/or Wrefc(p) may be changed by the searches */
+      if (Srefc(p) == 0) {
+        refc_delete(&Hd(p));
+        refc_delete(&Tl(p));
+        
+        /* assert(IsFree(p)) - has been freed above */
+        if ( !refc_isfree(p))
+          (void) refc_err("loop not freed", p); /* refc_err() to get refc_check() */
       }
+      
+      refc_delete_post_delete_log(p);
     }
-  }
-  
+  } /* else SRefc(p) > 0 so do nothing */
+
   return;
 }
 
