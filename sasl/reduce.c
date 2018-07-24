@@ -381,7 +381,7 @@ int reduce_init()
     builtin = add_to_def(builtin, new_name("char"),     new_unary_strict("char",     is_char));
     builtin = add_to_def(builtin, new_name("list"),     new_unary_strict("list",     is_list));
     builtin = add_to_def(builtin, new_name("logical"),  new_unary_strict("logical",  is_logical));
-    builtin = add_to_def(builtin, new_name("function"), new_unary_strict("function", is_func));
+    builtin = add_to_def(builtin, new_name("function"), new_unary_nonstrict("function", is_func));
     builtin = add_to_def(builtin, new_name("number"),   new_unary_strict("number",   is_number));
     
     /* chars */
