@@ -35,7 +35,7 @@
 		0F671195203CD54F00E9DD0B /* sasl-test.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "sasl-test.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		0F671197203CD54F00E9DD0B /* sasl_test.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = sasl_test.m; sourceTree = "<group>"; };
 		0F671199203CD54F00E9DD0B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		0F7E6537201A31AD001A6B3C /* sasl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sasl; sourceTree = BUILT_PRODUCTS_DIR; };
+		0F7E6537201A31AD001A6B3C /* sasl */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "compiled.mach-o.executable"; path = sasl; sourceTree = BUILT_PRODUCTS_DIR; };
 		0F7E6541201A4BFD001A6B3C /* zone.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 2; lastKnownFileType = sourcecode.c.c; path = zone.c; sourceTree = "<group>"; };
 		0F7E6543201A4BFD001A6B3C /* make.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = make.h; sourceTree = "<group>"; };
 		0F7E6544201A4BFD001A6B3C /* common.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 2; lastKnownFileType = sourcecode.c.c; path = common.c; sourceTree = "<group>"; };

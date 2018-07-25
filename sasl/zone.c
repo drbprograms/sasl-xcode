@@ -351,7 +351,9 @@ pointer new_node(tag t)
 void free_node(pointer p)
 {
   refc_free_log(p);
-  
+#if 1
+  Assert(! refc_isfree(p));
+#endif
   /* validation */
   if (IsNil(p))
     err_refc("free: pointer is NIL");
