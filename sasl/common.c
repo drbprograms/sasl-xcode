@@ -497,7 +497,7 @@ static int out_out(FILE *where, pointer n)
         case unary_strict:
           return fprintf(where, "strict-%s", Uname(n));
         case unary_nonstrict:
-          return fprintf(where, "maths-:%s", Uname(n));
+          return fprintf(where, "non-strict-:%s", Uname(n));
       }
     }
   return 0; /*NOTEREACHED*/
