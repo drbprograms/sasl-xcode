@@ -299,7 +299,7 @@ int refc_free()
 /* is given node on the freelist? */
 /* Deprecated due to linear earch */
 /* TODO add free_t tag and us this throughout instead */
-int refc_isfree(pointer p)
+static int refc_isfree(pointer p)
 {
   pointer f;
 
@@ -351,9 +351,6 @@ pointer new_node(tag t)
 void free_node(pointer p)
 {
   refc_free_log(p);
-#if 1
-  Assert(! refc_isfree(p));
-#endif
   /* validation */
   if (IsNil(p))
     err_refc("free: pointer is NIL");
@@ -361,7 +358,13 @@ void free_node(pointer p)
     err_refc("free: Srefc not zero");
   if (Wrefc(p) > 0)
     err_refc("free: Wrefc not zero");
-  
+  if(IsFree(p))
+    err_refc("free: node is already free");
+#if 1
+  if(refc_isfree(p))
+    err_refc("free: node is already free on freelist");
+#endif
+
   if (HasPointers(p)) {
     if (IsSet(Hd(p)))
       err_refc("free: Hd not NIL");
@@ -370,7 +373,7 @@ void free_node(pointer p)
   }
   
   /* add to freelist - refc_frelist is Hd linked list of strong pointers (possibly NIL) */
-  Tag(p) = cons_t;
+  Tag(p) = free_t;  /* was cons_t; */
   Hd(p) = NIL; // not needed
   Tl(p) = refc_freelist;
   

@@ -11,4 +11,3 @@ extern void free_node(pointer p);
 extern void new_log_report(FILE *where);
 extern char *zone_pointer_info(pointer p);
 extern int zone_check(void);
-extern int refc_isfree(pointer p);

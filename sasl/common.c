@@ -12,6 +12,7 @@
 */
 		      
 static char *tag_names[] = {
+  "free_t",
   /* Constants - node contains the value of the constant and never points to anything else */
   "int_t",
   "floating_t",
@@ -281,6 +282,10 @@ static int out_out(FILE *where, pointer n)
         (void) fprintf(where, "@");	/* hint for weak loops */
       
       switch (Tag(n)) {	/* (tag) cast ensures compler warnings for any tags not covered */
+        case free_t: {
+          /* Should Never Happen - so do NOT print freelist*/
+          return fprintf(where, "\n!!free.... "); /* Hd should be NIL; Tl should be rest of feelist of any */
+        }
         case int_t:
           return fprintf(where, "%d",Num(n));
         case floating_t:
@@ -498,6 +503,8 @@ static int out_out(FILE *where, pointer n)
           return fprintf(where, "strict-%s", Uname(n));
         case unary_nonstrict:
           return fprintf(where, "non-strict-:%s", Uname(n));
+        case _LastTag:
+          return err_store("invalid tag: _LastTag");
       }
     }
   return 0; /*NOTEREACHED*/

@@ -527,6 +527,10 @@ pointer reduce(pointer *n)
                 /* >0 args:   list number => nth item of list */
                 switch (tt) {
                         
+                    case free_t: {
+                        err_reduce("reducing a free node");
+                        /*NOTREACHED*/
+                    }
                     case cons_t: {
                         int i;
                         pointer *arg1, the_cons;

@@ -21,7 +21,10 @@ extern const pointer NIL;
 /* NB numeric values here need to fit into a 'char' in tok->t below */
 /* NB changes here need to be reflected in zone.c where the printable version of the tags is made */
 typedef enum tag {
-    /* Constants - node contains the value of the constant and neveer points to anything else */
+    /* Special - free nodes if(Tag(p)==free_t) Assert(refc_isfree(p)); */
+  free_t,
+#define IsFreeTag(t) ((t)==free_t)
+  /* Constants - node contains the value of the constant and neveer points to anything else */
   int_t,
 #define IsNumTag(t) ((t)==int_t)
   floating_t,
@@ -55,9 +58,9 @@ typedef enum tag {
   def_t,
 #define IsDefTag(t) ((t)==def_t)
   
-#define HasPointersTag(t) (IsStructTag(t) || IsCombTag(t) || IsAbstractTag(t) || IsDefTag(t))
+#define HasPointersTag(t) (IsFreeTag(t) || IsStructTag(t) || IsCombTag(t) || IsAbstractTag(t) || IsDefTag(t))
   /* TODO when there's time to conduct before/aafter testing 
-     # define HasPointers(t) ((t) >= apply_t) */
+     # define HasPointers(t) ((t) >= 0  ) */
 
 
   /* Operators - tl contains first argument (or NIL) */
@@ -230,7 +233,8 @@ typedef struct node
 
 #define IsNilList(p)	IsNilListTag(Tag(p)))/*deprecated*/
 
-#define IsNum(p)	(IsSet(p) && IsNumTag(Tag(p)))
+#define IsFree(p) (IsSet(p) && IsFreeTag(Tag(p)))
+#define IsNum(p)  (IsSet(p) && IsNumTag(Tag(p)))
 #define IsDbl(p)	(IsSet(p) && IsDblTag(Tag(p)))
 #define IsChar(p)	(IsSet(p) && IsCharTag(Tag(p)))
 #define IsBool(p)	(IsSet(p) && IsBoolTag(Tag(p)))
