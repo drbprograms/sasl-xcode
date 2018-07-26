@@ -2,7 +2,7 @@
 
 /* *** *** *** */
 extern int refc_inuse(void);
-extern int refc_free(void);
+extern unsigned refc_free(void);
 
 extern pointer new_node(tag t);
 extern char *err_tag_name(tag t);

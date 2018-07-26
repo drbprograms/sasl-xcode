@@ -281,8 +281,8 @@ void refc_free_log(pointer p)
  */
 static pointer refc_freelist = {(node *)0,0};/* "NIL" in a way that satisfies cc() */
 
-static int refc_free_count = 0;  /* how many nodes in the free list */
-static int refc_inuse_count = 0;  /* nodes in use == reachable from 'root' or 'defs' or 'builtin' */
+static unsigned refc_free_count = 0;  /* how many nodes in the free list */
+static unsigned refc_inuse_count = 0;  /* nodes in use == reachable from 'root' or 'defs' or 'builtin' */
 
 /* how many nodes are in use? */
 int refc_inuse()
@@ -291,7 +291,7 @@ int refc_inuse()
 }
 
 /* how many nodes have been freed */
-int refc_free()
+unsigned refc_free()
 {
   return refc_free_count;
 }
@@ -765,8 +765,8 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
     /* report zone info */
     (void) fprintf(stderr,"%s\t%d\n", "zones in use", zone_new_count);
     (void) fprintf(stderr,"%s\t%d\n", "total zone size", zone_total_size);
-    (void) fprintf(stderr,"%s\t%d\n", "nodes used", refc_inuse_count);
-    (void) fprintf(stderr,"%s\t%d\n", "nodes free", refc_free_count);
+    (void) fprintf(stderr,"%s\t%u\n", "nodes used", refc_inuse_count);
+    (void) fprintf(stderr,"%s\t%u\n", "nodes free", refc_free_count);
     
     /* report and return if no zones in use */
     if (zone_current == 0) {
