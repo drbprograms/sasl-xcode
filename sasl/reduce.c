@@ -62,6 +62,7 @@ pointer reduce0(pointer *pp)
 }
 #undef Depth
 #endif
+
 /*******************************************/
 
 /* the stack - used by reduce */
@@ -93,7 +94,15 @@ static pointer *sp = stack;
 #define Pop(n)  (Assert(Stacked >= (n)), sp -= (n), sp[n]) /* assert((sp+n)>=base) value is previous Top of stack */
 #define Push(n) (Assert(Stacked < STACK_SIZE),sp[1] = (n), sp++) /* sequencing to ensure Push(*sp) works correctly */
 
-
+#if notyet
+inline pointer pop(const int n, const pointer *base, pointer *sp)
+{
+    pointer *old_sp = sp;
+    Assert(Stacked >= n);
+    sp -= n;
+    return *old_sp;
+}
+#endif
 /*
  * sasl - primitive to sasl functions
  */
@@ -446,7 +455,7 @@ pointer reduce_print(pointer *p)
     *p = reduce(p);
     
     if (debug) {
-        REDUCE_DEBUG0("Reduce_print: ");
+        fprintf(stderr, "Reduce_print: ");
         out_debug(*p);
     }
     
@@ -532,6 +541,25 @@ pointer reduce(pointer *n)
                         /*NOTREACHED*/
                     }
                     case cons_t: {
+#if 1
+                        unsigned u;
+
+                        if (Stacked == 1)
+                            return R;
+                        
+                        Pop(1);
+
+                        T(Top) = reduce(&T(Top));
+                        if (!IsNum(T(Top)))
+                            err_reduce("applying a list to something that is not a number");
+                        u = Num(T(Top));
+                        if (u < 1)
+                            err_reduce("applying a list to a number less then 1");
+
+                        Top = refc_update_Itl(Top, refc_copyNth(Top, u));
+                        continue;
+#else
+                        
                         int i;
                         pointer *arg1, the_cons;
 
@@ -585,6 +613,8 @@ pointer reduce(pointer *n)
                         Assert(SameNode(the_cons, H(Top)));
                         Tag(Top) = apply_t;
                         refc_updateIS(&Top, "HH"); /* NB H(the_cons) here */
+#endif
+                        
                         continue;
                     }
 
@@ -674,17 +704,22 @@ pointer reduce(pointer *n)
                                     fprintf(stderr,"**I_comb Stacked>1 case\n");
                                 Pop(1);
                                 Assert(!SameNode(Top, *arg1)); /* avoid stack loops!?! */
-                                Top = refc_update_hd(Top, refc_copy(*arg1));
+//                                Top = refc_update_hd(Top, refc_copy(*arg1));
+                                refc_update_hdS(&Top,"HT");
                             } else {
                                 /* reduce: special case - leave Top node; replace it with arg1 as top of stack */
                                 if (debug)
                                     fprintf(stderr,"**I_comb Stacked==1 case\n");/*XXX*/
                                 Assert(SameNode(*n, Top));  /* should always be the case for Depth==1 */
                                 /*xxx*/    Assert(n && ! IsNil(*n));
+// unsequenced modification to sp - Push/Pop are Macros - reconsider this
+//                                Push(refc_copyS(Pop(1), "T"));  /* copy "previous" Top */
                                 Pop(1);
-                                Push(refc_copy(*arg1));
+                                Push(refc_copyS(sp[1], "T"));  /* copy "previous" Top */
+
                                 refc_delete(n);
                                 *n = Top;
+
                                 Assert(Stacked == 1);
                             }
                             continue;
@@ -869,7 +904,8 @@ pointer reduce(pointer *n)
                                     /* MATCH tag E x => tag = Tag(x) -> E x; FAIL */
                                     
                                     if (reduce_is_equal_tag(arg1,  arg3)) {
-                                        Top = refc_update_hdtl(Top, refc_copy(*arg2), refc_copy(*arg3));
+//                                        Top = refc_update_hdtl(Top, refc_copy(*arg2), refc_copy(*arg3));
+                                        refc_updateSS(&Top, "HT", "T");
                                     } else {
                                         Top = refc_update_to_fail(Top);
                                     }
@@ -1007,6 +1043,28 @@ pointer reduce(pointer *n)
 
                                 switch (tt) {
                                         
+#if 0
+                                    case TRYn_comb: {
+                                        /* TRYn 0 f g x => FAIL       || should never happen! */
+                                        /* TRYn 1 f g x => TRY        (f x) (g x) */
+                                        /* TRYn n f g x => TRYn (n-1) (f x) (g x)*/
+                                        if (!IsNum(*arg1) || (Num(*arg1) < 1)) {
+                                            Top = refc_update_to_fail(Top);  /* err_reduce("problem with matching") */
+                                        } else if (Num(*arg1) == 1) {
+                                            Top = refc_update_hdtl(Top,
+                                                                   new_apply(new_comb(TRY_comb),
+                                                                             new_apply(refc_copyS(Top, "HHT"), refc_copyS(Top, "T"))),
+                                                                   new_apply(refc_copyS(Top, "HT"), refc_copyS(Top, "T")));
+                                        } else {
+                                            Top = refc_update_hdtl(Top,
+                                                                   new_apply3(new_comb(TRYn_comb),
+                                                                              new_int(Num(*arg1) - 1),
+                                                                              new_apply(refc_copyS(Top, "HHT"), refc_copyS(Top, "T"))),
+                                                                   new_apply(refc_copyS(Top, "HT"), refc_copyS(Top, "T")));
+                                        }
+                                        continue;
+                                    }
+#else
                                     case TRYn_comb: {
                                         /* TRYn 0 f g x => FAIL       || should never happen! */
                                         /* TRYn 1 f g x => TRY        (f x) (g x) */
@@ -1015,19 +1073,20 @@ pointer reduce(pointer *n)
                                             Top = refc_update_to_fail(Top);
                                         } else if (Num(*arg1) == 1) {
                                             Top = refc_update_hdtl(Top,
-                                                                      new_apply(new_comb(TRY_comb),
-                                                                                new_apply(refc_copy(*arg2), refc_copy(*arg4))),
-                                                                      new_apply(refc_copy(*arg3), refc_copy(*arg4)));
+                                                                   new_apply(new_comb(TRY_comb),
+                                                                             new_apply(refc_copy(*arg2), refc_copy(*arg4))),
+                                                                   new_apply(refc_copy(*arg3), refc_copy(*arg4)));
+                                            
                                         } else {
                                             Top = refc_update_hdtl(Top,
-                                                                      new_apply3(new_comb(TRYn_comb),
-                                                                                 new_int(Num(*arg1) - 1),
-                                                                                 new_apply(refc_copy(*arg2), refc_copy(*arg4))),
-                                                                      new_apply(refc_copy(*arg3), refc_copy(*arg4)));
-                                            
+                                                                   new_apply3(new_comb(TRYn_comb),
+                                                                              new_int(Num(*arg1) - 1),
+                                                                              new_apply(refc_copy(*arg2), refc_copy(*arg4))),
+                                                                   new_apply(refc_copy(*arg3), refc_copy(*arg4)));
                                         }
                                         continue;
                                     }
+#endif
                                         
                                     case Sp_comb:	{
                                         /* Sp f g h x => f (g x) (h x) */

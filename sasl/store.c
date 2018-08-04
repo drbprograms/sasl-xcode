@@ -10,6 +10,13 @@
 
 #define Limit 6 /* keep low for brevity */
 
+/* Log helper macros does not observe "debug" as debugging is differnet from logging */
+#define LogWhere stderr
+#define Log(s)          (fprintf(LogWhere, (s)))
+#define Log1(s,a1)      (fprintf(LogWhere, (s),(a1)))
+#define Log2(s,a1,a2)   (fprintf(LogWhere, (s),(a1),(a2)))
+#define Log3(s,a1,a2,a3)(fprintf(LogWhere, (s),(a1),(a2),(a3)))
+
 /* helper function */
 /*
  * make_append - adds new cons cell containing tl and NIL terminator to end of non-NIL list; does nothing  if list is NIL
@@ -33,10 +40,8 @@ pointer make_append(pointer list, pointer tl)
  */
 void store_log(char *s, pointer p)
 {
-  if (debug) {
-    (void) fprintf(stderr, "%s%s ", s, zone_pointer_info(p));
-    out_debug_limit(p, Limit);
-  }
+  Log2("%s%s ", s, zone_pointer_info(p));
+  out_debug_limit(p, Limit);
 }
 
 /*
@@ -45,7 +50,7 @@ void store_log(char *s, pointer p)
 static int refc_err(char *msg, pointer p)
 {
   if (debug) {
-    fprintf(stderr, "refc_err: %s: %s\n", msg, zone_pointer_info(p));
+    Log2("refc_err: %s: %s\n", msg, zone_pointer_info(p));
     refc_check();
   }
   return err_refc(msg);
@@ -482,8 +487,7 @@ static int refc_search_strong_count = 0;	/* strong pointers made weak by seach *
 
 void refc_search_log(pointer start, pointer p)
 {
-  if (debug)
-    (void) fprintf(stderr,"refc_search%s%s\n", zone_pointer_info(p), (Node(p) == Node(start) ? "*" : ""));
+  Log2("refc_search%s%s\n", zone_pointer_info(p), (Node(p) == Node(start) ? "*" : ""));
   
   if (Node(p) == Node(start))
     refc_search_start_count++;
@@ -492,26 +496,51 @@ void refc_search_log(pointer start, pointer p)
   return;
 }
 
-void refc_delete_post_search_log(pointer p)
+void refc_search_flip_log(pointer start, pointer p)
 {
-  if (debug)
-    (void) fprintf(stderr,"refc_delete_post_search%s\n", zone_pointer_info(p));
+  if (Node(p) == Node(start))
+    refc_search_start_count++;
+  else
+    refc_search_strong_count++;
+  return;
+  
+}
 
+void refc_delete_log(pointer p)
+{
+  Log1("refc_delete%s\n", zone_pointer_info(p));
   return;
 }
 
+void refc_delete_flip_log(pointer p)
+{
+  refc_delete_flip_count++;
+  Log1("refc_delete_flip%s\n", zone_pointer_info(p));
+  return;
+}
+
+void refc_delete_post_search_log(pointer p)
+{
+  Log1("refc_delete_post_search%s\n", zone_pointer_info(p));
+  return;
+}
+
+void refc_delete_post_search2_log(pointer p)
+{
+  Log1("refc_delete_post_search2%s\n", zone_pointer_info(p));
+  return;
+}
+
+
 void refc_delete_post_delete_log(pointer p)
 {
-  if (debug)
-    (void) fprintf(stderr,"refc_delete_post_delete%s\n", zone_pointer_info(p));
-
+  Log1("refc_delete_post_delete%s\n", zone_pointer_info(p));
   return;
 }
 
 void refc_copyN_log(pointer p, int n)
 {
-  if (debug)
-    (void) fprintf(stderr,"refc_copyN%s(N=%d)\n", zone_pointer_info(p), n);
+  Log2("refc_copyN%s(N=%d)\n", zone_pointer_info(p), n);
   
   if (IsNil(p))
     refc_copy_NILcount += n;
@@ -526,16 +555,20 @@ void refc_copyN_log(pointer p, int n)
 
 void refc_copyS_log1(pointer p, const char *s)
 {
-  if (debug)
-    (void) fprintf(stderr,"refc_copyS1 %s \"%s\"\n", zone_pointer_info(p), s);
+  Log2("refc_copyS1 %s \"%s\"\n", zone_pointer_info(p), s);
 
+  return;
+}
+
+void refc_copyNth_log1(pointer p, unsigned n)
+{
+  Log2("refc_copy_nth %s n==%u\n", zone_pointer_info(p), n);
   return;
 }
 
 void refc_copyS_log2(pointer p, int weak)
 {
-  if (debug)
-    (void) fprintf(stderr,"refc_copyS2 %s (%d intermediate weak)\n", zone_pointer_info(p), weak);
+  Log2("refc_copyS2 %s (%d intermediate weak)\n", zone_pointer_info(p), weak);
   
   if (IsNil(p))
     refc_copy_NILcount++;
@@ -546,6 +579,22 @@ void refc_copyS_log2(pointer p, int weak)
       refc_copy_Wcount++;
   }
   return;
+}
+
+void refc_copyNth_log2(pointer p, int weak)
+{
+  Log2("refc_copy_nth %s (%d intermediate weak)\n", zone_pointer_info(p), weak);
+  
+  if (IsNil(p))
+    refc_copy_NILcount++;
+  else {
+    if (IsStrong(p))
+      refc_copy_Scount++;
+    else
+      refc_copy_Wcount++;
+  }
+  return;
+
 }
 
 void refc_copy_make_cyclic_log(pointer p)
@@ -569,12 +618,13 @@ void refc_copy_make_cyclic_log(pointer p)
 
   search(start,<R,S>)
   if <R,S> is a strong pointer then
-  if S==start then make <R,S> into a weak pointer
+    if S==start then make <R,S> into a weak pointer
   else
-  if (Srefc(s) > 1) then make <R,S> into a weak pointer
+    if (Srefc(s) > 1) then make <R,S> into a weak pointer
   else
-  search(start, <S,hd(s)>); search(start, <S,tl(S)>)
+    search(start, <S,hd(s)>); search(start, <S,tl(S)>)
 */
+
 static void refc_search(pointer start, pointer *pp)
 {
   if (IsNil(*pp))
@@ -584,26 +634,22 @@ static void refc_search(pointer start, pointer *pp)
   
   /* weak pointer to start === BUG  search "/w .... *" */
   
-  if (IsStrong(*pp) && HasPointers(*pp)) {
+  if (IsStrong(*pp) && HasPointers(*pp)) {  /* never make weak pointers to constants */
+    
     if (Node(*pp) == Node(start) || Srefc(*pp) > 1) {
-      /* make strong pointer weak */
-      
-      if (Node(*pp) == Node(start))
-        refc_search_start_count++;
-      else
-        refc_search_strong_count++;
-      
+      /* make a strong pointer to a non-constant weak, end of search */
+      refc_search_flip_log(start, *pp);
       Wrefc(*pp)++;
       Srefc(*pp)--;
       PtrBit(*pp) = !NodeBit(*pp); /* Was: PtrBit(p) = !PtrBit(p); */
     } else {
-      /* strong pointer stays strong: recurse (where node contains pointers) */
-      Assert(Srefc(*pp) == 1);
+      /* strong pointer stays strong: recurse (node contains pointers) */
+      /* Assert(Srefc(*pp) == 1); Assert(HasPointers(*pp)); */
       refc_search(start, &Hd(*pp));
       refc_search(start, &Tl(*pp));
     }
   }
-  /* if p points to constant or is weak, do nothing */
+  /* else if p points to constant or is weak, do nothing */
   
   return;
 }
@@ -620,6 +666,10 @@ static void refc_search(pointer start, pointer *pp)
  * usage: refc_delete(&Hd(p));
  */
 
+/*************************/
+#define fix1 1
+/*************************/
+
 void refc_delete(pointer *pp)
 {
   pointer p = *pp; /* copy */
@@ -627,21 +677,13 @@ void refc_delete(pointer *pp)
   if (IsNil(*pp))
     return;
   
-  if (debug)
-    (void) fprintf(stderr,"refc_delete%s\n", zone_pointer_info(*pp));
+  refc_delete_log(p);
 
-#if 1
+#if fix1
   if (IsFree(*pp))
-#ifdef correct
     (void) err_refc("delete: node is already free");  /* there should be no pointers to free nodes */
 #else
-  /*xxx consider whether this is a fault or should simple return here with no action  */
-  return;
-#endif
-#else
-  /*xxx temporary*/
-  if (refc_isfree(p))
-    (void) err_refc("delete: node is already free");
+  return;   /*xxx consider whether this is a fault or should simple return here with no action  */
 #endif
   
   *pp = NIL;  /* really delete the pointer in situ */
@@ -675,7 +717,7 @@ void refc_delete(pointer *pp)
       
       refc_delete_post_delete_log(p); /* assert(ALLRefc(p) == 0) after this deletion */
       
-#if 1
+#if fix0
       if (! IsFree(p)) /*XXXXXXXX wrong wrong wrong XXXXXXXX*/
 #endif
         free_node(p); /* pointed-to node is free for re-use */
@@ -689,7 +731,7 @@ void refc_delete(pointer *pp)
       }
       
       /* invert pointers */
-      refc_delete_flip_count++;
+      refc_delete_flip_log(p);
       
       NodeBit(p) = !NodeBit(p);	/* "an essential implementation trick" */
       Srefc(p) = Wrefc(p);	/* !!! was this done correctly in 1985? */
@@ -704,20 +746,28 @@ void refc_delete(pointer *pp)
       /* Srefc(p) and/or Wrefc(p) may be changed by the searches */
       if (Srefc(p) == 0) {
         refc_delete(&Hd(p));
-        refc_delete(&Tl(p));
         
-        /* assert(IsFree(p)) - has been freed above */
-#if 1
-        /* xxx todo this fixes most refc errs but is is pukka */
+        /* Srefc(p) and/or Wrefc(p) may be changed by the deletion, and p may be free, with Tl set as a part of freelist */
+        if (! IsFree(p)) {
+          refc_delete_post_search2_log(p);
+          refc_delete(&Tl(p));
+        }
+        refc_delete_post_delete_log(p);
+
+#if fix0
+        /* xxx todo this fixes most refc errs but is it pukka */
         if (! IsFree(p))
           free_node(p);
 #else
-        if (! IsFree(p))
-          (void) refc_err("loop not freed", p); /* refc_err() to get refc_check() */
+        if (! IsFree(p)) {
+          if (debug) {
+            Log1("info start: loop not freed: %s\n", zone_pointer_info(p));
+            out_debug_limit(p, 100/**/);
+          }
+//          (void) refc_err("loop not freed", p); /* refc_err() to get refc_check() */
+        }
 #endif
       }
-      
-      refc_delete_post_delete_log(p);
     }
   } /* else SRefc(p) > 0 so do nothing */
 
@@ -770,7 +820,7 @@ void refc_log_report(FILE *where)
 void refc_final_report(FILE *where)
 {
   if (refc_inuse() >0) {
-    err_refc1("!!final report but number of pointers in use=", refc_inuse());
+    err_refc1("final report but number of pointers in use==", refc_inuse());
   }
   else
     (void) fprintf(where, "final report ok\n");
@@ -895,7 +945,7 @@ pointer refc_copyN(pointer p, int n)
   refc_copyN_log(p, n);
   
   if (IsNil(p))
-    return NIL;
+    return p;
   
   if (IsStrong(p))
     Srefc(p) += n;
@@ -986,7 +1036,7 @@ pointer refc_copyT(pointer p)
 
 /*
  * copy p xyz...
- *  p or x or y or z ... weak -> make weak; make strong
+ *  p or x or y or z ... weak -> make weak; make strong (unless target is constant)
  *
  */
 pointer refc_copyS(pointer p, char *s)
@@ -1005,17 +1055,19 @@ pointer refc_copyS(pointer p, char *s)
   
   if (*s == '\0') {
     /* simple case: non-nil, no selector string */
-    if (weak)
+    if (weak) {
+      Assert(HasPointers(p)); /* already pointing to non-constant */
       Wrefc(p) += 1;
-    else
+    } else {
       Srefc(p) += 1;
+    }
     
     refc_copyS_log2(p, weak);
     
     return p;
   }
   
-  /* indirect case: selector encodes "path" to pointed-to node, visit each in turn, noting weaks */
+  /* indirect case: selector encodes "path" to pointed-to node, visit each in turn, counting weaks */
   for ( /**/ ; *s; s++) {
     if (! HasPointers(p))
       err_refc("refc_copyS: node does not contain pointers");
@@ -1032,16 +1084,70 @@ pointer refc_copyS(pointer p, char *s)
   }
   
   if (! IsNil(p)) {
-    if (weak) {
-      PtrBit(p) = !NodeBit(p); /* force non-NIL pointer to be weak */
+    if (weak && HasPointers(p)) {
+      /* force pointer to be weak - eg when there have been weak pointers "en route" */
+      PtrBit(p) = !NodeBit(p);
       Wrefc(p) += 1;
     } else {
+      /* force pointer to be strong - including when a weak pointer leads to a constant */
+      PtrBit(p) = NodeBit(p);
       Srefc(p) += 1;
     }
   }
   
   refc_copyS_log2(p, weak);
   
+  return p;
+}
+
+/*
+ * refc_copy_nth - execute 'H' then (n-1) times 'T' then 'H'
+ * specifically used to implement (list int) eg ('Hello" 5) => 'o"
+ * returns FAIL on error, rather then calling err_refc(), and reduce() handles the problem
+ * NB p in this example must point to the *whole* application not just the list!
+ */
+pointer refc_copyNth(pointer p, unsigned n)
+{
+  int weak = 0;
+  
+  refc_copyNth_log1(p, n);
+
+  if (! IsApply(p))
+    return new_fail();
+  if (IsWeak(p))
+    weak++;
+  p = H(p); /* H..... */
+  
+  while (--n > 0) {
+    if (! IsCons(p))
+      return new_fail();
+    if (IsWeak(p))
+      weak++;
+
+    p = T(p); /* HT*.... */
+  }
+  
+  if (! IsCons(p))
+    return new_fail();
+  if (IsWeak(p))
+    weak++;
+  p = H(p); /* HT*...H */
+
+  if (! IsNil(p)) {
+    if (IsWeak(p))
+      weak++;
+    if (weak && HasPointers(p)) {
+      /* force pointer to be weak - eg when there have been weak pointers "en route" */
+      PtrBit(p) = !NodeBit(p);
+      Wrefc(p) += 1;
+    } else {
+      /* force pointer to be strong - eg when weak pointer leads to constant */
+      PtrBit(p) = NodeBit(p);
+      Srefc(p) += 1;
+    }
+  }
+
+  refc_copyNth_log2(p, weak);
   return p;
 }
 
@@ -1169,6 +1275,7 @@ pointer refc_update_tl(pointer n, pointer new)
  */
 void refc_updateSS(pointer *pp, char *h, char *t)
 {
+  Assert( h &&  t);
   Assert(*h && *t);
   *pp = refc_update_hdtl(*pp, refc_copyS(*pp, h), refc_copyS(*pp, t));
 }
@@ -1180,9 +1287,22 @@ void refc_updateSS(pointer *pp, char *h, char *t)
 
 void refc_updateIS(pointer *pp, char *t)
 {
+  Assert( t);
   Assert(*t);
   *pp = refc_update_hdtl(*pp, new_comb(I_comb), refc_copyS(*pp, t));
 }
+
+/*
+ * refc_update_hdS - update hd to node pointed to by selectors; tl is unchanged
+ */
+pointer refc_update_hdS(pointer *pp, char *h)
+{
+  Assert( h);
+  Assert(*h);
+  return refc_update_hd(*pp, refc_copyS(*pp, h));
+}
+
+
 
 /*
  * refc_update_Itl
@@ -1224,7 +1344,7 @@ pointer refc_update_hdtl(pointer n, pointer newhd, pointer newtl)
  */
 int store_init()
 {
-  fprintf(stderr, "store_init\n");
+  Log("store_init\n");
   refc_delete(&root);
   refc_delete(&defs);
   refc_delete(&builtin);
@@ -1238,9 +1358,7 @@ int store_done()
   refc_delete(&defs);
   refc_delete(&builtin);
   
-  if (debug) {
-    fprintf(stderr, "store_done\n");
-  }
+  Log("store_done\n");
   
   return 0;
 }

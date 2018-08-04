@@ -40,10 +40,13 @@ extern pointer refc_copy_make_cyclic(pointer p);
 extern pointer refc_copyH(pointer p);
 extern pointer refc_copyT(pointer p);
 extern pointer refc_copyS(pointer p, char *s);
+extern pointer refc_copyNth(pointer p, unsigned n);
 
 extern pointer refc_update_hd(pointer n, pointer new);
 extern pointer refc_update_tl(pointer n, pointer new);
 extern pointer refc_update_Itl(pointer n, pointer newtl);
+
+extern pointer refc_update_hdS(pointer *p, char *h);
 extern void refc_updateSS(pointer *p, char *h, char *t);
 extern void refc_updateIS(pointer *pp, char *t);
 extern pointer refc_update_hdtl(pointer n, pointer newhd, pointer newtl);

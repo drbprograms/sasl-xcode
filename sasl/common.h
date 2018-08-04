@@ -255,8 +255,8 @@ typedef struct node
 #define _CHECKTAG(ptr,item,check) (_GETV((ptr),t)==tag)
 #define _GETVCHECK(ptr,item) ((check(Tag(ptr)) ? GETV((ptr),item) : ERR )
 
-#define Hd(ptr)	        _GETVCHECK((ptr),pointers,IsStruct).hd	/* pointer */
-#define Tl(ptr)		_GETVCHECK((ptr),pointers,IsStruct).tl	/* pointer */
+#define Hd(ptr)	        _GETVCHECK((ptr),pointers,HasPointers).hd	/* pointer */
+#define Tl(ptr)		_GETVCHECK((ptr),pointers,HasPointers).tl	/* pointer */
 #define Num(ptr)	_GETVCHECK((ptr),i,IsNum)
 #define Dbl(ptr)	_GETVCHECK((ptr),d,IsDbl)
 #define Bool(ptr)	_GETVCHECK((ptr),b,IsBool)

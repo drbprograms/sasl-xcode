@@ -148,42 +148,42 @@ int err_parse(char *f, char *msg1, char *msg2)
 {
   extern char *yytext;
 
-  (void) fprintf(stderr, "parsing: %s (%s in rule %s) got \"%s\"\n", msg1, f, msg2, yytext);
+  (void) fprintf(stderr, "reset: parsing: %s (%s in rule %s) got \"%s\"\n", msg1, f, msg2, yytext);
   longjmp(jmpbuffer, 1);
   return 0; /*NOTEREACHED*/
 }
 
 int err_make(char *f, char *msg1, int i)
 {
-  (void) fprintf(stderr, "making: %s (%s %d)\n", f, msg1, i);
+  (void) fprintf(stderr, "reset: making: %s (%s %d)\n", f, msg1, i);
   longjmp(jmpbuffer, 2);
   return 0; /*NOTEREACHED*/
 }
 
 int err_make2(char *f, char *msg1)
 {
-  (void) fprintf(stderr, "making: %s%s\n", f, msg1);
+  (void) fprintf(stderr, "reset: making: %s%s\n", f, msg1);
   longjmp(jmpbuffer, 2);
   return 0; /*NOTEREACHED*/
 }
 
 int err_make1(char *f)
 {
-  (void) fprintf(stderr, "making: %s\n", f);
+  (void) fprintf(stderr, "reset: making: %s\n", f);
   longjmp(jmpbuffer, 2);
   return 0; /*NOTEREACHED*/
 }
 
 int err_out(char *f, char *msg1, char *msg2, int n)
 {
-  (void) fprintf(stderr, "out: %s (%s %s)\n", msg1, f, msg2);
+  (void) fprintf(stderr, "reset: out: %s (%s %s)\n", msg1, f, msg2);
   longjmp(jmpbuffer, 3);
   return 0; /*NOTEREACHED*/
 }
 
 int err_reduce2(char *msg1, char *msg2)
 {
-  (void) fprintf(stderr, "reduce: %s %s\n", msg1, msg2);
+  (void) fprintf(stderr, "reset: reduce: %s %s\n", msg1, msg2);
   longjmp(jmpbuffer, 4);
   return 0; /*NOTEREACHED*/
 }
@@ -195,28 +195,28 @@ int err_reduce(char *msg1)
 
 int err_refc(char *msg1)
 {
-  (void) fprintf(stderr, "refc: %s\n", msg1);
+  (void) fprintf(stderr, "reset: refc: %s\n", msg1);
   longjmp(jmpbuffer, 5);
   return 0; /*NOTEREACHED*/
 }
 
 int err_refc1(char *msg1, int i)
 {
-  (void) fprintf(stderr, "refc: %s%d\n", msg1, i);
+  (void) fprintf(stderr, "reset: refc: %s%d\n", msg1, i);
   longjmp(jmpbuffer, 5);
   return 0; /*NOTEREACHED*/
 }
 
 int err_zone(char *msg1)
 {
-  (void) fprintf(stderr, "zone: %s\n", msg1);
+  (void) fprintf(stderr, "reset: zone: %s\n", msg1);
   longjmp(jmpbuffer, 5);
   return 0; /*NOTEREACHED*/
 }
 
 int err_store(char *msg1)
 {
-    (void) fprintf(stderr, "store: %s\n", msg1);
+    (void) fprintf(stderr, "reset: store: %s\n", msg1);
     longjmp(jmpbuffer, 5);
     return 0; /*NOTEREACHED*/
 }
@@ -228,7 +228,7 @@ int err_store(char *msg1)
 int out_tag(tag t)
 {
   if (debug)
-    return fprintf(stderr, "%s", err_tag_name(t));
+    return fprintf(stderr, "reset: %s", err_tag_name(t));
 
   return 0;
 }

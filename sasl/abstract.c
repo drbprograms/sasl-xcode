@@ -204,7 +204,7 @@ static pointer reduce_abstract1(pointer name, pointer exp, int r)
 
 pointer reduce_abstract(pointer pattern, pointer exp, tag t)
 {
-  int recursive = 0;
+  int recursive;
   
   if (debug) {
     fprintf(stderr, "%s%d[", "abstract", (int) t);
@@ -220,9 +220,12 @@ pointer reduce_abstract(pointer pattern, pointer exp, tag t)
   if (t == abstract_defs_t) {
     recursive = 1;
     t = abstract_condexp_t;
+  } else {
+    recursive = 0;
   }
   
   if (IsNil(pattern) || IsConst(pattern)) {
+    Assert(t == abstract_formals_t);/*temporary xxx*/
     /* [const] E => MATCH const E */
     /* [NIL]   E => MATCH NIL   E */
     exp = new_apply3(new_comb(MATCH_comb), refc_copy(pattern), exp);
@@ -230,6 +233,7 @@ pointer reduce_abstract(pointer pattern, pointer exp, tag t)
     /* [name] E => abstract1(name, E) */
     exp = reduce_abstract1(pattern, exp, 0); /* nb bug was 1; todo remove "r" parameter from abstract1() */
   } else if (IsMatchName(pattern)) {
+    Assert(t == abstract_formals_t);/*temporary xxx*/
     /* [MATCH name] E => MATCH name E */
     exp = new_apply(refc_copy(pattern), exp);
   } else {
@@ -255,7 +259,7 @@ pointer reduce_abstract(pointer pattern, pointer exp, tag t)
                                         t));
       }
       
-      if (t == abstract_formals_t)
+      if (t == abstract_formals_t) /* match against a list */
         exp = new_apply3(new_comb(MATCH_TAG_comb), new_cons(NIL,NIL), exp);
       
       if (recursive) /*t == abstract_defs_t && at-top-level */

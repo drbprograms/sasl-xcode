@@ -64,7 +64,7 @@ static pointer parse_check_do(pointer n, char *msg)
   
   while (1) {
     
-    while (IsSet(n) && IsStruct(n)) {
+    while (IsStruct(n)) {
       Push(n);
       n = H(n);
     }
