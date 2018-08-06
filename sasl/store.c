@@ -754,19 +754,10 @@ void refc_delete(pointer *pp)
         }
         refc_delete_post_delete_log(p);
 
-#if fix0
-        /* xxx todo this fixes most refc errs but is it pukka */
-        if (! IsFree(p))
-          free_node(p);
-#else
         if (! IsFree(p)) {
-          if (debug) {
-            Log1("info start: loop not freed: %s\n", zone_pointer_info(p));
-            out_debug_limit(p, 100/**/);
-          }
-//          (void) refc_err("loop not freed", p); /* refc_err() to get refc_check() */
+          /* assume it's freed elsewhere by a recursive application of delete ... */
+          Log1("delete: loop not freed: %s\n", zone_pointer_info(p));
         }
-#endif
       }
     }
   } /* else SRefc(p) > 0 so do nothing */
