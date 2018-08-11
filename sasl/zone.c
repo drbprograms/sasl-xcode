@@ -410,7 +410,7 @@ int refc_check_log5(char *msg, int result, int zone_no, int node_no, int i, int 
 
 int refc_check_log6(char *msg, int result, int zone_no, int node_no, int i, int j)
 {
-  (void) fprintf(stderr, "%s [%d.%d] (node/check node %d/%d)\n", msg,  zone_no, node_no, i, j);
+  (void) fprintf(stderr, "%s [%d.%d] (%d/%d)\n", msg,  zone_no, node_no, i, j);
   return result;
 }
 
@@ -630,6 +630,7 @@ int refc_check_traverse_pointers(pointer p, int s_limit, int *nil_count,  int *s
  check(Tag   == debug Tag)
  check(Srefc == debug SRefc)
  check(Wrefc == debug WRefc)
+ check(! (Wrefc >0 && Srefc==0))
  
  returns 0 if all ok, otherwise >0
  usage if (refc_traverse2(root)) bad; ok;
@@ -655,6 +656,8 @@ int refc_check_traverse_nodes(zone_header *z, int zone_no, int *strong_refc_tota
     
     if (z->nodes[i].w_refc != z->debug_nodes[i].w_refc)
       res_i += refc_check_log6("wrefc mismatch", 3, zone_no, i, z->nodes[i].w_refc, z->debug_nodes[i].w_refc);
+    if (z->nodes[i].s_refc == 0 && z->nodes[i].w_refc > 0)
+      res_i += refc_check_log6("!!srefc==0 && wrefc>0 error", 4, zone_no, i, z->nodes[i].s_refc, z->nodes[i].w_refc);
 #else
     if (z->nodes[i].t != z->debug_nodes[i].t)
       res_i ++;
@@ -663,6 +666,9 @@ int refc_check_traverse_nodes(zone_header *z, int zone_no, int *strong_refc_tota
       res_i ++;
     
     if (z->nodes[i].w_refc != z->debug_nodes[i].w_refc)
+      res_i ++;
+
+    if (z->nodes[i].s_refc == 0 && z->nodes[i].w_refc > 0)
       res_i ++;
 #endif
     

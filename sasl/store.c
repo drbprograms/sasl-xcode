@@ -487,7 +487,7 @@ static int refc_search_strong_count = 0;	/* strong pointers made weak by seach *
 
 void refc_search_log(pointer start, pointer p)
 {
-  Log2("refc_search%s%s\n", zone_pointer_info(p), (Node(p) == Node(start) ? "*" : ""));
+  Log3("refc_search%s%s\tstart%s\n", zone_pointer_info(p), (Node(p) == Node(start) ? "*" : ""), zone_pointer_info(start));
   
   if (Node(p) == Node(start))
     refc_search_start_count++;
@@ -525,9 +525,9 @@ void refc_delete_post_search_log(pointer p)
   return;
 }
 
-void refc_delete_post_search2_log(pointer p)
+void refc_delete_post_deleteHd_log(pointer p)
 {
-  Log1("refc_delete_post_search2%s\n", zone_pointer_info(p));
+  Log1("refc_delete_post_deleteHd%s\n", zone_pointer_info(p));
   return;
 }
 
@@ -553,48 +553,36 @@ void refc_copyN_log(pointer p, int n)
   return;
 }
 
-void refc_copyS_log1(pointer p, const char *s)
+static void refc_make_copy_log(pointer p, unsigned weak)
 {
-  Log2("refc_copyS1 %s \"%s\"\n", zone_pointer_info(p), s);
-
-  return;
-}
-
-void refc_copyNth_log1(pointer p, unsigned n)
-{
-  Log2("refc_copy_nth %s n==%u\n", zone_pointer_info(p), n);
-  return;
-}
-
-void refc_copyS_log2(pointer p, int weak)
-{
-  Log2("refc_copyS2 %s (%d intermediate weak)\n", zone_pointer_info(p), weak);
+  Log2("refc_make_copy(weak=%u)%s \n", weak, zone_pointer_info(p));
   
   if (IsNil(p))
     refc_copy_NILcount++;
-  else {
-    if (IsStrong(p))
-      refc_copy_Scount++;
-    else
-      refc_copy_Wcount++;
-  }
+    else {
+      if (IsStrong(p))
+        refc_copy_Scount++;
+      else
+        refc_copy_Wcount++;
+    }
+}
+
+void refc_copyS_log(pointer p, const char *s)
+{
+  Log2("refc_copyS%s \"%s\"\n", zone_pointer_info(p), s);
   return;
 }
 
-void refc_copyNth_log2(pointer p, int weak)
+void refc_copy_pointerS_log(pointer p, const char *s)
 {
-  Log2("refc_copy_nth %s (%d intermediate weak)\n", zone_pointer_info(p), weak);
-  
-  if (IsNil(p))
-    refc_copy_NILcount++;
-  else {
-    if (IsStrong(p))
-      refc_copy_Scount++;
-    else
-      refc_copy_Wcount++;
-  }
+  Log2("refc_copy_pointerS%s \"%s\"\n", zone_pointer_info(p), s);
   return;
+}
 
+void refc_copyNth_log(pointer p, unsigned n)
+{
+  Log2("refc_copy_Nth%s n==%u\n", zone_pointer_info(p), n);
+  return;
 }
 
 void refc_copy_make_cyclic_log(pointer p)
@@ -606,6 +594,21 @@ void refc_copy_make_cyclic_log(pointer p)
       refc_copy_make_cyclic_Scount++;
     else
       refc_copy_make_cyclic_Wcount++;
+  }
+  return;
+}
+
+/*
+ * refc_make_weak
+ * ensure a pointer is weak (ok if it is weak already)
+ */
+/* ToDo does this belong in zone.c? */
+static void refc_make_weak(pointer *pp)
+{
+  if (IsSet(*pp) && IsStrong(*pp)) {
+    Wrefc(*pp)++;
+    Srefc(*pp)--;
+    PtrBit(*pp) = !NodeBit(*pp); /* Was: PtrBit(p) = !PtrBit(p); */
   }
   return;
 }
@@ -629,6 +632,9 @@ static void refc_search(pointer start, pointer *pp)
 {
   if (IsNil(*pp))
     return;
+
+  if (! HasPointers(*pp))
+    return;
   
   refc_search_log(start, *pp);
   
@@ -636,12 +642,10 @@ static void refc_search(pointer start, pointer *pp)
   
   if (IsStrong(*pp) && HasPointers(*pp)) {  /* never make weak pointers to constants */
     
-    if (Node(*pp) == Node(start) || Srefc(*pp) > 1) {
+    if (SameNode(start, *pp) || Srefc(*pp) > 1) {
       /* make a strong pointer to a non-constant weak, end of search */
       refc_search_flip_log(start, *pp);
-      Wrefc(*pp)++;
-      Srefc(*pp)--;
-      PtrBit(*pp) = !NodeBit(*pp); /* Was: PtrBit(p) = !PtrBit(p); */
+      refc_make_weak(pp);
     } else {
       /* strong pointer stays strong: recurse (node contains pointers) */
       /* Assert(Srefc(*pp) == 1); Assert(HasPointers(*pp)); */
@@ -649,11 +653,20 @@ static void refc_search(pointer start, pointer *pp)
       refc_search(start, &Tl(*pp));
     }
   }
+#if 0
+  else {
+    if (ALLrefc(*pp) == Wrefc(*pp)) {
+      /* unable to weaken a pointer as they are all weak already */
+      refc_search(start, &Hd(*pp));
+      refc_search(start, &Tl(*pp));
+    }
+  }
+#endif
+
   /* else if p points to constant or is weak, do nothing */
   
   return;
 }
-
 
 
 /*
@@ -749,7 +762,7 @@ void refc_delete(pointer *pp)
         
         /* Srefc(p) and/or Wrefc(p) may be changed by the deletion, and p may be free, with Tl set as a part of freelist */
         if (! IsFree(p)) {
-          refc_delete_post_search2_log(p);
+          refc_delete_post_deleteHd_log(p);
           refc_delete(&Tl(p));
         }
         refc_delete_post_delete_log(p);
@@ -1013,6 +1026,31 @@ pointer refc_copyT(pointer p)
 }
 
 /*
+ * refc_make_copy() copy a pointer, making sure that there are never weak pointers to constants
+ * "weak" is the number >=0, of "intermediate" pointers which have been visited before "p"
+ */
+static pointer refc_make_copy(pointer p, unsigned weak)
+{
+  if (! IsNil(p)) {
+    if ((IsWeak(p) || weak) && HasPointers(p)) {
+      /* force pointer to be weak - eg when there have been weak pointers "en route" */
+      PtrBit(p) = !NodeBit(p);
+      Wrefc(p) += 1;
+    } else {
+      /* force pointer to be strong - including when a weak pointer leads to a constant */
+      PtrBit(p) = NodeBit(p);
+      Srefc(p) += 1;
+    }
+  }
+
+  /* log the newly-created pointer */
+  refc_make_copy_log(p, weak);
+
+  return p;
+}
+
+
+/*
  copy NIL () = NIL
  copy anyStrong () = strong++
  copy anyWeak ()   = weak+
@@ -1030,35 +1068,11 @@ pointer refc_copyT(pointer p)
  *  p or x or y or z ... weak -> make weak; make strong (unless target is constant)
  *
  */
-pointer refc_copyS(pointer p, char *s)
+static pointer refc_copyS_do(pointer p, char *s, unsigned weak)
 {
-  int weak = 0;
-  
-  refc_copyS_log1(p, s);
-  
-  if (IsNil(p)) {
-    refc_copyS_log2(p, weak);
-    return p;
-  }
-  
-  if (IsWeak(p))
-    weak++;
-  
-  if (*s == '\0') {
-    /* simple case: non-nil, no selector string */
-    if (weak) {
-      Assert(HasPointers(p)); /* already pointing to non-constant */
-      Wrefc(p) += 1;
-    } else {
-      Srefc(p) += 1;
-    }
-    
-    refc_copyS_log2(p, weak);
-    
-    return p;
-  }
-  
-  /* indirect case: selector encodes "path" to pointed-to node, visit each in turn, counting weaks */
+  Assert(s);
+
+  /* selector encodes "path" to pointed-to node, visit each path item in turn, counting weaks */
   for ( /**/ ; *s; s++) {
     if (! HasPointers(p))
       err_refc("refc_copyS: node does not contain pointers");
@@ -1074,72 +1088,56 @@ pointer refc_copyS(pointer p, char *s)
       weak++;
   }
   
-  if (! IsNil(p)) {
-    if (weak && HasPointers(p)) {
-      /* force pointer to be weak - eg when there have been weak pointers "en route" */
-      PtrBit(p) = !NodeBit(p);
-      Wrefc(p) += 1;
-    } else {
-      /* force pointer to be strong - including when a weak pointer leads to a constant */
-      PtrBit(p) = NodeBit(p);
-      Srefc(p) += 1;
-    }
-  }
-  
-  refc_copyS_log2(p, weak);
-  
-  return p;
+  return refc_make_copy(p, weak);
 }
 
+/* copy ignoring weakness of p itself - use where p is Hd/Tl of something being updated*/
+pointer refc_copyS(pointer p, char *s)
+{
+  Assert( s);
+  Assert(*s);
+  refc_copyS_log(p, s);
+  return refc_copyS_do(p, s, 0);
+}
+
+/* copy taking into account strength of p - to update p itself*/
+pointer refc_copy_pointerS(pointer p, char *s)
+{
+  refc_copy_pointerS_log(p, s);
+  return refc_copyS_do(p, s, (IsSet(p) && IsWeak(p))? 1: 0);
+}
 /*
- * refc_copy_nth - execute 'H' then (n-1) times 'T' then 'H'
+ * refc_copy_nth - execute:
+ *        'H' then (n-1) 'T' then 'H'
  * specifically used to implement (list int) eg ('Hello" 5) => 'o"
  * returns FAIL on error, rather then calling err_refc(), and reduce() handles the problem
  * NB p in this example must point to the *whole* application not just the list!
  */
 pointer refc_copyNth(pointer p, unsigned n)
 {
-  int weak = 0;
+  unsigned weak = 0;
   
-  refc_copyNth_log1(p, n);
+  refc_copyNth_log(p, n);
 
   if (! IsApply(p))
     return new_fail();
-  if (IsWeak(p))
-    weak++;
   p = H(p); /* H..... */
+  if (! IsNil(p) && IsWeak(p))
+    weak++;
   
-  while (--n > 0) {
+  while (n-- > 1) {   /*was while (--n >0) which is bad news for unsigned when n==0!*/
     if (! IsCons(p))
       return new_fail();
-    if (IsWeak(p))
-      weak++;
-
     p = T(p); /* HT*.... */
+    if (! IsNil(p) && IsWeak(p))
+      weak++;
   }
   
   if (! IsCons(p))
     return new_fail();
-  if (IsWeak(p))
-    weak++;
   p = H(p); /* HT*...H */
 
-  if (! IsNil(p)) {
-    if (IsWeak(p))
-      weak++;
-    if (weak && HasPointers(p)) {
-      /* force pointer to be weak - eg when there have been weak pointers "en route" */
-      PtrBit(p) = !NodeBit(p);
-      Wrefc(p) += 1;
-    } else {
-      /* force pointer to be strong - eg when weak pointer leads to constant */
-      PtrBit(p) = NodeBit(p);
-      Srefc(p) += 1;
-    }
-  }
-
-  refc_copyNth_log2(p, weak);
-  return p;
+  return refc_make_copy(p, weak);
 }
 
 #ifdef notdef
@@ -1304,6 +1302,28 @@ pointer refc_update_Itl(pointer n, pointer newtl)
   return refc_update_hdtl(n, new_comb(I_comb), newtl);
 }
 
+/*
+ * replace a pointer with something it points to
+ *
+ */
+void refc_update_pointerS(pointer *pp, char *s)
+{
+  Assert( s);
+  Assert(*s);
+  
+  if (IsNil(*pp)) {
+    refc_err("attempting to update a NIL pointer", *pp);
+    /*NOTREACHED*/
+  }
+  
+  {
+    pointer newp = refc_copy_pointerS(*pp, s);
+    refc_delete(pp);
+    *pp = newp;
+  }
+  
+  return;
+}
 /*
  * refc_update_hdtl
  *  update in place - replace hd and tl with new contents; requires n to be a pointer node already; content of n are deleted

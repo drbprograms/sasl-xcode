@@ -627,7 +627,6 @@ pointer reduce(pointer *n)
                                 /* elide (I x) y ==> x y on stack
                                  * Afterwards Arg1 has become H(Top')
                                  */
-                                /* new update(%Top, TH, T) */
                                 if (debug)
                                     fprintf(stderr,"**I_comb Stacked>1 case\n");
                                 Pop(1);
@@ -638,15 +637,10 @@ pointer reduce(pointer *n)
                                 if (debug)
                                     fprintf(stderr,"**I_comb Stacked==1 case\n");/*XXX*/
                                 Assert(SameNode(*n, Top));  /* should always be the case for Depth==1 */
-                                /*xxx*/    Assert(n && ! IsNil(*n));
-// unsequenced modification to sp - Push/Pop are Macros - reconsider this
-//                                Push(refc_copyS(Pop(1), "T"));  /* copy "previous" Top */
+                                Assert(n && ! IsNil(*n));   /*xxx*/
                                 Pop(1);
-                                Push(refc_copyS(sp[1], "T"));  /* copy "previous" Top */
-
-                                refc_delete(n);
-                                *n = Top;
-
+                                refc_update_pointerS(n, "T");
+                                Push(*n);
                                 Assert(Stacked == 1);
                             }
                             continue;
