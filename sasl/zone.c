@@ -185,6 +185,7 @@ static char *zone_pointer_info_do(pointer p, int dbg)
   return s;
 }
 
+/*NB zone_pointer_info() returns pointer to a *fixed string* */
 char *zone_pointer_info(pointer p)
 {
   return zone_pointer_info_do(p, 0);

@@ -487,7 +487,9 @@ static int refc_search_strong_count = 0;	/* strong pointers made weak by seach *
 
 void refc_search_log(pointer start, pointer p)
 {
-  Log3("refc_search%s%s\tstart%s\n", zone_pointer_info(p), (Node(p) == Node(start) ? "*" : ""), zone_pointer_info(start));
+  /*NB zone_pointer_info() returns pointer to a *fixed string* */
+  Log2("refc_search%s%s\t", zone_pointer_info(p), (Node(p) == Node(start) ? "*" : ""));
+  Log1("start%s\n", zone_pointer_info(start));
   
   if (Node(p) == Node(start))
     refc_search_start_count++;
