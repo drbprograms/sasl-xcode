@@ -10,12 +10,7 @@
 
 #define Limit 6 /* keep low for brevity */
 
-/* Log helper macros does not observe "debug" as debugging is differnet from logging */
-#define LogWhere stderr
-#define Log(s)          (fprintf(LogWhere, (s)))
-#define Log1(s,a1)      (fprintf(LogWhere, (s),(a1)))
-#define Log2(s,a1,a2)   (fprintf(LogWhere, (s),(a1),(a2)))
-#define Log3(s,a1,a2,a3)(fprintf(LogWhere, (s),(a1),(a2),(a3)))
+
 
 /* helper function */
 /*
@@ -500,6 +495,10 @@ void refc_search_log(pointer start, pointer p)
 
 void refc_search_flip_log(pointer start, pointer p)
 {
+  /*NB zone_pointer_info() returns pointer to a *fixed string* */
+  Log2("refc_search_flip%s%s\t", zone_pointer_info(p), (Node(p) == Node(start) ? "*" : ""));
+  Log1("start%s\n", zone_pointer_info(start));
+
   if (Node(p) == Node(start))
     refc_search_start_count++;
   else
@@ -508,10 +507,20 @@ void refc_search_flip_log(pointer start, pointer p)
   
 }
 
-void refc_delete_log(pointer p)
+/* run a check as well as logging */
+refc_pair refc_delete_log(pointer p)
 {
+  refc_pair ext = zero_refc_pair;
   Log1("refc_delete%s\n", zone_pointer_info(p));
-  return;
+  
+  /* if we area about to flip the node and run refc_search() */
+  if (debug && IsStrong(p) && Srefc(p) == 1 && Wrefc(p) > 0) {
+    /*xxx*/
+    ext = zone_check_island(p);
+    fprintf(stderr, "refc_delete: about to flip: (s+/w+) %u/%u:", ext.s, ext.w); out_debug(p);
+    /*xxx*/
+  }
+  return ext;
 }
 
 void refc_delete_flip_log(pointer p)
@@ -655,12 +664,15 @@ static void refc_search(pointer start, pointer *pp)
       refc_search(start, &Tl(*pp));
     }
   }
-#if 0
+#if fix0
+  /*XXX xxx todo*/
   else {
     if (ALLrefc(*pp) == Wrefc(*pp)) {
-      /* unable to weaken a pointer as they are all weak already */
-      refc_search(start, &Hd(*pp));
-      refc_search(start, &Tl(*pp));
+      /* unable to weaken a pointer as they are all weak already ==> deletion is underway at *pp */
+      Wrefc(*pp)--;
+      *pp = NIL;
+      //      refc_search(start, &Hd(*pp));
+//      refc_search(start, &Tl(*pp));
     }
   }
 #endif
@@ -682,24 +694,22 @@ static void refc_search(pointer start, pointer *pp)
  */
 
 /*************************/
+
 #define fix1 1
 /*************************/
 
 void refc_delete(pointer *pp)
 {
   pointer p = *pp; /* copy */
+  refc_pair ext = zero_refc_pair; /* debug: number of external pointerswhen a poterntial loop found*/
   
   if (IsNil(*pp))
     return;
   
-  refc_delete_log(p);
+  ext = refc_delete_log(p);
 
-#if fix1
   if (IsFree(*pp))
     (void) err_refc("delete: node is already free");  /* there should be no pointers to free nodes */
-#else
-  return;   /*xxx consider whether this is a fault or should simple return here with no action  */
-#endif
   
   *pp = NIL;  /* really delete the pointer in situ */
 
@@ -760,6 +770,12 @@ void refc_delete(pointer *pp)
       
       /* Srefc(p) and/or Wrefc(p) may be changed by the searches */
       if (Srefc(p) == 0) {
+#if fix0
+        /* re-invert pointers - avoids "weaklings" where (s/w) 0/n with n>0 */
+        NodeBit(p) = !NodeBit(p);  /* "an essential implementation trick" */
+        Srefc(p) = Wrefc(p);  /* !!! was this done correctly in 1985? */
+        Wrefc(p) = 0;    /* !!! was this done correctly in 1985? */
+#endif
         refc_delete(&Hd(p));
         
         /* Srefc(p) and/or Wrefc(p) may be changed by the deletion, and p may be free, with Tl set as a part of freelist */
@@ -769,9 +785,19 @@ void refc_delete(pointer *pp)
         }
         refc_delete_post_delete_log(p);
 
+        
+#if fix0
+        if (ALLrefc(p) == 0)
+          free_node(p);
+#endif
         if (! IsFree(p)) {
           /* assume it's freed elsewhere by a recursive application of delete ... */
-          Log1("delete: loop not freed: %s\n", zone_pointer_info(p));
+          Log3("delete: loop not freed: %s (s+/w+) %u/%u)\n", zone_pointer_info(p), ext.s, ext.w);
+        }
+ /*???*/
+        if ((ext.s || ext.w) && IsFree(p)) {
+          /* there were exeternal pointers but everything is freed!? */
+          Log3("delete: loop unexpectedly freed: %s (s+/w+) %u/%u)\n", zone_pointer_info(p), ext.s, ext.w);
         }
       }
     }
@@ -1086,7 +1112,7 @@ static pointer refc_copyS_do(pointer p, char *s, unsigned weak)
     else
       err_refc1("refc_copyS: bad selector", *s);
     
-    if (! IsNil(p) && IsWeak(p))
+    if (IsSet(p) && IsWeak(p))
       weak++;
   }
   
@@ -1105,8 +1131,12 @@ pointer refc_copyS(pointer p, char *s)
 /* copy taking into account strength of p - to update p itself*/
 pointer refc_copy_pointerS(pointer p, char *s)
 {
+  unsigned weak = 0;
+  if (IsSet(p) && IsWeak(p))
+    weak++;
+
   refc_copy_pointerS_log(p, s);
-  return refc_copyS_do(p, s, (IsSet(p) && IsWeak(p))? 1: 0);
+  return refc_copyS_do(p, s, weak);
 }
 /*
  * refc_copy_nth - execute:
@@ -1124,20 +1154,22 @@ pointer refc_copyNth(pointer p, unsigned n)
   if (! IsApply(p))
     return new_fail();
   p = H(p); /* H..... */
-  if (! IsNil(p) && IsWeak(p))
+  if (IsSet(p) && IsWeak(p))
     weak++;
   
   while (n-- > 1) {   /*was while (--n >0) which is bad news for unsigned when n==0!*/
     if (! IsCons(p))
       return new_fail();
     p = T(p); /* HT*.... */
-    if (! IsNil(p) && IsWeak(p))
+    if (IsSet(p) && IsWeak(p))
       weak++;
   }
   
   if (! IsCons(p))
     return new_fail();
   p = H(p); /* HT*...H */
+  if (IsSet(p) && IsWeak(p))
+    weak++;
 
   return refc_make_copy(p, weak);
 }
