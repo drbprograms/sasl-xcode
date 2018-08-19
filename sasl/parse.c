@@ -86,7 +86,7 @@ static pointer parse_check_do(pointer n, char *msg)
 /* parse_check - error if unbound names found */
 pointer parse_check(pointer n, char *msg)
 {
-  extern int refc_inuse(void); /**/
+  extern unsigned refc_inuse(void); /**/
   
   /* Assert(is_tree(n)) - NO loops! */
   

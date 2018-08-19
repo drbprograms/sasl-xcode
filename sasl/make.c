@@ -34,7 +34,7 @@ static pointer *sp = stack; /* sp points to top-of-stack (note: stack[0] never u
 
 
 /* debug: make_show - display maker stack items  */
-#define Limit 24
+#define Limit 64
 
 static void make_show(void)
 {

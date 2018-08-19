@@ -994,9 +994,12 @@ pointer reduce(pointer *n)
     }
     {
         /* THN - this never happens? */
-        if (debug)
+        if (debug) {
+            int i=0;
             fprintf(stderr, "reduce done Stacked=%ld\n",  Stacked);/*XXX*/
-        Assert(Stacked == 1 || IsCons(Top));
+            
+            do {fprintf(stderr, "Stack[%d]: ",i--); out_debug(sp[i]); } while (-i < Stacked);
+        } Assert(Stacked == 1 || IsCons(Top));
         return R;
     }
 }

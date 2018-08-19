@@ -319,6 +319,18 @@ extern int err_zone(char *msg1);
  */
 extern int debug;
 extern int mem_dump;
+
+/*
+ * Log helper macros does not observe "debug" as debugging is differnet from logging
+ */
+#define LogWhere stderr
+#define Log(s)                 (fprintf(LogWhere, (s)))
+#define Log1(s,a1)             (fprintf(LogWhere, (s),(a1)))
+#define Log2(s,a1,a2)          (fprintf(LogWhere, (s),(a1),(a2)))
+#define Log3(s,a1,a2,a3)       (fprintf(LogWhere, (s),(a1),(a2),(a3)))
+#define Log4(s,a1,a2,a3,a4)    (fprintf(LogWhere, (s),(a1),(a2),(a3),(a4)))
+#define Log5(s,a1,a2,a3,a4,a5) (fprintf(LogWhere, (s),(a1),(a2),(a3),(a4),(a5)))
+
 /* 
  * defaults and environment variables
  */
