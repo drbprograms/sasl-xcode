@@ -271,9 +271,9 @@ static int out_out(FILE *where, pointer n)
   }
   if (IsNil(n))
     return fprintf(where, "()");
-  else
-    if (IsWeak(n))
-      return fprintf(where, "<loop>");	/* can we identify the variable in question? */
+//  else
+//    if (IsWeak(n))
+//      return fprintf(where, "<loop>");  /* can we identify the variable in question? */
     else    {
       char *sep = " ";
       int i;

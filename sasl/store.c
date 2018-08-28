@@ -530,9 +530,13 @@ void refc_delete_flip_log(pointer p)
   return;
 }
 
-void refc_delete_post_search_log(pointer p)
+void refc_delete_post_search_log(pointer p, refc_pair ext)
 {
   Log1("refc_delete_post_search%s\n", zone_pointer_info(p));
+  if ((ext.s || ext.w) && Srefc(p) == 0) {
+    Log3("delete: loop search unexpectedly weak: %s (s+/w+) %u/%u)\n", zone_pointer_info(p), ext.s, ext.w);
+    
+  }
   return;
 }
 
@@ -653,7 +657,7 @@ static void refc_search(pointer start, pointer *pp)
   
   if (IsStrong(*pp) && HasPointers(*pp)) {  /* never make weak pointers to constants */
     
-    if (SameNode(start, *pp) || Srefc(*pp) > 1) {
+    if (SameNode(start, *pp) /*|| Srefc(*pp) > 1*/) {
       /* make a strong pointer to a non-constant weak, end of search */
       refc_search_flip_log(start, *pp);
       refc_make_weak(pp);
@@ -766,7 +770,7 @@ void refc_delete(pointer *pp)
       refc_search(p, &Hd(p));
       refc_search(p, &Tl(p));
       
-      refc_delete_post_search_log(p);
+      refc_delete_post_search_log(p, ext);
       
       /* Srefc(p) and/or Wrefc(p) may be changed by the searches */
       if (Srefc(p) == 0) {

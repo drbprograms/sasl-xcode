@@ -129,7 +129,7 @@ static void indent(FILE *where, long int n)
     fprintf(where, "%s", b+max-n);
 }
 
-#define Limit 24
+#define Limit 1024
 #define ArgLimit 6
 void reduce_log(pointer *base, pointer *sp)
 {
@@ -478,7 +478,7 @@ pointer reduce_print(pointer *p)
 pointer reduce(pointer *n)
 {
     pointer *base = sp;	/* remember Top on entry - used to calculate Stacked */
-    
+    tag tt = _LastTag; /* Tag(Top) before popping */
     if (IsNil(*n))
         return NIL;
     
@@ -517,7 +517,7 @@ pointer reduce(pointer *n)
         reduce_log(base, sp);
         {
             if (Stacked >= 1) {
-                tag tt = Tag(Top);
+                tt = Tag(Top);
                 /* zero args: const => const | list => list */
                 /* >0 args:   list number => nth item of list */
                 switch (tt) {
@@ -659,7 +659,6 @@ pointer reduce(pointer *n)
                             /* H other => FAIL */
                         case H_comb:
                             *arg1 = reduce(arg1);
-                            /*xxx*/ Assert(SameNode(T(Top), *arg1));
                             if (IsCons(*arg1))
                                 refc_updateIS(&Top, "TH");
                             else
@@ -698,7 +697,8 @@ pointer reduce(pointer *n)
                             case colon_op:
                                 /* (P x y) => (x:y)
                                  ((: a) b) => (a:b) */
-                                Top = refc_update_hdtl(Top, Ref("HT"), Ref("T"));
+//                                Top = refc_update_hdtl(Top, Ref("HT"), Ref("T"));
+                                refc_updateSS(&Top, "HT", "T");
                                 Tag(Top) = cons_t;
                                 continue;
                                 
@@ -771,7 +771,7 @@ pointer reduce(pointer *n)
                                  * TRY x    y => x */
                                 *arg1 = reduce(arg1);
                                 if (IsFail(*arg1)) {
-                                    Top = refc_update_Itl(Top, Ref("T"));
+                                    Top = refc_update_Itl(Top, Ref("T"));/*refc_update_IS(&Top, "T")*/
                                 } else {
                                     Top = refc_update_Itl(Top, Ref("HT"));
                                 }
@@ -985,11 +985,11 @@ pointer reduce(pointer *n)
         /* nothing found */
         if (debug) {
             int i=0;
-            fprintf(stderr, "unimplemented tag: Stacked %ld:%s\n", Stacked, refc_pointer_info(Top));
+            fprintf(stderr, "unimplemented tag: Stacked %ld:%s\n", Stacked, err_tag_name(tt));
             
             do {fprintf(stderr, "Stack[%d]: ",i--); out_debug(sp[i]); } while (-i < Stacked);
         }
-        err_reduce("unimplemented tag");
+//        err_reduce("unimplemented tag");
         /*NOTREACHED*/
     }
     {
@@ -997,9 +997,12 @@ pointer reduce(pointer *n)
         if (debug) {
             int i=0;
             fprintf(stderr, "reduce done Stacked=%ld\n",  Stacked);/*XXX*/
-            
+
+            out_debug(Top);
+
             do {fprintf(stderr, "Stack[%d]: ",i--); out_debug(sp[i]); } while (-i < Stacked);
-        } Assert(Stacked == 1 || IsCons(Top));
+        }
+//      xxx  Assert(Stacked == 1 || IsCons(Top));
         return R;
     }
 }

@@ -376,10 +376,8 @@ void free_node(pointer p)
     err_refc("free: Wrefc not zero");
   if(IsFree(p))
     err_refc("free: node is already free");
-#if 1
   if(refc_isfree(p))
     err_refc("free: node is already free, and on the freelist");
-#endif
   if (HasPointers(p)) {
     if (IsSet(Hd(p)))
       err_refc("free: Hd not NIL");
@@ -652,10 +650,13 @@ static int refc_check_traverse_valid(int res_i, pointer p, pointer debug_p)
     fprintf(stderr,"!!%s%s\n", "orphan" , zone_pointer_info(p));
     
   } else if (Srefc(p) == 0) {
-    
+#if 1
     /* weakling - is pointed-to but refc == zero */
     fprintf(stderr,"!!%s%s\n", "weakling" , zone_pointer_info(p));
-    
+#else
+    /* weakling - is pointed-to but refc == zero */
+    fprintf(stderr,  "%s%s\n", "weakling" , zone_pointer_info(p));
+#endif
 
   } else {
     
@@ -669,6 +670,15 @@ static int refc_check_traverse_valid(int res_i, pointer p, pointer debug_p)
 
 static int refc_check_traverse_valid_island(int res_i, pointer p, pointer debug_p)
 {
+#if 1
+  /* report nodes with "excess" references */
+//  if (ALLrefc(debug_p) > ALLrefc(p))
+  {
+    fprintf(stderr, "refc_check_traverse_valid_island%s (s+/w+) %u/%u\n", zone_pointer_info(p),
+            Srefc(p) - Srefc(debug_p),
+            Wrefc(p) - Wrefc(debug_p));
+  }
+#endif
   return 0; /* NO failures here */
 }
 
@@ -720,10 +730,10 @@ static int refc_check_traverse_nodes(zone_header *z, int zone_no, struct refc_ch
           z->debug_nodes[i].w_refc - z->nodes[i].w_refc;
     }
     
-    /* further validation - nodes in use always have a strong pointer */
+#if 0    /* further validation - nodes in use always have a strong pointer */
     if (z->nodes[i].s_refc == 0 && z->nodes[i].w_refc > 0)
       res_i ++;
-    
+#endif
     if (z->nodes[i].t != z->debug_nodes[i].t)
       res_i++;
     
@@ -776,11 +786,11 @@ static int refc_check_traverse_nodes_island(zone_header *z, int zone_no, struct 
     if (z->nodes[i].w_refc  != z->debug_nodes[i].w_refc) {
       res_i++;
       if (z->nodes[i].w_refc > z->debug_nodes[i].w_refc)
-        info->strong_refc_excess +=
+        info->weak_refc_excess +=
         z->nodes[i].w_refc - z->debug_nodes[i].w_refc;
       else
         if (z->debug_nodes[i].w_refc > z->nodes[i].w_refc)
-          info->strong_refc_deficit +=
+          info->weak_refc_deficit +=
           z->debug_nodes[i].w_refc - z->nodes[i].w_refc;
     }
     
@@ -1154,11 +1164,16 @@ refc_pair zone_check_island(pointer p)
          z;
          z = z->previous, i++)
       (void) refc_check_traverse_nodes_island(z, i, &info, refc_check_traverse_valid_island);
-    
-    Log5("zone_check_island: (all:s/w) %u:%u+%u (s+/w+) %u/%u\n",
+
+    Log5("zone_check_island: (all=s+w) %u=%u+%u (s+/w+) %u/%u\n",
          struct_count + atom_count, s_count, w_count,
          info.strong_refc_excess, info.weak_refc_excess);
-
+#if 1
+    fprintf(stderr, "root\t%s\n", zone_pointer_info(root));
+    fprintf(stderr, "defs\t%s\n", zone_pointer_info(defs));
+    fprintf(stderr, "builtin\t%s\n", zone_pointer_info(builtin));
+#endif
+    
     return (refc_pair) {info.strong_refc_excess, info.weak_refc_excess};
   }
   /*NOTREACHED*/
