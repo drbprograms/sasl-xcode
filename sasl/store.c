@@ -504,52 +504,41 @@ void refc_search_flip_log(pointer start, pointer p)
   else
     refc_search_strong_count++;
   return;
-  
 }
 
 /* run a check as well as logging */
-refc_pair refc_delete_log(pointer p)
+void refc_delete_log(pointer p, unsigned depth)
 {
-  refc_pair ext = zero_refc_pair;
-  Log1("refc_delete%s\n", zone_pointer_info(p));
-  
-  /* if we area about to flip the node and run refc_search() */
-  if (debug && IsStrong(p) && Srefc(p) == 1 && Wrefc(p) > 0) {
-    /*xxx*/
-    ext = zone_check_island(p);
-    fprintf(stderr, "refc_delete: about to flip: (s+/w+) %u/%u:", ext.s, ext.w); out_debug(p);
-    /*xxx*/
-  }
-  return ext;
+  Log2("refc_delete%s (depth=%u)\n", zone_pointer_info(p), depth);
+  return;
 }
-
-void refc_delete_flip_log(pointer p)
+void refc_delete_flip_log(pointer p, refc_pair ext, unsigned depth)
 {
   refc_delete_flip_count++;
-  Log1("refc_delete_flip%s\n", zone_pointer_info(p));
+  Log4("refc_delete_flip%s (s+/w+) (%u/%u) (depth=%u)\n", zone_pointer_info(p), ext.s, ext.w, depth);
   return;
 }
 
-void refc_delete_post_search_log(pointer p, refc_pair ext)
+void refc_delete_post_search_log(pointer p, refc_pair ext, unsigned depth)
 {
   Log1("refc_delete_post_search%s\n", zone_pointer_info(p));
-  if ((ext.s || ext.w) && Srefc(p) == 0) {
-    Log3("delete: loop search unexpectedly weak: %s (s+/w+) %u/%u)\n", zone_pointer_info(p), ext.s, ext.w);
+  if (HasExternalRefs(ext) && Srefc(p) == 0) {
+    Log4("delete: loop search unexpectedly weak%s (s+/w+) (%u/%u) (depth=%u)\n", zone_pointer_info(p), ext.s, ext.w, depth);
     
   }
   return;
 }
 
-void refc_delete_post_deleteHd_log(pointer p)
+void refc_delete_post_deleteHd_log(pointer p, refc_pair ext, unsigned depth)
 {
-  Log1("refc_delete_post_deleteHd%s\n", zone_pointer_info(p));
+  Log4("refc_delete_post_deleteHd%s (s+/w+) (%u/%u) (depth=%u)\n", zone_pointer_info(p), ext.s, ext.w, depth);
   return;
 }
 
 
-void refc_delete_post_delete_log(pointer p)
+void refc_delete_post_delete_log(pointer p, refc_pair ext, unsigned depth)
 {
-  Log1("refc_delete_post_delete%s\n", zone_pointer_info(p));
+  Log2("refc_delete_post_delete%s (depth=%u)\n", zone_pointer_info(p), depth);
   return;
 }
 
@@ -705,12 +694,14 @@ static void refc_search(pointer start, pointer *pp)
 void refc_delete(pointer *pp)
 {
   pointer p = *pp; /* copy */
-  refc_pair ext = zero_refc_pair; /* debug: number of external pointerswhen a poterntial loop found*/
+  refc_pair ext = zero_refc_pair;  /* checking info - used in refc_*.log() functions */
+  static unsigned depth = 0;
   
   if (IsNil(*pp))
     return;
   
-  ext = refc_delete_log(p);
+  depth++;
+  refc_delete_log(p, depth);
 
   if (IsFree(*pp))
     (void) err_refc("delete: node is already free");  /* there should be no pointers to free nodes */
@@ -744,36 +735,40 @@ void refc_delete(pointer *pp)
         refc_delete(&Tl(p));
       }
       
-      refc_delete_post_delete_log(p); /* assert(ALLRefc(p) == 0) after this deletion */
-      
+      /* assert(ALLRefc(p) == 0) after this deletion */
+      refc_delete_post_delete_log(p, ext, depth);
 #if fix0
       if (! IsFree(p)) /*XXXXXXXX wrong wrong wrong XXXXXXXX*/
 #endif
         free_node(p); /* pointed-to node is free for re-use */
     }
     else { /* is in a loop */
-      
       /* Assert(Srefc(p) == 0 && Wrefc(p) > 0) */
       if (! HasPointers(p)) {
           refc_err("constant has only weak references", p);
         /*NOTREACHED*/
       }
       
-      /* invert pointers */
-      refc_delete_flip_log(p);
+      ext = zone_check_island(p);
       
+      /* invert pointers - by changing pointed-to node */
       NodeBit(p) = !NodeBit(p);	/* "an essential implementation trick" */
       Srefc(p) = Wrefc(p);	/* !!! was this done correctly in 1985? */
       Wrefc(p) = 0;		/* !!! was this done correctly in 1985? */
-      
+
+      refc_delete_flip_log(p, ext, depth);
+
       /* recursive search */
       refc_search(p, &Hd(p));
       refc_search(p, &Tl(p));
       
-      refc_delete_post_search_log(p, ext);
+      refc_delete_post_search_log(p, ext, depth);
       
       /* Srefc(p) and/or Wrefc(p) may be changed by the searches */
       if (Srefc(p) == 0) {
+        /* really delete everything now */
+        if (HasExternalRefs(ext))
+          refc_err("!!!delete: deleting a loop which still has external references", p);
 #if fix0
         /* re-invert pointers - avoids "weaklings" where (s/w) 0/n with n>0 */
         NodeBit(p) = !NodeBit(p);  /* "an essential implementation trick" */
@@ -784,12 +779,10 @@ void refc_delete(pointer *pp)
         
         /* Srefc(p) and/or Wrefc(p) may be changed by the deletion, and p may be free, with Tl set as a part of freelist */
         if (! IsFree(p)) {
-          refc_delete_post_deleteHd_log(p);
+          refc_delete_post_deleteHd_log(p, ext, depth);
           refc_delete(&Tl(p));
         }
-        refc_delete_post_delete_log(p);
-
-        
+        refc_delete_post_delete_log(p, ext, depth);
 #if fix0
         if (ALLrefc(p) == 0)
           free_node(p);
@@ -807,6 +800,7 @@ void refc_delete(pointer *pp)
     }
   } /* else SRefc(p) > 0 so do nothing */
 
+  depth--;
   return;
 }
 

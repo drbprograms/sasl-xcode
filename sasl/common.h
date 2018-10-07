@@ -324,12 +324,15 @@ extern int mem_dump;
  * Log helper macros does not observe "debug" as debugging is differnet from logging
  */
 #define LogWhere stderr
-#define Log(s)                 (fprintf(LogWhere, (s)))
-#define Log1(s,a1)             (fprintf(LogWhere, (s),(a1)))
-#define Log2(s,a1,a2)          (fprintf(LogWhere, (s),(a1),(a2)))
-#define Log3(s,a1,a2,a3)       (fprintf(LogWhere, (s),(a1),(a2),(a3)))
-#define Log4(s,a1,a2,a3,a4)    (fprintf(LogWhere, (s),(a1),(a2),(a3),(a4)))
-#define Log5(s,a1,a2,a3,a4,a5) (fprintf(LogWhere, (s),(a1),(a2),(a3),(a4),(a5)))
+#define Log(s)                          (fprintf(LogWhere, (s)))
+#define Log1(s,a1)                      (fprintf(LogWhere, (s),(a1)))
+#define Log2(s,a1,a2)                   (fprintf(LogWhere, (s),(a1),(a2)))
+#define Log3(s,a1,a2,a3)                (fprintf(LogWhere, (s),(a1),(a2),(a3)))
+#define Log4(s,a1,a2,a3,a4)             (fprintf(LogWhere, (s),(a1),(a2),(a3),(a4)))
+#define Log5(s,a1,a2,a3,a4,a5)          (fprintf(LogWhere, (s),(a1),(a2),(a3),(a4),(a5)))
+#define Log6(s,a1,a2,a3,a4,a5,a6)       (fprintf(LogWhere, (s),(a1),(a2),(a3),(a4),(a5),(a6)))
+#define Log7(s,a1,a2,a3,a4,a5,a6,a7)    (fprintf(LogWhere, (s),(a1),(a2),(a3),(a4),(a5),(a6),(a7)))
+#define Log8(s,a1,a2,a3,a4,a5,a6,a7,a8) (fprintf(LogWhere, (s),(a1),(a2),(a3),(a4),(a5),(a6),(a7),(a8)))
 
 /* 
  * defaults and environment variables

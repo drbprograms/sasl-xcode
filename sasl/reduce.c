@@ -530,8 +530,12 @@ pointer reduce(pointer *n)
 
                         unsigned u;
 
-                        if (Stacked == 1)
-                            return R;
+                        if (Stacked == 1) {
+                            (*n = Top, Pop(Stacked), *n);
+                            Log1("");
+                            return *n;
+//                            return R;
+                        }
                         
                         Pop(1);
 
@@ -623,19 +627,19 @@ pointer reduce(pointer *n)
 
                         case I_comb:
                             /* I x => x */
-                            if (Stacked > 1) {
+                            if (Stacked > 2 - 1 /* one already popped */) {
                                 /* elide (I x) y ==> x y on stack
                                  * Afterwards Arg1 has become H(Top')
                                  */
                                 if (debug)
-                                    fprintf(stderr,"**I_comb Stacked>1 case\n");
+                                    fprintf(stderr,"**I_comb Stacked>2 case\n");
                                 Pop(1);
                                 Assert(!SameNode(Top, *arg1)); /* avoid stack loops!?! */
                                 refc_update_hdS(&Top,"HT");
                             } else {
                                 /* reduce: special case - leave Top node; replace it with arg1 as top of stack */
                                 if (debug)
-                                    fprintf(stderr,"**I_comb Stacked==1 case\n");/*XXX*/
+                                    fprintf(stderr,"**I_comb Stacked==2 case\n");/*XXX*/
                                 Assert(SameNode(*n, Top));  /* should always be the case for Depth==1 */
                                 Assert(n && ! IsNil(*n));   /*xxx*/
                                 Pop(1);
@@ -659,22 +663,32 @@ pointer reduce(pointer *n)
                             /* H other => FAIL */
                         case H_comb:
                             *arg1 = reduce(arg1);
-                            if (IsCons(*arg1))
+                            if (IsCons(*arg1)) {
                                 refc_updateIS(&Top, "TH");
-                            else
+                                Tag(Top) = apply_t;
+                            }
+                            else {
+#ifdef notdef
                                 err_reduce("taking head of non-cons");
-                            Tag(Top) = apply_t;
+#else
+       /*XXX*/                         Top = refc_update_to_fail(Top);
+#endif
+                            }
                             continue;
                             
                             /* T (a:x) => x */
                             /* T other => FAIL */
                         case T_comb:
                             *arg1 = reduce(arg1);
-                            if (IsCons(*arg1))
+                            if (IsCons(*arg1)) {
                                 refc_updateIS(&Top, "TT");
-                            else
-                                err_reduce("taking tail of non-cons");
-                            Tag(Top) = apply_t;
+                                Tag(Top) = apply_t;
+                            }
+#ifdef notdef
+                            err_reduce("taking tail of non-cons");
+#else
+     /*XXX*/                       Top = refc_update_to_fail(Top);
+#endif
                             continue;
                             
                         default:

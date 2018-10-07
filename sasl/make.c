@@ -736,7 +736,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           if (IsDef(defs))
             n1 = make_where(n1, refc_copy(DefDefs(defs)));
           
-          n1 = make_where(n1, refc_copy(DefDefs(builtin)));
+//          n1 = make_where(n1, refc_copy(DefDefs(builtin)));
           
           refc_delete(&root);
           root = n1; /* this is the global root */

@@ -1152,8 +1152,12 @@ refc_pair zone_check_island(pointer p)
   unsigned nil_count = 0, s_count = 0, w_count = 0, struct_count = 0, atom_count = 0;
   
   zone_debug_reset();
-  res = refc_check_traverse_pointers0(p, refc_inuse_count*2, &nil_count, &s_count, &w_count, &struct_count, &atom_count);
   
+  Assert(HasPointers(p));
+    
+  res = refc_check_traverse_pointers0(H(p), refc_inuse_count*2, &nil_count, &s_count, &w_count, &struct_count, &atom_count);
+  res = refc_check_traverse_pointers0(T(p), refc_inuse_count*2, &nil_count, &s_count, &w_count, &struct_count, &atom_count);
+
   /* inspect the debug nodes in every zone and report discreprancies  */
   {
     zone_header *z;
@@ -1162,13 +1166,15 @@ refc_pair zone_check_island(pointer p)
     
     for (z = zone_current, i = 0;
          z;
-         z = z->previous, i++)
+         z = z->previous, i++) {
       (void) refc_check_traverse_nodes_island(z, i, &info, refc_check_traverse_valid_island);
+    }
 
-    Log5("zone_check_island: (all=s+w) %u=%u+%u (s+/w+) %u/%u\n",
+    Log7("zone_check_island: (all=s+w) %u=%u+%u (s+/w+) (%u/%u) (s-/w-) (%u/%u)\n",
          struct_count + atom_count, s_count, w_count,
+         info.strong_refc_excess, info.weak_refc_excess,
          info.strong_refc_excess, info.weak_refc_excess);
-#if 1
+#if 0
     fprintf(stderr, "root\t%s\n", zone_pointer_info(root));
     fprintf(stderr, "defs\t%s\n", zone_pointer_info(defs));
     fprintf(stderr, "builtin\t%s\n", zone_pointer_info(builtin));

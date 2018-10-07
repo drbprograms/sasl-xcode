@@ -13,6 +13,8 @@ extern char *zone_pointer_info(pointer p);
 extern int zone_check(void);
 
 typedef struct {unsigned s; unsigned w;} refc_pair;
+#define HasExternalRefs(e) ((e).s || (e).w)
+
 extern const refc_pair zero_refc_pair;
 
 extern refc_pair zone_check_island(pointer p);
