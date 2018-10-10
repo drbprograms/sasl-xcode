@@ -663,17 +663,12 @@ pointer reduce(pointer *n)
                             /* H other => FAIL */
                         case H_comb:
                             *arg1 = reduce(arg1);
-                            /*XXX*/Log("H_comb after reduce: "); Log(IsCons(*arg1) ? "IsCons ": "IsNOTCons "); out_debug(*arg1);
                             if (IsCons(*arg1)) {
                                 refc_updateIS(&Top, "TH");
                                 Tag(Top) = apply_t;
                             }
                             else {
-#if 1
                                 err_reduce("taking head of non-cons");
-#else
-       /*XXX*/                         Top = refc_update_to_fail(Top);
-#endif
                             }
                             continue;
                             
@@ -681,15 +676,11 @@ pointer reduce(pointer *n)
                             /* T other => FAIL */
                         case T_comb:
                             *arg1 = reduce(arg1);
-                            /*XXX*/Log("T_comb after reduce: "); Log(IsCons(*arg1) ? "IsCons ": "IsNOTCons "); out_debug(*arg1);                            if (IsCons(*arg1)) {
+                            if (IsCons(*arg1)) {
                                 refc_updateIS(&Top, "TT");
                                 Tag(Top) = apply_t;
                             } else {
-#if 1
-                            err_reduce("taking tail of non-cons");
-#else
-     /*XXX*/                       Top = refc_update_to_fail(Top);
-#endif
+                                err_reduce("taking tail of non-cons");
                             }
                             continue;
                             
