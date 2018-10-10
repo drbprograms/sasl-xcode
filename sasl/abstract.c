@@ -198,8 +198,8 @@ static pointer reduce_abstract1(pointer name, pointer exp, int r)
 /* [NIL]   E   => MATCH NIL   E */
 /* [name] E    => abstract1(name, E) */
 /* [MATCH n] E => MATCH n E */
-// [x:NIL] E   => MATCH_tag CONS U ([x] (K_nil E))
-// [x:y] E     => MATCH_tag CONS U ([x] ([y] E)) 
+/* [x:NIL] E   => MATCH_tag CONS U ([x] (K_nil E)) */
+/* [x:y] E     => MATCH_tag CONS U ([x] ([y] E)) */
 /* [a b] E     => [a] ([b] E) */
 
 pointer reduce_abstract(pointer pattern, pointer exp, tag t)
