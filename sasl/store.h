@@ -49,7 +49,7 @@ extern pointer refc_update_Itl(pointer n, pointer newtl);
 extern pointer refc_update_hdS(pointer *p, char *h);
 extern void refc_updateSS(pointer *p, char *h, char *t);
 extern void refc_updateIS(pointer *pp, char *t);
-extern void refc_update_pointerS(pointer *p, char *s);
+extern pointer refc_update_pointerS(pointer *p, char *s);
 
 extern pointer refc_update_hdtl(pointer n, pointer newhd, pointer newtl);
 extern pointer refc_move_h2h(pointer from, pointer to);

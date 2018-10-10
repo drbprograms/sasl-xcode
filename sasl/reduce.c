@@ -490,9 +490,11 @@ pointer reduce(pointer *n)
     
     Push(*n);
 #if !old
-#define R (*n = Top, Pop(Stacked), *n)
+//#define R (reduce_done(n),Pop(Stacked), *n)
+#define R (Assert(SameNode(*n, Top)), Assert(Stacked==1), *n = Top, Pop(Stacked), *n)
+//#define R (Assert(SameNode(*n, Top)), Assert(Stacked==1), (IsAppl(*n = refc_update_pointerS(n, "T"))), Pop(Stacked), *n)
 #else
-#define R (*n = Pop(Stacked))
+#define R (*n = Pop(Stacked))xxx error
 #endif
     while (IsSet(Top) && Stacked > 0) {
         /* Within the loop, Top is set to NIL on error; also halt if nothing on stack - should never happen error */
@@ -530,12 +532,8 @@ pointer reduce(pointer *n)
 
                         unsigned u;
 
-                        if (Stacked == 1) {
-                            (*n = Top, Pop(Stacked), *n);
-                            Log1("");
-                            return *n;
-//                            return R;
-                        }
+                        if (Stacked == 1)
+                            return R;
                         
                         Pop(1);
 
@@ -627,25 +625,27 @@ pointer reduce(pointer *n)
 
                         case I_comb:
                             /* I x => x */
-                            if (Stacked > 2 - 1 /* one already popped */) {
+                            if (Stacked > 1) {
                                 /* elide (I x) y ==> x y on stack
-                                 * Afterwards Arg1 has become H(Top')
+                                 * Afterwards Arg1 is become H(Top')
                                  */
-                                if (debug)
-                                    fprintf(stderr,"**I_comb Stacked>2 case\n");
-                                Pop(1);
+                                Log("**I_comb Stacked>2 case\n");
                                 Assert(!SameNode(Top, *arg1)); /* avoid stack loops!?! */
-                                refc_update_hdS(&Top,"HT");
-                            } else {
-                                /* reduce: special case - leave Top node; replace it with arg1 as top of stack */
-                                if (debug)
-                                    fprintf(stderr,"**I_comb Stacked==2 case\n");/*XXX*/
-                                Assert(SameNode(*n, Top));  /* should always be the case for Depth==1 */
-                                Assert(n && ! IsNil(*n));   /*xxx*/
+
                                 Pop(1);
+                                refc_update_hdS(&Top,"HT");
+
+                            } else {
+                                /* at the top of the stack: (I x) ==> x on stack
+                                 * and update return value "*n" to x ie T(Top) */
+                                Log("**I_comb Stacked==2 case\n");/*XXX*/
+                                Assert(n && ! IsNil(*n));   /*xxx*/
+                                Assert(SameNode(*n, Top));  /* should always be the case for Depth==1 */
+                                
+                                T(Top) = reduce(&T(Top)); /* carry on reducing XXX *arg1 = reduce(arg1) */
                                 refc_update_pointerS(n, "T");
-                                Push(*n);
-                                Assert(Stacked == 1);
+                                Pop(1);
+                                return *n;
                             }
                             continue;
                             
@@ -653,7 +653,7 @@ pointer reduce(pointer *n)
                             Tag(Top) = cons_t;
                             /*FALLTHRU*/
                         case Y_comb: {
-                            refc_delete(&Hd(Top)); /* loose the "Y" *//*new update(sp, T, me)*/
+                            refc_delete(&Hd(Top)); /* loose the "Y" */ /*new update(sp, T, me)*/
                             Hd(Top) = Tl(Top);
                             Tl(Top) = refc_copy_make_cyclic(Top);
                             continue;
@@ -663,12 +663,13 @@ pointer reduce(pointer *n)
                             /* H other => FAIL */
                         case H_comb:
                             *arg1 = reduce(arg1);
+                            /*XXX*/Log("H_comb after reduce: "); Log(IsCons(*arg1) ? "IsCons ": "IsNOTCons "); out_debug(*arg1);
                             if (IsCons(*arg1)) {
                                 refc_updateIS(&Top, "TH");
                                 Tag(Top) = apply_t;
                             }
                             else {
-#ifdef notdef
+#if 1
                                 err_reduce("taking head of non-cons");
 #else
        /*XXX*/                         Top = refc_update_to_fail(Top);
@@ -680,15 +681,16 @@ pointer reduce(pointer *n)
                             /* T other => FAIL */
                         case T_comb:
                             *arg1 = reduce(arg1);
-                            if (IsCons(*arg1)) {
+                            /*XXX*/Log("T_comb after reduce: "); Log(IsCons(*arg1) ? "IsCons ": "IsNOTCons "); out_debug(*arg1);                            if (IsCons(*arg1)) {
                                 refc_updateIS(&Top, "TT");
                                 Tag(Top) = apply_t;
-                            }
-#ifdef notdef
+                            } else {
+#if 1
                             err_reduce("taking tail of non-cons");
 #else
      /*XXX*/                       Top = refc_update_to_fail(Top);
 #endif
+                            }
                             continue;
                             
                         default:
@@ -711,7 +713,6 @@ pointer reduce(pointer *n)
                             case colon_op:
                                 /* (P x y) => (x:y)
                                  ((: a) b) => (a:b) */
-//                                Top = refc_update_hdtl(Top, Ref("HT"), Ref("T"));
                                 refc_updateSS(&Top, "HT", "T");
                                 Tag(Top) = cons_t;
                                 continue;
@@ -740,9 +741,6 @@ pointer reduce(pointer *n)
 
                             case equal_op:          Top = refc_update_to_bool(Top, reduce_is_equal(arg1, arg2)); continue;
                             case not_equal_op:      Top = refc_update_to_bool(Top, !reduce_is_equal(arg1, arg2)); continue;
-#ifdef old
-//       ?????                     case not_equal_op:        Top = refc_update_to_bool(Top, reduce_int(arg1) != reduce_int(arg2)); continue;
-#endif
                             case less_equal_op:	    Top = refc_update_to_bool(Top, reduce_int(arg1) <= reduce_int(arg2));	continue;
                             case less_op:	        Top = refc_update_to_bool(Top, reduce_int(arg1) <  reduce_int(arg2));	continue;
                                 
@@ -759,7 +757,7 @@ pointer reduce(pointer *n)
                                 err_reduce("power op not expected");
                                 continue;
                                 
-                                /* comb arg1 arg2 *//*xxx shoulndt we only allow NIL here -> and be strict?*/
+                                /* comb arg1 arg2 */ /*xxx shoulndt we only allow NIL here -> and be strict?*/
                             case K_nil_comb:
                                 if ( ! (IsNil(*arg2) ||
                                         IsCons(*arg2) ||

@@ -176,7 +176,7 @@ pointer add_to_def(pointer def, pointer name, pointer expr)
   return def;
 }
 
-//
+
 /*
  * add (namelist:def) any                  = || recurse over namelist
  *
@@ -645,8 +645,10 @@ static void refc_search(pointer start, pointer *pp)
   /* weak pointer to start === BUG  search "/w .... *" */
   
   if (IsStrong(*pp) && HasPointers(*pp)) {  /* never make weak pointers to constants */
-    
-    if (SameNode(start, *pp) /*|| Srefc(*pp) > 1*/) {
+#ifdef notdef
+//    if (SameNode(start, *pp) /*|| Srefc(*pp) > 1*/) { the second condition is vital for @(I ... loop ...) */
+#endif
+      if (SameNode(start, *pp) || Srefc(*pp) > 1) {
       /* make a strong pointer to a non-constant weak, end of search */
       refc_search_flip_log(start, *pp);
       refc_make_weak(pp);
@@ -1172,6 +1174,7 @@ pointer refc_copyNth(pointer p, unsigned n)
   return refc_make_copy(p, weak);
 }
 
+
 #ifdef notdef
 /* refc_adjust - change refc for a pointer by"delta" (>= -1)
  if delta  > 0 increase refc
@@ -1338,7 +1341,7 @@ pointer refc_update_Itl(pointer n, pointer newtl)
  * replace a pointer with something it points to
  *
  */
-void refc_update_pointerS(pointer *pp, char *s)
+pointer /*so can be used in an expression*/ refc_update_pointerS(pointer *pp, char *s)
 {
   Assert( s);
   Assert(*s);
@@ -1354,7 +1357,7 @@ void refc_update_pointerS(pointer *pp, char *s)
     *pp = newp;
   }
   
-  return;
+  return *pp;
 }
 /*
  * refc_update_hdtl
