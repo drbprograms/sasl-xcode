@@ -579,7 +579,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
             
             return make_abstract(s, sp[howmany], abstract_formals_t);  /* [formal+] expr */
           } else {
-            return n1;/*sp[1]*//* expr */
+            return n1;/*sp[1]*/ /* expr */
           }
         }
       }
@@ -644,8 +644,8 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           HT(n1) = make_multi_clause(HT(n1), refc_copy(T(n2)), info);
         } else {
           /* single clause definition, so far */
-          H(n1) = new_cons(refc_copy(H(n2)), H(n1));/*new update(H(n1), H(n2), me)*//* Assert(IsARoot(n1) || IsARoot(n2)) */
-          T(n1) = new_cons(refc_copy(T(n2)), T(n1));/*new update(T(n1), T(n2), me)*//* Assert(IsARoot(n1) || IsARoot(n2)) */
+          H(n1) = new_cons(refc_copy(H(n2)), H(n1));/*new update(H(n1), H(n2), me)*/ /* Assert(IsARoot(n1) || IsARoot(n2)) */
+          T(n1) = new_cons(refc_copy(T(n2)), T(n1));/*new update(T(n1), T(n2), me)*/ /* Assert(IsARoot(n1) || IsARoot(n2)) */
         }
         
         dup = def_any_for2(TH(n1), TT(n1), H(n2)); /*search for latest name(s) in previous lists */
@@ -736,7 +736,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           if (IsDef(defs))
             n1 = make_where(n1, refc_copy(DefDefs(defs)));
           
-//          n1 = make_where(n1, refc_copy(DefDefs(builtin)));
+          n1 = make_where(n1, refc_copy(DefDefs(builtin)));
           
           refc_delete(&root);
           root = n1; /* this is the global root */
