@@ -642,7 +642,7 @@ pointer reduce(pointer *n)
                                 Assert(n && ! IsNil(*n));   /*xxx*/
                                 Assert(SameNode(*n, Top));  /* should always be the case for Depth==1 */
                                 
-                                T(Top) = reduce(&T(Top)); /* carry on reducing XXX *arg1 = reduce(arg1) */
+                                T(Top) = reduce(&T(Top)); /* carry on reducing OR *arg1 = reduce(arg1) */
                                 refc_update_pointerS(n, "T");
                                 Pop(1);
                                 return *n;
