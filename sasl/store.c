@@ -409,7 +409,20 @@ pointer new_unary_nonstrict(char *name, pointer (*fun)(pointer p))
   return new_unary(unary_nonstrict, name, fun);
 }
 
+/*
+ * refc_changeto_TYPE - change anything to given type
+ */
 
+/* special tag to indicate cell is being freed - no change to any pointers already there */
+static pointer refc_change_to_deleting(pointer p)
+{
+  Log1("refc_change_to_deleting%s\n", refc_pointer_info(p));
+
+  Assert(HasPointers(p));
+  Tag(p) = deleting_t;
+
+  return p;
+}
 
 /*
  * storage management - reference counting ref...
@@ -496,7 +509,7 @@ void refc_search_log(pointer start, pointer p)
 void refc_search_flip_log(pointer start, pointer p)
 {
   /*NB zone_pointer_info() returns pointer to a *fixed string* */
-  Log2("refc_search_flip%s%s\t", zone_pointer_info(p), (Node(p) == Node(start) ? "*" : ""));
+  Log2("refc_search_flip%s%s\t", zone_pointer_info(p), (Node(p) == Node(start) ? "$" : ""));
   Log1("start%s\n", zone_pointer_info(start));
 
   if (Node(p) == Node(start))
@@ -515,17 +528,26 @@ void refc_delete_log(pointer p, unsigned depth)
 void refc_delete_flip_log(pointer p, refc_pair ext, unsigned depth)
 {
   refc_delete_flip_count++;
-  Log4("refc_delete_flip%s (s+/w+) (%u/%u) (depth=%u)\n", zone_pointer_info(p), ext.s, ext.w, depth);
+  Log5("refc_delete_flip%s (s+/w+) (%u/%u) (depth=%u) %s\n", zone_pointer_info(p), ext.s, ext.w, depth,
+       HasRefs(ext) ? "" : " is free");
   return;
 }
 
 void refc_delete_post_search_log(pointer p, refc_pair ext, unsigned depth)
 {
-  Log1("refc_delete_post_search%s\n", zone_pointer_info(p));
-  if (HasExternalRefs(ext) && Srefc(p) == 0) {
-    Log4("delete: loop search unexpectedly weak%s (s+/w+) (%u/%u) (depth=%u)\n", zone_pointer_info(p), ext.s, ext.w, depth);
-    
-  }
+  Log2("refc_delete_post_search%s (depth=%u)\n", zone_pointer_info(p), depth);
+
+//  not and error of somewhere "below" on the loop has become strong somehow
+//  if (HasRefs(ext) && Srefc(p) == 0) {
+//    Log4("refc_delete: loop search unexpectedly weak%s (s+/w+) (%u/%u) (depth=%u)\n", zone_pointer_info(p), ext.s, ext.w, depth);
+//
+//  }
+  // not an error if last weak pointers can become strong
+//  if (! HasRefs(ext) && Srefc(p) != 0) {
+//    Log4("refc_delete: loop search unexpectedly strong%s (s+/w+) (%u/%u) (depth=%u)\n", zone_pointer_info(p), ext.s, ext.w, depth);
+//
+//  }
+  
   return;
 }
 
@@ -535,10 +557,19 @@ void refc_delete_post_deleteHd_log(pointer p, refc_pair ext, unsigned depth)
   return;
 }
 
-
+/* Log errors */
 void refc_delete_post_delete_log(pointer p, refc_pair ext, unsigned depth)
 {
   Log2("refc_delete_post_delete%s (depth=%u)\n", zone_pointer_info(p), depth);
+
+  if (ALLrefc(p) > 0) {
+    /* (NOT) assume it's freed elsewhere by a recursive application of delete ... */
+    Log3("delete: not freed: %s (s+/w+) %u/%u)\n", zone_pointer_info(p), ext.s, ext.w);
+  } else if (HasRefs(ext) /*&& IsFree(p)*/) {
+    /* there were external pointers but everything is freed!? */
+    Log3("delete: unexpectedly freed: %s (s+/w+) %u/%u)\n", zone_pointer_info(p), ext.s, ext.w);
+  }
+
   return;
 }
 
@@ -643,8 +674,12 @@ static void refc_search(pointer start, pointer *pp)
   refc_search_log(start, *pp);
   
   /* weak pointer to start === BUG  search "/w .... *" */
-  
+
+#if 1/**2018-11-09**/
   if (IsStrong(*pp) && HasPointers(*pp)) {  /* never make weak pointers to constants */
+#else
+  if (IsStrong(*pp) && HasPointers(*pp) && (! IsComb(*pp))) {  /* never make weak pointers to constants *or combinators* */
+#endif
 #ifdef notdef
 //    if (SameNode(start, *pp) /*|| Srefc(*pp) > 1*/) { the second condition is vital for @(I ... loop ...) */
 #endif
@@ -688,11 +723,6 @@ static void refc_search(pointer start, pointer *pp)
  * usage: refc_delete(&Hd(p));
  */
 
-/*************************/
-
-#define fix1 1
-/*************************/
-
 void refc_delete(pointer *pp)
 {
   pointer p = *pp; /* copy */
@@ -705,9 +735,6 @@ void refc_delete(pointer *pp)
   depth++;
   refc_delete_log(p, depth);
 
-  if (IsFree(*pp))
-    (void) err_refc("delete: node is already free");  /* there should be no pointers to free nodes */
-  
   *pp = NIL;  /* really delete the pointer in situ */
 
   /* adjust reference counts, free the node if appropriate */
@@ -727,30 +754,39 @@ void refc_delete(pointer *pp)
     
     Srefc(p)--;
   }
-  
+
+  if (IsFree(p) && ALLrefc(p) > 0)/*2018-11-11*/
+    return; /* important - don't chase our tail - fix:2018-10-12 */
+
   if (Srefc(p) == 0) {
     
     if (Wrefc(p) == 0) { /* not in a loop */
-      
-      if (HasPointers(p)) {
+      if (HasPointers(p) && ! IsDeleting(p)){
+        refc_change_to_deleting(p);
         refc_delete(&Hd(p));
         refc_delete(&Tl(p));
       }
       
       /* assert(ALLRefc(p) == 0) after this deletion */
       refc_delete_post_delete_log(p, ext, depth);
-#if fix0
-      if (! IsFree(p)) /*XXXXXXXX wrong wrong wrong XXXXXXXX*/
-#endif
-        free_node(p); /* pointed-to node is free for re-use */
+
+      free_node(p); /* pointed-to node is free for re-use */
     }
     else { /* is in a loop */
       /* Assert(Srefc(p) == 0 && Wrefc(p) > 0) */
+      /*TODO
+       * finalise the "rules" for aomts and stuct in refc operations
+       * N.b. when copying apointers
+       */
+      
       if (! HasPointers(p)) {
           refc_err("constant has only weak references", p);
         /*NOTREACHED*/
       }
-      
+#ifdef notdef /*WIP WIP*/
+      if (IsStruct(p)) {
+#endif
+        Assert(HasPointers(p));
       ext = zone_check_island(p);
       
       /* invert pointers - by changing pointed-to node */
@@ -767,37 +803,25 @@ void refc_delete(pointer *pp)
       refc_delete_post_search_log(p, ext, depth);
       
       /* Srefc(p) and/or Wrefc(p) may be changed by the searches */
-      if (Srefc(p) == 0) {
+      if (Srefc(p) == 0  && ! IsDeleting(p)) {
         /* really delete everything now */
-        if (HasExternalRefs(ext))
-          refc_err("!!!delete: deleting a loop which still has external references", p);
-#if fix0
-        /* re-invert pointers - avoids "weaklings" where (s/w) 0/n with n>0 */
-        NodeBit(p) = !NodeBit(p);  /* "an essential implementation trick" */
-        Srefc(p) = Wrefc(p);  /* !!! was this done correctly in 1985? */
-        Wrefc(p) = 0;    /* !!! was this done correctly in 1985? */
-#endif
+
+        refc_change_to_deleting(p);
+
+//        if (HasRefs(ext))
+//          refc_err("!!!delete: deleting a loop which still has external references", p);
+
         refc_delete(&Hd(p));
-        
-        /* Srefc(p) and/or Wrefc(p) may be changed by the deletion, and p may be free, with Tl set as a part of freelist */
-        if (! IsFree(p)) {
-          refc_delete_post_deleteHd_log(p, ext, depth);
-          refc_delete(&Tl(p));
-        }
+        refc_delete_post_deleteHd_log(p, ext, depth);
+        refc_delete(&Tl(p));
         refc_delete_post_delete_log(p, ext, depth);
-#if fix0
-        if (ALLrefc(p) == 0)
+
+        /*fix:2018-10-12*/
+        /*fix:2018-11-10*/
+        if (ALLrefc(p) == 0)/*WIP*/
           free_node(p);
-#endif
-        if (! IsFree(p)) {
-          /* assume it's freed elsewhere by a recursive application of delete ... */
-          Log3("delete: loop not freed: %s (s+/w+) %u/%u)\n", zone_pointer_info(p), ext.s, ext.w);
-        }
- /*???*/
-        if ((ext.s || ext.w) && IsFree(p)) {
-          /* there were exeternal pointers but everything is freed!? */
-          Log3("delete: loop unexpectedly freed: %s (s+/w+) %u/%u)\n", zone_pointer_info(p), ext.s, ext.w);
-        }
+        else/*WIP*/
+          Log1("refc_delete: not freeing free node%s\n", refc_pointer_info(p));/*WIP*/
       }
     }
   } /* else SRefc(p) > 0 so do nothing */
@@ -852,7 +876,7 @@ void refc_log_report(FILE *where)
 void refc_final_report(FILE *where)
 {
   if (refc_inuse() >0) {
-    err_refc1("final report but number of pointers in use==", refc_inuse());
+    err_refc1("!!final report but number of pointers in use==", refc_inuse());
   }
   else
     (void) fprintf(where, "final report ok\n");
@@ -943,6 +967,7 @@ pointer refc_update_to_fail(pointer n)
   return n;
   
 }
+
 
 /* Copy a pointer at from copying to */
 /*
