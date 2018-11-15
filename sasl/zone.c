@@ -11,6 +11,7 @@
 #include "zone.h"
 
 const refc_pair zero_refc_pair = {0,0};
+const zone_check_node_data zero_data = {{0,0},{0,0},{0,0}};
 
 /*
  create a new zone of storage suffcient for 'size' nodes
@@ -211,7 +212,18 @@ char *zone_pointer_debug_info(pointer p)
   return zone_pointer_info_do(p, 1);
 }
 
+static char i[MAX];
 
+/* return printable string for logging node */
+/* NB zone_node_info() returns pointer to a *fixed string* */
+char *zone_node_info(zone_check_node_data info)
+{
+  snprintf(i, MAX, "(s/w) (%u/%u) (s+/w+) (%u/%u) (s+/w+) (%u/%u)",
+           info.total.s,    info.total.w,
+           info.excess.s,   info.excess.w,
+           info.deficit.s,  info.deficit.w);
+  return i;
+}
 /*
  zone_new - allocate storage for 'size' nodes; point back to 'parent' (if any).  `
  Set up zone_header at start of zone for use by zone_xxx() and new_XXX() only.
@@ -314,14 +326,15 @@ unsigned refc_free()
 
 /* is given node on the freelist? */
 /* Deprecated due to linear earch */
-/* TODO add free_t tag and us this throughout instead */
 static int refc_isfree(pointer p)
 {
   pointer f;
 
   for (f = refc_freelist; IsSet(f); f = Tl(f)) {
-    if (SameNode(p, f))
+    if (SameNode(p, f)) {
+      Assert(IsFree(p)); /* double=check the tag - could check whole list every time but that's excessive */
       return 1;
+    }
   }
   return 0;
 }
@@ -641,24 +654,24 @@ static int refc_check_traverse_valid(int res_i, pointer p, pointer debug_p)
 {
   if (ALLrefc(p) >  0 && ALLrefc(debug_p) == 0) {
     
-    /* leak - not pointed to but refc >  zero */
+    /* leak - not pointed to but ALLrefc >  zero */
     fprintf(stderr,"!!%s%s\n", "leaked", zone_pointer_info(p));
     
-  } else if (ALLrefc(p) >  0 && ALLrefc(debug_p) == 0) {
+  } else
+  if (ALLrefc(p) ==  0 && ALLrefc(debug_p) >   0) {
     
-    /* orphan - is pointed-to but refc == zero */
+    /* orphan - is pointed-to but ALLrefc == zero */
     fprintf(stderr,"!!%s%s\n", "orphan" , zone_pointer_info(p));
     
-  } else if (Srefc(p) == 0) {
-#if 1
+  }
+#if 0
+  else if (Srefc(p) == 0) {
     /* weakling - is pointed-to but refc == zero */
     fprintf(stderr,"!!%s%s\n", "weakling" , zone_pointer_info(p));
-#else
-    /* weakling - is pointed-to but refc == zero */
-    fprintf(stderr,  "%s%s\n", "weakling" , zone_pointer_info(p));
+  }
 #endif
 
-  } else {
+  else {
     
     /* other differences */
     fprintf(stderr,"!!%s%s\n", "store", zone_pointer_info(p));
@@ -668,36 +681,29 @@ static int refc_check_traverse_valid(int res_i, pointer p, pointer debug_p)
   return res_i;
 }
 
-static int refc_check_traverse_valid_island(int res_i, pointer p, pointer debug_p)
+/* inspect check_node_info: is an island if there are not excess strong or weak pointers */
+int zone_is_island(zone_check_node_data data)
 {
-#if 1
-  /* report nodes with "excess" references */
-//  if (ALLrefc(debug_p) > ALLrefc(p))
-  {
-    fprintf(stderr, "refc_check_traverse_valid_island%s (s+/w+) %u/%u\n", zone_pointer_info(p),
-            Srefc(p) - Srefc(debug_p),
-            Wrefc(p) - Wrefc(debug_p));
-  }
-#endif
-  return 0; /* NO failures here */
+  return ! (HasRefs(data.excess) || HasRefs(data.deficit));
 }
 
 
-/* used to accumulate refc stored in (non-debug) nodes and
- *  deficit == missing pointers found only in debug nodes
- *  excess  == extra pointers found only in debug nodes
- */
-struct refc_check_traverse_node_info {
-  unsigned s_refc_total;
-  unsigned w_refc_total;
-  unsigned strong_refc_excess;
-  unsigned weak_refc_excess;
-  unsigned strong_refc_deficit;
-  unsigned weak_refc_deficit;
-};
-const struct refc_check_traverse_node_info zero_info = {0,0,0,0,0,0};
+static int refc_check_traverse_valid_island(int res_i, pointer p, pointer debug_p)
+{
+  if (res_i) {
+          Log5("zone_check_island: refc_check_traverse_valid_island%s\t(s+/w+) (%u/%u)\t(s-/w-) (%u/%u)\n",
+               zone_pointer_info(p),
+               (Srefc(p) > Srefc(debug_p) ? Srefc(p) - Srefc(debug_p): 0),
+               (Wrefc(p) > Wrefc(debug_p) ? Wrefc(p) - Wrefc(debug_p): 0),
+               (Srefc(debug_p) > Srefc(p) ? Srefc(debug_p) - Srefc(p): 0),
+               (Wrefc(debug_p) > Wrefc(p) ? Wrefc(debug_p) - Wrefc(p): 0));
+  }
+  return 0; /* NO failures here */
+}
 
-static int refc_check_traverse_nodes(zone_header *z, int zone_no, struct refc_check_traverse_node_info *info, int (check(int res_i, pointer p, pointer debug_p)))
+#if 0
+//DEPRECATED - renamed ..._island() below
+static int refc_check_traverse_nodes(zone_header *z, int zone_no, refc_check_node_info *info, int (check(int res_i, pointer p, pointer debug_p)))
 {
   int i, res = 0;
   
@@ -706,97 +712,100 @@ static int refc_check_traverse_nodes(zone_header *z, int zone_no, struct refc_ch
     int res_i = 0;
     
     /* accumulate node info, noting mismatch in res_i*/
-    info->s_refc_total += z->nodes[i].s_refc;
+    info->total.s += z->nodes[i].s_refc;
     if (z->nodes[i].s_refc  != z->debug_nodes[i].s_refc) {
       res_i++;
       if (z->nodes[i].s_refc > z->debug_nodes[i].s_refc)
-        info->strong_refc_excess +=
-        z->nodes[i].s_refc - z->debug_nodes[i].s_refc;
+        info->excess.s +=
+          z->nodes[i].s_refc - z->debug_nodes[i].s_refc;
       else
-        if (z->debug_nodes[i].s_refc > z->nodes[i].s_refc)
-          info->strong_refc_deficit +=
+      if (z->debug_nodes[i].s_refc > z->nodes[i].s_refc)
+        info->deficit.s +=
           z->debug_nodes[i].s_refc - z->nodes[i].s_refc;
     }
     
-    info->w_refc_total   += z->nodes[i].w_refc;
+    info->total.w   += z->nodes[i].w_refc;
     if (z->nodes[i].w_refc  != z->debug_nodes[i].w_refc) {
       res_i++;
       if (z->nodes[i].w_refc > z->debug_nodes[i].w_refc)
-        info->strong_refc_excess +=
-        z->nodes[i].w_refc - z->debug_nodes[i].w_refc;
+        info->excess.w +=
+          z->nodes[i].w_refc - z->debug_nodes[i].w_refc;
       else
-        if (z->debug_nodes[i].w_refc > z->nodes[i].w_refc)
-          info->strong_refc_deficit +=
-          z->debug_nodes[i].w_refc - z->nodes[i].w_refc;
-    }
-    
-#if 0    /* further validation - nodes in use always have a strong pointer */
-    if (z->nodes[i].s_refc == 0 && z->nodes[i].w_refc > 0)
-      res_i ++;
-#endif
-    if (z->nodes[i].t != z->debug_nodes[i].t)
-      res_i++;
-    
-    
-    if (res_i) {
-      pointer p, debug_p;
-      node *np;
-      
-      np = (z->nodes)+i;
-      Node(p)= np;
-      PtrBit(p) = np->bit; /*always use strong for the "fake' pointer*/
-      
-      np = (z->debug_nodes)+i;
-      Node(debug_p)= np;
-      PtrBit(debug_p) = np->bit; /*always use strong for the "fake' pointer*/
-      
-      res += check(res_i, p, debug_p);/*XXX???*/
-    }
-  }
-  
-  return res;
-}
-
-/******************************/
-static int refc_check_traverse_nodes_island(zone_header *z, int zone_no, struct refc_check_traverse_node_info *info, int (check(int res_i, pointer p, pointer debug_p)))
-{
-  int i, res = 0;
-  
-  /* for a zone, compare any debug nodes to the correspondng nodes */
-  for (i = 0; i< z->size; i++) {
-    int res_i = 0;
-    
-    if (! z->debug_nodes[i].t)
-      break;
-    
-    /* accumulate node info, noting mismatch in res_i*/
-    info->s_refc_total += z->nodes[i].s_refc;
-    if (z->nodes[i].s_refc  != z->debug_nodes[i].s_refc) {
-      res_i++;
-      if (z->nodes[i].s_refc > z->debug_nodes[i].s_refc)
-        info->strong_refc_excess +=
-        z->nodes[i].s_refc - z->debug_nodes[i].s_refc;
-      else
-        if (z->debug_nodes[i].s_refc > z->nodes[i].s_refc)
-          info->strong_refc_deficit +=
-          z->debug_nodes[i].s_refc - z->nodes[i].s_refc;
-    }
-    
-    info->w_refc_total   += z->nodes[i].w_refc;
-    if (z->nodes[i].w_refc  != z->debug_nodes[i].w_refc) {
-      res_i++;
-      if (z->nodes[i].w_refc > z->debug_nodes[i].w_refc)
-        info->weak_refc_excess +=
-        z->nodes[i].w_refc - z->debug_nodes[i].w_refc;
-      else
-        if (z->debug_nodes[i].w_refc > z->nodes[i].w_refc)
-          info->weak_refc_deficit +=
+      if (z->debug_nodes[i].w_refc > z->nodes[i].w_refc)
+        info->deficit.w +=
           z->debug_nodes[i].w_refc - z->nodes[i].w_refc;
     }
     
     /* further validation - nodes in use always have a strong pointer */
     if (z->nodes[i].s_refc == 0 && z->nodes[i].w_refc > 0)
       res_i ++;
+
+    if (z->nodes[i].t != z->debug_nodes[i].t)
+      res_i++;
+    
+    
+    if (res_i) {
+      pointer p, debug_p;
+      node *np;
+      
+      np = (z->nodes)+i;
+      Node(p)= np;
+      PtrBit(p) = np->bit; /*always use strong for the "fake' pointer*/
+      
+      np = (z->debug_nodes)+i;
+      Node(debug_p)= np;
+      PtrBit(debug_p) = np->bit; /*always use strong for the "fake' pointer*/
+      
+      res += check(res_i, p, debug_p);
+    }
+  }
+  return res;
+}
+#endif
+
+static int refc_check_traverse_nodes(zone_header *z, int zone_no, zone_check_node_data *info, int (check(int res_i, pointer p, pointer debug_p)), int ignore_unpopulated)
+{
+  int i, res = 0;
+  
+  /* for a zone, compare any debug nodes to the correspondng nodes */
+  for (i = 0; i < z->size; i++) {
+    int res_i = 0;
+ 
+    if (ignore_unpopulated && z->debug_nodes[i].t == zero_t) /* ignore unpopulated nodes */
+      continue;
+    
+    /* accumulate node info, noting mismatch in res_i (taking care not to generate "negative" unsigneds) */
+    
+    /* strong */
+    info->total.s += z->nodes[i].s_refc;
+    if (z->nodes[i].s_refc  != z->debug_nodes[i].s_refc) {
+      res_i++;
+      if (z->nodes[i].s_refc > z->debug_nodes[i].s_refc)
+        info->excess.s +=
+          z->nodes[i].s_refc - z->debug_nodes[i].s_refc;
+      else
+      if (z->debug_nodes[i].s_refc > z->nodes[i].s_refc)
+        info->deficit.s +=
+          z->debug_nodes[i].s_refc - z->nodes[i].s_refc;
+    }
+    
+    /* weak */
+    info->total.w += z->nodes[i].w_refc;
+    if (z->nodes[i].w_refc  != z->debug_nodes[i].w_refc) {
+      res_i++;
+      if (z->nodes[i].w_refc > z->debug_nodes[i].w_refc)
+        info->excess.w +=
+          z->nodes[i].w_refc - z->debug_nodes[i].w_refc;
+      else
+      if (z->debug_nodes[i].w_refc > z->nodes[i].w_refc)
+        info->deficit.w +=
+          z->debug_nodes[i].w_refc - z->nodes[i].w_refc;
+    }
+
+    /* further validation - nodes in use always have a strong pointer */
+    /* ... *except* during refc_delete() as indicated by deleting_t  */
+    if (z->nodes[i].s_refc == 0 && z->nodes[i].w_refc > 0 && z->nodes[i].t != deleting_t)
+      res_i ++;
     
     if (z->nodes[i].t != z->debug_nodes[i].t)
       res_i++;
@@ -814,10 +823,9 @@ static int refc_check_traverse_nodes_island(zone_header *z, int zone_no, struct 
       Node(debug_p)= np;
       PtrBit(debug_p) = np->bit; /*always use strong for the "fake' pointer*/
       
-      res += check(res_i, p, debug_p);/*XXX???*/
+      res += check(res_i, p, debug_p);
     }
   }
-  
   return res;
 }
 
@@ -1094,36 +1102,40 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
     
     /* inspect the debug nodes in every zone and report discreprancies  */
     {
-      struct refc_check_traverse_node_info info = zero_info;
+      zone_check_node_data info = zero_data;
       unsigned i;
       
       for (z = zone_current, i = 0;
            z;
            z = z->previous, i++)
+#if 0
         res += refc_check_traverse_nodes(z, i, &info, refc_check_traverse_valid);
+#else
+        res += refc_check_traverse_nodes(z, i, &info, refc_check_traverse_valid, 0 /*do not ignore empty*/);
+#endif
       
       (void) fprintf(stderr, "%s\t%d\n", "strong ref counts",  strong_count );
       (void) fprintf(stderr, "%s\t%d\n", "weak ref counts",  weak_count );
       
       /* 3. check(count of all pointers == sum ALLrefc) */
-      if ((strong_count + weak_count) != (info.s_refc_total + info.w_refc_total))
-        (void) fprintf(stderr, "!!pointers:%d but ALLrefc %d\n ", (strong_count + weak_count), (info.s_refc_total + info.w_refc_total));
+      if ((strong_count + weak_count) != (info.total.s + info.total.w))
+        (void) fprintf(stderr, "!!pointers:%d but ALLrefc %d\n ", (strong_count + weak_count), (info.total.s + info.total.w));
       
       /* 4. check(count of weak pointers == sum Wrefc) */
-      if (strong_count != info.s_refc_total)
-        (void) fprintf(stderr, "!!strong pointers:%d but Srefc %d\n ", strong_count, info.s_refc_total);
+      if (strong_count != info.total.s)
+        (void) fprintf(stderr, "!!strong pointers:%d but Srefc %d\n ", strong_count, info.total.s);
       
       /* 5. check(count of strong pointers == sum Srefc) */
-      if (weak_count != info.w_refc_total)
-        (void) fprintf(stderr, "!!weak pointers:%d but Wrefc %d\n ", weak_count, info.w_refc_total);
+      if (weak_count != info.total.w)
+        (void) fprintf(stderr, "!!weak pointers:%d but Wrefc %d\n ", weak_count, info.total.w);
       
-      if ((strong_count + weak_count) == (info.s_refc_total + info.w_refc_total))
+      if ((strong_count + weak_count) == (info.total.s + info.total.w))
         (void) fprintf(stderr, "%s\t(%d+%d)==(%d+%d)==%d\n",
                        "reference count check ok",
                        strong_count,
                        weak_count,
-                       info.s_refc_total,
-                       info.w_refc_total,
+                       info.total.s,
+                       info.total.w,
                        (strong_count + weak_count));
       if (res)
         return refc_check_log2("!!check traverse nodes failed\n", 66, res, 0);
@@ -1136,7 +1148,7 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
 /*
  * zone_check_island(pointer p)
  * does p point to a self-contained graph, where all the pointers to p and Reach(p) are within the graph.
- * returns number of external poitners (0 for an island)
+ * returns number of external pointers (0 for an island)
  *
  * Method:
  *  Clear all debug nodes
@@ -1145,42 +1157,52 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
  *    Any "extra" pointers are counted and the total returned.
  *
  * WARNING overwrites all debug nodes
+ * WARNING not reentrant
  */
-refc_pair zone_check_island(pointer p)
+zone_check_node_data zone_check_island(pointer p)
 {
   int res;
   unsigned nil_count = 0, s_count = 0, w_count = 0, struct_count = 0, atom_count = 0;
   
   zone_debug_reset();
   
-  Assert(HasPointers(p));
+//  Assert(HasPointers(p));
+  if (! HasPointers(p))
+    return zero_data;
     
+#ifdef notdef /*XXX XXX 2018-11-09*/
   res = refc_check_traverse_pointers0(H(p), refc_inuse_count*2, &nil_count, &s_count, &w_count, &struct_count, &atom_count);
   res = refc_check_traverse_pointers0(T(p), refc_inuse_count*2, &nil_count, &s_count, &w_count, &struct_count, &atom_count);
-
+#else
+  res = refc_check_traverse_pointers0(p, refc_inuse_count*2, &nil_count, &s_count, &w_count, &struct_count, &atom_count);
+#endif
   /* inspect the debug nodes in every zone and report discreprancies  */
   {
     zone_header *z;
-    struct refc_check_traverse_node_info info = zero_info;
+    zone_check_node_data data = zero_data;
     unsigned i;
     
     for (z = zone_current, i = 0;
          z;
          z = z->previous, i++) {
-      (void) refc_check_traverse_nodes_island(z, i, &info, refc_check_traverse_valid_island);
+
+      (void) refc_check_traverse_nodes(z, i, &data, refc_check_traverse_valid_island, 1);
     }
 
     Log7("zone_check_island: (all=s+w) %u=%u+%u (s+/w+) (%u/%u) (s-/w-) (%u/%u)\n",
-         struct_count + atom_count, s_count, w_count,
-         info.strong_refc_excess, info.weak_refc_excess,
-         info.strong_refc_excess, info.weak_refc_excess);
+//         s_count + w_count,
+//         s_count,  w_count,
+         data.total.s + data.total.w,
+         data.total.s,  data.total.w,
+         data.excess.s, data.excess.w,
+         data.deficit.s, data.deficit.w);
 #if 0
     fprintf(stderr, "root\t%s\n", zone_pointer_info(root));
     fprintf(stderr, "defs\t%s\n", zone_pointer_info(defs));
     fprintf(stderr, "builtin\t%s\n", zone_pointer_info(builtin));
 #endif
     
-    return (refc_pair) {info.strong_refc_excess, info.weak_refc_excess};
+    return data;
   }
   /*NOTREACHED*/
 }

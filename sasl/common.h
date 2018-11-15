@@ -21,9 +21,13 @@ extern const pointer NIL;
 /* NB numeric values here need to fit into a 'char' in tok->t below */
 /* NB changes here need to be reflected in zone.c where the printable version of the tags is made */
 typedef enum tag {
-    /* Special - free nodes if(Tag(p)==free_t) Assert(refc_isfree(p)); */
+  zero_t,
+    /* Special - free nodes if(Tag(p)==free_t) Assert(refc_isfree(p) || being-deleted-now); */
   free_t,
 #define IsFreeTag(t) ((t)==free_t)
+  deleting_t,
+#define IsDeletingTag(t) ((t)==deleting_t)
+  /* Special - node that is going to become free when refc_delete() has compltedrecursive deltions */
   /* Constants - node contains the value of the constant and neveer points to anything else */
   int_t,
 #define IsNumTag(t) ((t)==int_t)
@@ -58,7 +62,7 @@ typedef enum tag {
   def_t,
 #define IsDefTag(t) ((t)==def_t)
   
-#define HasPointersTag(t) (IsFreeTag(t) || IsStructTag(t) || IsCombTag(t) || IsAbstractTag(t) || IsDefTag(t))
+#define HasPointersTag(t) (IsDeletingTag(t) || IsFreeTag(t) || IsStructTag(t) || IsCombTag(t) || IsAbstractTag(t) || IsDefTag(t))
   /* TODO when there's time to conduct before/aafter testing 
      # define HasPointers(t) ((t) >= 0  ) */
 
@@ -233,14 +237,15 @@ typedef struct node
 
 #define IsNilList(p)	IsNilListTag(Tag(p)))/*deprecated*/
 
-#define IsFree(p) (IsSet(p) && IsFreeTag(Tag(p)))
-#define IsNum(p)  (IsSet(p) && IsNumTag(Tag(p)))
-#define IsDbl(p)	(IsSet(p) && IsDblTag(Tag(p)))
-#define IsChar(p)	(IsSet(p) && IsCharTag(Tag(p)))
-#define IsBool(p)	(IsSet(p) && IsBoolTag(Tag(p)))
-#define IsName(p)	(IsSet(p) && IsNameTag(Tag(p)))
-#define IsFail(p)  (IsSet(p) && IsFailTag(Tag(p)))
-#define IsFun(p)  (IsSet(p) && IsFunTag(Tag(p)))
+#define IsFree(p)     (IsSet(p) && IsFreeTag(Tag(p)))
+#define IsDeleting(p) (IsSet(p) && IsDeletingTag(Tag(p)))
+#define IsNum(p)      (IsSet(p) && IsNumTag(Tag(p)))
+#define IsDbl(p)	  (IsSet(p) && IsDblTag(Tag(p)))
+#define IsChar(p)     (IsSet(p) && IsCharTag(Tag(p)))
+#define IsBool(p)     (IsSet(p) && IsBoolTag(Tag(p)))
+#define IsName(p)     (IsSet(p) && IsNameTag(Tag(p)))
+#define IsFail(p)     (IsSet(p) && IsFailTag(Tag(p)))
+#define IsFun(p)      (IsSet(p) && IsFunTag(Tag(p)))
 
 #define IsAbstract(p)	(IsSet(p) &&  IsAbstractTag(Tag(p)))
 #define IsDef(p)	(IsSet(p) && IsDefTag(Tag(p)))
@@ -310,7 +315,7 @@ extern int err_out(char *f, char *msg1, char *msg2, int n);
 extern int err_reduce(char *msg1);
 extern int err_reduce2(char *msg1, char *msg2b);
 extern int err_refc(char *msg1);
-extern int err_refc1(char *msg1, int i);
+extern int err_refc1(char *msg1, unsigned i);
 extern int err_store(char *msg);
 extern int err_zone(char *msg1);
 
@@ -319,6 +324,11 @@ extern int err_zone(char *msg1);
  */
 extern int debug;
 extern int mem_dump;
+
+/*
+ * logging
+ */
+extern int loop_check;
 
 /*
  * Log helper macros does not observe "debug" as debugging is differnet from logging

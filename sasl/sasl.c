@@ -24,7 +24,8 @@ int partial_compile;
 int reduce_optimise;
 int debug;
 int no_code;
-int no_prelude = 0;
+int prelude = 0;
+int loop_check;
 
 int unit_test;
 int mem_dump;
@@ -92,15 +93,17 @@ static int read_file(char *filename)
 /* startup */
 static int main_init()
 {
-  debug 		    = getenv_int("debug", 1);	    /* default on and low */
+  debug 		    = getenv_int("debug", 1);	        /* default on and low */
   partial_compile 	= getenv_int("partial_compile", 0); /* default off */
   reduce_optimise 	= getenv_int("reduce_optimise", 0); /* default off */
-  no_code		    = getenv_int("no_code", 0);     /* default off */
-  no_prelude        = getenv_int("no_prelude", 0);  /* default prelude unless "-p" in argv[] */
-  no_reset		    = getenv_int("no_reset", 1);    /* default off - todo change for interactive use */
-  
-  unit_test         = getenv_int("unit_test", 0);   /* default off */
-  mem_dump          = getenv_int("mem_dump", 0);   /* default off */
+  no_code		    = getenv_int("no_code", 0);         /* default off */
+  prelude           = getenv_int("prelude", 0);         /* default prelude - "-p" in argv[] overrides */
+  no_reset          = getenv_int("no_reset", 1);        /* default off - todo change for interactive use */
+  loop_check        = getenv_int("loop_check", 1);      /* default ON xxx could be off when tests fininshed? */
+
+  /* deep debugging */
+  unit_test         = getenv_int("unit_test", 0);       /* default off */
+  mem_dump          = getenv_int("mem_dump", 0);        /* default off */
 
  return store_init() || reduce_init();
 }
@@ -210,14 +213,14 @@ int main(int argc, char **argv)
 
   /* process command line: sasl [-p] [file..] */
   
-  /* option: -p  suprsess prelude - overrides no_prelude environment variable */
+  /* option: -p  suprsess prelude - overrides prelude environment variable */
   i = 1;
   if (argc > 1 && ! strcmp(argv[1], "-p")) {
-    no_prelude = 1;
+    prelude = 0;
     i++;
   }
   
-  if (! no_prelude) {
+  if (prelude) {
     /* read prelude file first */
     read_file("prelude");
   }

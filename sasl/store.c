@@ -143,7 +143,7 @@ pointer new_abstract(pointer name, pointer def, tag t)
     n = new_node(t);
     break;
   default:
-      err_refc1("new_abstract: bad tag: ", (int) t);
+      err_refc1("new_abstract: bad tag: ", (unsigned) t);
     /*NOTREACHED*/
   }
   Hd(n) = name;
@@ -487,91 +487,165 @@ static int refc_copy_make_cyclic_NILcount = 0;	/* NIL pointers weakened (not) */
 static int refc_copy_make_cyclic_Scount = 0; /* strong ponters made weak */
 static int refc_copy_make_cyclic_Wcount = 0; /* vv. should be always 0 */
 
-static int refc_delete_flip_count = 0;	/* nodes changed from red to blue (NodeBit inverted) */
+static unsigned refc_delete_depth = 0; /* level of nested calls to refc_delete() */
 
-static int refc_search_start_count = 0;	/* start pointers made weak by search */
-static int refc_search_strong_count = 0;	/* strong pointers made weak by seach */
+/* -start-start-start-start-start-start*/
+/* --log--log--log--log--log--log-- */
 
+static unsigned refc_flip_node_count = 0;  /* nodes inverted to make weak pointers strong */
+
+static void refc_flip_node_log(pointer p)
+{
+  refc_flip_node_count++;
+  
+  Log2("refc_flip_pointer%s (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
+  
+  return;
+}
+
+static unsigned refc_make_weak_count = 0;  /* pointers weakened */
+
+static void refc_make_weak_log(pointer p)
+{
+  refc_make_weak_count++;
+  
+  Log2("refc_flip_pointer%s (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
+  
+  return;
+}
+
+static unsigned refc_search_start_count = 0;    /* start pointers searched */
+static unsigned refc_search_strong_count = 0;  /* strong pointers searched */
 
 void refc_search_log(pointer start, pointer p)
 {
-  /*NB zone_pointer_info() returns pointer to a *fixed string* */
-  Log2("refc_search%s%s\t", zone_pointer_info(p), (Node(p) == Node(start) ? "*" : ""));
-  Log1("start%s\n", zone_pointer_info(start));
-  
-  if (Node(p) == Node(start))
+  if (SameNode(p, start))
     refc_search_start_count++;
   else
     refc_search_strong_count++;
+  /*... or as Chris Strachey would have said: "(Node(p) == Node(start) ? refc_search_start_count : refc_search_strong_count) += 1;"*/
+  
+  /*NB two Log calls because refc_pointer_info() returns pointer to a *fixed string* */
+  Log2("refc_search%s%s\t", refc_pointer_info(p), (Node(p) == Node(start) ? "$" : ""));
+  Log1("start%s\n", refc_pointer_info(start));
+  
   return;
 }
+
+static unsigned refc_search_flip_start_count = 0;  /* start pointers made weak by search */
+static unsigned refc_search_flip_strong_count = 0;  /* strong pointers made weak by seach */
 
 void refc_search_flip_log(pointer start, pointer p)
 {
-  /*NB zone_pointer_info() returns pointer to a *fixed string* */
-  Log2("refc_search_flip%s%s\t", zone_pointer_info(p), (Node(p) == Node(start) ? "$" : ""));
-  Log1("start%s\n", zone_pointer_info(start));
-
-  if (Node(p) == Node(start))
-    refc_search_start_count++;
+  if (SameNode(p, start))
+    refc_search_flip_start_count++;
   else
-    refc_search_strong_count++;
-  return;
-}
-
-/* run a check as well as logging */
-void refc_delete_log(pointer p, unsigned depth)
-{
-  Log2("refc_delete%s (depth=%u)\n", zone_pointer_info(p), depth);
-  return;
-}
-void refc_delete_flip_log(pointer p, refc_pair ext, unsigned depth)
-{
-  refc_delete_flip_count++;
-  Log5("refc_delete_flip%s (s+/w+) (%u/%u) (depth=%u) %s\n", zone_pointer_info(p), ext.s, ext.w, depth,
-       HasRefs(ext) ? "" : " is free");
-  return;
-}
-
-void refc_delete_post_search_log(pointer p, refc_pair ext, unsigned depth)
-{
-  Log2("refc_delete_post_search%s (depth=%u)\n", zone_pointer_info(p), depth);
-
-//  not and error of somewhere "below" on the loop has become strong somehow
-//  if (HasRefs(ext) && Srefc(p) == 0) {
-//    Log4("refc_delete: loop search unexpectedly weak%s (s+/w+) (%u/%u) (depth=%u)\n", zone_pointer_info(p), ext.s, ext.w, depth);
-//
-//  }
-  // not an error if last weak pointers can become strong
-//  if (! HasRefs(ext) && Srefc(p) != 0) {
-//    Log4("refc_delete: loop search unexpectedly strong%s (s+/w+) (%u/%u) (depth=%u)\n", zone_pointer_info(p), ext.s, ext.w, depth);
-//
-//  }
+    refc_search_flip_strong_count++;
+  
+  Log2("refc_search_flip%s%s\t", refc_pointer_info(p), (Node(p) == Node(start) ? "$" : ""));   /*NB refc_pointer_info() returns pointer to a *fixed string* */
+  Log1("start%s\n", refc_pointer_info(start));
   
   return;
 }
 
-void refc_delete_post_deleteHd_log(pointer p, refc_pair ext, unsigned depth)
+void refc_delete_log(pointer p)
 {
-  Log4("refc_delete_post_deleteHd%s (s+/w+) (%u/%u) (depth=%u)\n", zone_pointer_info(p), ext.s, ext.w, depth);
+  if (! IsNil(p))
+  Log2("refc_delete%s (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
+  
   return;
 }
 
-/* Log errors */
-void refc_delete_post_delete_log(pointer p, refc_pair ext, unsigned depth)
+void refc_delete_post_delete_log(pointer p)
 {
-  Log2("refc_delete_post_delete%s (depth=%u)\n", zone_pointer_info(p), depth);
+  Log2("refc_delete_post_delete%s (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
+  
+  return;
+}
 
-  if (ALLrefc(p) > 0) {
-    /* (NOT) assume it's freed elsewhere by a recursive application of delete ... */
-    Log3("delete: not freed: %s (s+/w+) %u/%u)\n", zone_pointer_info(p), ext.s, ext.w);
-  } else if (HasRefs(ext) /*&& IsFree(p)*/) {
-    /* there were external pointers but everything is freed!? */
-    Log3("delete: unexpectedly freed: %s (s+/w+) %u/%u)\n", zone_pointer_info(p), ext.s, ext.w);
+static unsigned refc_delete_search_count = 0;  /* number of deletions causing search */
+
+/* run additional checks if global "loop_check" is set: loop_check==1 => check when deleting; loop_check > 1 => alwats check */
+void refc_delete_post_search_log(pointer p)
+{
+  refc_delete_search_count++;
+  
+  if (loop_check && Srefc(p) == 0) {  /* loop_check is set: log check_node_info and check for non-islands being deleted */
+    zone_check_node_data data = zone_check_island(p);
+    
+    Log5("%srefc_delete_post_search%s (depth=%u) %s%s\n",
+         ! zone_is_island(data) ? "" : "!!",
+         refc_pointer_info(p),
+         refc_delete_depth,
+         zone_node_info(data),
+         ! zone_is_island(data) ? "" : " about to delete something which is NOT free");
+    
+  } else if (loop_check > 1) {     /* loop_check > 1 and (SRefc != 0), about to delete so check for islands NOT being deleted */
+    zone_check_node_data data = zone_check_island(p);
+    
+    Log5("%srefc_delete_post_search%s (depth=%u) %s%s\n",
+         zone_is_island(data) ? "" : "!!",
+         refc_pointer_info(p),
+         refc_delete_depth,
+         zone_node_info(data),
+         zone_is_island(data) ? "" : " about to NOT delete something which is free");
+    
+  }else {
+    Log2("refc_delete_post_search%s (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
   }
-
+  
   return;
 }
+
+/*
+ * refc_log_report(where)
+ *  (1) call new_log_report() to report new storage consistency and new nodes created
+ *  (2) print tab-separated listing of pointer operations performed, appending a TOTAL, checking that total tallys and printing and ERROR line if not
+ */
+void refc_log_report(FILE *where)
+{
+  /* first report on storage */
+  new_log_report(where);
+  
+  fprintf(where, "%s\t%s\n", "What","count");
+  
+  fprintf(where, "%s\t%u\n", "free nodes", refc_free());
+  
+  fprintf(where, "%s\t%u\n", "NIL pointers requested to be copied", refc_copy_NILcount);
+  fprintf(where, "%s\t%u\n", "strong pointers copied", refc_copy_Scount);
+  fprintf(where, "%s\t%u\n", "weak pointers copied", refc_copy_Wcount);
+  fprintf(where, "%s\t%u\n", "NIL pointers requested to be made cyclic", refc_copy_make_cyclic_NILcount);
+  fprintf(where, "%s\t%u\n", "strong made cyclic", refc_copy_make_cyclic_Scount);
+  fprintf(where, "%s\t%u\n", "weak made cyclic", refc_copy_make_cyclic_Wcount);
+  
+  fprintf(where, "%s\t%u\n", "nodes inverted to make weak pointers strong",  refc_flip_node_count);
+  fprintf(where, "%s\t%u\n", "pointers weakened",  refc_make_weak_count);
+  fprintf(where, "%s\t%u\n", "start pointers searched",  refc_search_start_count);
+  fprintf(where, "%s\t%u\n", "strong pointers searched",  refc_search_strong_count);
+  fprintf(where, "%s\t%u\n", "start pointers made weak by search",  refc_search_flip_start_count);
+  fprintf(where, "%s\t%u\n", "strong pointers made weak by seach",  refc_search_flip_strong_count);
+  fprintf(where, "%s\t%u\n", "level of recursive deletions",  refc_delete_depth);
+  fprintf(where, "%s\t%u\n", "number of deletions causing search",  refc_delete_search_count);
+  
+  /* TODO count and verify the stack! */
+  return;
+}
+
+void refc_final_report(FILE *where)
+{
+  if (refc_inuse() > 0)
+    err_refc1("!!final report but number of pointers in use==", refc_inuse());
+  if (refc_delete_depth > 0)
+    err_refc1("!!final report but delete depth==", refc_delete_depth);
+  else
+    (void) fprintf(where, "final report ok\n");
+  
+  return;
+}
+
+/* --end-log--end-log--end-log--end-log--end-log--end-log-- */
+
+/*-ends-ends-ends-ends-ends-*/
 
 void refc_copyN_log(pointer p, int n)
 {
@@ -633,202 +707,188 @@ void refc_copy_make_cyclic_log(pointer p)
   return;
 }
 
-/*
- * refc_make_weak
- * ensure a pointer is weak (ok if it is weak already)
- */
-/* ToDo does this belong in zone.c? */
-static void refc_make_weak(pointer *pp)
+/*-start-start-start-start-start-start-*/
+/*-start-start-start-start-start-start-*/
+
+/* refc_flip_node - invert pointers - by changing the node bit, also adjust strong/weak reference counts.  Do nothing for constants and NIL. */
+static void refc_flip_node(pointer p)
 {
-  if (IsSet(*pp) && IsStrong(*pp)) {
-    Wrefc(*pp)++;
-    Srefc(*pp)--;
-    PtrBit(*pp) = !NodeBit(*pp); /* Was: PtrBit(p) = !PtrBit(p); */
-  }
+  if (IsNil(p) || ! HasPointers(p))
+    return;
+  
+  refc_flip_node_log(p);
+  
+  NodeBit(p) = !NodeBit(p);  /* "an essential implementation trick" */
+  Srefc(p) = Wrefc(p);    /* !!! was this done correctly in 1985? */
+  Wrefc(p) = 0;      /* !!! was this done correctly in 1985? */
+  
+  return;
+}
+
+/* refc_make_weak - make a strong pointer weak, but do nothing for constants and NIL */
+static void refc_make_weak(pointer p)
+{
+  if (IsNil(p) || ! HasPointers(p))
+    return;
+  
+  refc_make_weak_log(p);
+  
+  Wrefc(p)++;
+  Srefc(p)--;
+  PtrBit(p) = !NodeBit(p); /* Was: PtrBit(p) = !PtrBit(p); */
   return;
 }
 
 /*
-  refc_search = helper function for refc_delete
+ * The rule for all graph nodes is: "all nodes have at least one strong reference, and only non-constants have a weak reference"
+ *
+ * However during deletion, the rule for all graph nodes is relaxed additioanlly: deleting nodes have at least one reference (either strong or weak).
+ *
+ * It is a given that deleting nodes can always have pointers.
+ * It is a given that deleting nodes only exisit during deletion.
+ */
+#define InDeletion  (refc_delete_depth > 0)
+
+#define OkPointer1(p)   (Srefc(p) > 0 && (HasPointers(p) || Wrefc(p) == 0) && !IsDeleting(p))
+#define OkPointer2(p)  ((Srefc(p) > 0 && (HasPointers(p) || Wrefc(p) == 0)) || (InDeletion && IsDeleting(p) && ALLrefc(p) > 0))
+
+/* True always for pointers */
+#define OkPointer(p)  (IsNil(p) || (InDeletion && OkPointer2(p)) || OkPointer1(p))
+
+
+
+/*
+ refc_search = helper function for refc_delete
  
-  start - start of the search
-  pp - current pointer - passed By Reference
+ start - start of the search
+ pp - current pointer - passed By Reference
+ 
+ search(start,<R,S>)
+ if <R,S> is a strong pointer then
+ if S==start then make <R,S> into a weak pointer
+ else
+ if (Srefc(s) > 1) then make <R,S> into a weak pointer
+ else
+ search(start, <S,hd(s)>); search(start, <S,tl(S)>)  ++ provided Srefc(S) == 1
+ */
 
-  search(start,<R,S>)
-  if <R,S> is a strong pointer then
-    if S==start then make <R,S> into a weak pointer
-  else
-    if (Srefc(s) > 1) then make <R,S> into a weak pointer
-  else
-    search(start, <S,hd(s)>); search(start, <S,tl(S)>)
-*/
-
-static void refc_search(pointer start, pointer *pp)
+static void refc_search(pointer start, pointer p)
 {
-  if (IsNil(*pp))
-    return;
-
-  if (! HasPointers(*pp))
+  if (IsNil(p) || ! HasPointers(p) || IsWeak(p))  /* never try to make weak pointers to constants or NIL */
     return;
   
-  refc_search_log(start, *pp);
+  refc_search_log(start, p); /* don't log NIL, weak pointers, or consants */
   
-  /* weak pointer to start === BUG  search "/w .... *" */
-
-#if 1/**2018-11-09**/
-  if (IsStrong(*pp) && HasPointers(*pp)) {  /* never make weak pointers to constants */
-#else
-  if (IsStrong(*pp) && HasPointers(*pp) && (! IsComb(*pp))) {  /* never make weak pointers to constants *or combinators* */
-#endif
-#ifdef notdef
-//    if (SameNode(start, *pp) /*|| Srefc(*pp) > 1*/) { the second condition is vital for @(I ... loop ...) */
-#endif
-      if (SameNode(start, *pp) || Srefc(*pp) > 1) {
-      /* make a strong pointer to a non-constant weak, end of search */
-      refc_search_flip_log(start, *pp);
-      refc_make_weak(pp);
-    } else {
-      /* strong pointer stays strong: recurse (node contains pointers) */
-      /* Assert(Srefc(*pp) == 1); Assert(HasPointers(*pp)); */
-      refc_search(start, &Hd(*pp));
-      refc_search(start, &Tl(*pp));
+  if (SameNode(start, p) || Srefc(p) > 1) {  /* make a strong pointer to a non-constant weak, end of search */
+    refc_search_flip_log(start, p);
+    refc_make_weak(p);
+  } else if (Srefc(p) == 1) {  /* "lone" strong pointer stays strong: recurse when node contains pointers */
+    if (HasPointers(p)) {
+      refc_search(start, Hd(p));
+      refc_search(start, Tl(p));
     }
+  } else {  /*  (Srefc(p) == 0) and presumably Wrefc(p) > 0  - Nothing to do, except to double-check validity. */
+    Assert(OkPointer(p));
   }
-#if fix0
-  /*XXX xxx todo*/
-  else {
-    if (ALLrefc(*pp) == Wrefc(*pp)) {
-      /* unable to weaken a pointer as they are all weak already ==> deletion is underway at *pp */
-      Wrefc(*pp)--;
-      *pp = NIL;
-      //      refc_search(start, &Hd(*pp));
-//      refc_search(start, &Tl(*pp));
-    }
-  }
-#endif
+  return;
+}
 
-  /* else if p points to constant or is weak, do nothing */
+/* method - derived from 1985 algoriothm */
+
+/* 0. IsNil => return */
+/* 1. erase pointer; adjust refc */
+/* 2. (Srefc > 0) => return */
+/* 3. (Wrefc == 0) => (HasPointers => set deleting; delete H; delete T) free_node; return */
+/* 4. (deleting) => return */
+/* 5. loop: flip */
+/* Assert((Srefc > 0) && (Wrefc == 0)) */
+/* 6. search H; search t */
+/* 7. (Srefc > 0) => return */
+/* Assert(HasPointers && (Srefc == 0) && (! deleting)) */
+/* 8. (HasPointers => Set deleting delete H; delete T); return  */
+
+/* refc_delete - wrap around for logging */
+
+/* helper - main work in here, with logging in refc_delete() */
+static void refc_delete_do(pointer *pp)
+{
+  pointer p = *pp; /* local copy, so that pointer itself can be erased */
+  
+  /* 0. IsNil => return */
+  if (IsNil(p))
+    return;
+  
+  /* 1. erase pointer; adjust refc */
+  *pp = NIL;
+  if (IsStrong(p)) {
+    if (Srefc(p) == 0)
+      err_refc("delete: pointer is strong but Srefc==0");
+    Srefc(p)--;
+  } else {
+    if (Wrefc(p) == 0)
+      err_refc("delete: pointer is weak but Wrefc==0");
+    Wrefc(p)--;
+  }
+  
+  /* 2. (Srefc > 0) => return */
+  if (Srefc(p) > 0)
+    return;
+  
+  /* 3. (Wrefc == 0) => (HasPointers = set deleting; delete H; delete T) free_node; return */
+  if (Wrefc(p) == 0) { /* ie Allrefc(p) == 0 */
+    if (HasPointers(p)) {
+      refc_change_to_deleting(p);
+      refc_delete(&H(p));
+      refc_delete(&T(p));
+    }
+    free_node(p);
+    return;
+  }
+  
+  /* 4. (deleting) => return */
+  if (IsDeleting(p))
+    return;
+  
+  /* 5. loop: flip */      Assert(HasPointers(p) && (Srefc(p) == 0) && (Wrefc(p) > 0));
+  refc_flip_node(p);      Assert(OkPointer(p));
+  
+  /* 6. search H; search T */
+  refc_search(p, Hd(p));
+  refc_search(p, Tl(p));  refc_delete_post_search_log(p);
+  
+  /* 7. (Srefc > 0) => return */
+  if (Srefc(p) > 0)
+    return;
+  
+  /* 8. (HasPointers => Set deleting delete H; delete T); return  */  Assert(HasPointers(p) && ! IsDeleting(p)); /* belt and braces*/
+  refc_change_to_deleting(p);
+  refc_delete(&H(p));
+  refc_delete(&T(p)); /* deletion of last pointer to p will free the node */
   
   return;
 }
 
-
-/*
- * refc_delete -  DELETE(<R,S>) destroy pointer from from R to S
- *
- * delete pointer - passed By Reference
- *
- * returns NIL
- *
- * usage: refc_delete(&Hd(p));
- */
 
 void refc_delete(pointer *pp)
 {
-  pointer p = *pp; /* copy */
-  refc_pair ext = zero_refc_pair;  /* checking info - used in refc_*.log() functions */
-  static unsigned depth = 0;
+  pointer p = *pp; /* local copy, as pointer itself is erased by refc_delete_do();  */
+  refc_delete_log(p);
+  refc_delete_depth++;
   
-  if (IsNil(*pp))
-    return;
+  Assert(OkPointer(p));
+  refc_delete_do(pp);
+  Assert(OkPointer(p));
   
-  depth++;
-  refc_delete_log(p, depth);
-
-  *pp = NIL;  /* really delete the pointer in situ */
-
-  /* adjust reference counts, free the node if appropriate */
-  if (IsWeak(p)) {
-    if (Wrefc(p) == 0) {
-      (void) err_refc("delete: pointer is weak but Wrefc==0");
-      return; /*NOTREACHED*/
-    }
-    
-    Wrefc(p)--;
-  }
-  else {
-    if (Srefc(p) == 0) {
-      (void) err_refc("delete: pointer is strong but Srefc==0");
-      return; /*NOTREACHED*/
-    }
-    
-    Srefc(p)--;
-  }
-
-  if (IsFree(p) && ALLrefc(p) > 0)/*2018-11-11*/
-    return; /* important - don't chase our tail - fix:2018-10-12 */
-
-  if (Srefc(p) == 0) {
-    
-    if (Wrefc(p) == 0) { /* not in a loop */
-      if (HasPointers(p) && ! IsDeleting(p)){
-        refc_change_to_deleting(p);
-        refc_delete(&Hd(p));
-        refc_delete(&Tl(p));
-      }
-      
-      /* assert(ALLRefc(p) == 0) after this deletion */
-      refc_delete_post_delete_log(p, ext, depth);
-
-      free_node(p); /* pointed-to node is free for re-use */
-    }
-    else { /* is in a loop */
-      /* Assert(Srefc(p) == 0 && Wrefc(p) > 0) */
-      /*TODO
-       * finalise the "rules" for aomts and stuct in refc operations
-       * N.b. when copying apointers
-       */
-      
-      if (! HasPointers(p)) {
-          refc_err("constant has only weak references", p);
-        /*NOTREACHED*/
-      }
-#ifdef notdef /*WIP WIP*/
-      if (IsStruct(p)) {
-#endif
-        Assert(HasPointers(p));
-      ext = zone_check_island(p);
-      
-      /* invert pointers - by changing pointed-to node */
-      NodeBit(p) = !NodeBit(p);	/* "an essential implementation trick" */
-      Srefc(p) = Wrefc(p);	/* !!! was this done correctly in 1985? */
-      Wrefc(p) = 0;		/* !!! was this done correctly in 1985? */
-
-      refc_delete_flip_log(p, ext, depth);
-
-      /* recursive search */
-      refc_search(p, &Hd(p));
-      refc_search(p, &Tl(p));
-      
-      refc_delete_post_search_log(p, ext, depth);
-      
-      /* Srefc(p) and/or Wrefc(p) may be changed by the searches */
-      if (Srefc(p) == 0  && ! IsDeleting(p)) {
-        /* really delete everything now */
-
-        refc_change_to_deleting(p);
-
-//        if (HasRefs(ext))
-//          refc_err("!!!delete: deleting a loop which still has external references", p);
-
-        refc_delete(&Hd(p));
-        refc_delete_post_deleteHd_log(p, ext, depth);
-        refc_delete(&Tl(p));
-        refc_delete_post_delete_log(p, ext, depth);
-
-        /*fix:2018-10-12*/
-        /*fix:2018-11-10*/
-        if (ALLrefc(p) == 0)/*WIP*/
-          free_node(p);
-        else/*WIP*/
-          Log1("refc_delete: not freeing free node%s\n", refc_pointer_info(p));/*WIP*/
-      }
-    }
-  } /* else SRefc(p) > 0 so do nothing */
-
-  depth--;
+  refc_delete_post_delete_log(p);
+  refc_delete_depth--;
+  
   return;
 }
+
+
+/*-end-end-end-end-end-end-*/
+
+/*-end-end-end-end-end-end-*/
 
 pointer delete_hd_only(pointer p)
 {
@@ -844,42 +904,6 @@ int refc_check()
 char *refc_pointer_info(pointer p)
 {
   return zone_pointer_info(p);
-}
-
-/*
- * refc_log_report(where)
- *  (1) call new_log_report() to report new storage consistency and new nodes created
- *  (2) print tab-separated listing of pointer operations performed, appending a TOTAL, checking that total tallys and printing and ERROR line if not
- */
-void refc_log_report(FILE *where)
-{
-  /* first report on storage */
-  new_log_report(where);
-  
-  (void) fprintf(where,"%s\t%s\n","What","count");
-  
-  (void) fprintf(where,"%s\t%d\n","free nodes", refc_free());
-  (void) fprintf(where,"%s\t%d\n","nodes flipped", refc_delete_flip_count);
-  (void) fprintf(where,"%s\t%d\n","NIL pointers requested to be copied", refc_copy_NILcount);
-  (void) fprintf(where,"%s\t%d\n","strong pointers copied", refc_copy_Scount);
-  (void) fprintf(where,"%s\t%d\n","weak pointers copied", refc_copy_Wcount);
-  (void) fprintf(where,"%s\t%d\n","NIL pointers requested to be made cyclic", refc_copy_make_cyclic_NILcount);
-  (void) fprintf(where,"%s\t%d\n","strong made cyclic", refc_copy_make_cyclic_Scount);
-  (void) fprintf(where,"%s\t%d\n","weak made cyclic", refc_copy_make_cyclic_Wcount);
-  (void) fprintf(where,"%s\t%d\n","start pointers weakened", refc_search_start_count);
-  (void) fprintf(where,"%s\t%d\n","search pointers weakened", refc_search_strong_count);
-  
-  /* TODO count and verify the stack! */
-  return;
-}
-
-void refc_final_report(FILE *where)
-{
-  if (refc_inuse() >0) {
-    err_refc1("!!final report but number of pointers in use==", refc_inuse());
-  }
-  else
-    (void) fprintf(where, "final report ok\n");
 }
 
 /*
@@ -1402,9 +1426,9 @@ pointer refc_update_hdtl(pointer n, pointer newhd, pointer newtl)
   refc_delete(&Tl(n));
   Tl(n) = newtl;
   
-  /*WIP*/
-  if (!HasPointers(n) && Wrefc(n) > 0)
-    (void) fprintf(stderr,"refc_update: making constant with Wrefc>0: %s\n", zone_pointer_info(n));
+//  /* */
+//  if (!HasPointers(n) && Wrefc(n) > 0)
+//    (void) fprintf(stderr,"refc_update: making constant with Wrefc>0: %s\n", zone_pointer_info(n));
   
   return n;
   

@@ -491,7 +491,7 @@ pointer reduce(pointer *n)
     Push(*n);
 #if !old
 //#define R (reduce_done(n),Pop(Stacked), *n)
-#define R (Assert(SameNode(*n, Top)), Assert(Stacked==1), *n = Top, Pop(Stacked), *n)
+#define R (Assert(SameNode(*n, Top)), Assert(Stacked==1), /*XXXX*n = Top,*/ Pop(Stacked), *n)
 //#define R (Assert(SameNode(*n, Top)), Assert(Stacked==1), (IsAppl(*n = refc_update_pointerS(n, "T"))), Pop(Stacked), *n)
 #else
 #define R (*n = Pop(Stacked))xxx error
@@ -643,7 +643,7 @@ pointer reduce(pointer *n)
                                 Assert(SameNode(*n, Top));  /* should always be the case for Depth==1 */
                                 
                                 T(Top) = reduce(&T(Top)); /* carry on reducing OR *arg1 = reduce(arg1) */
-                                refc_update_pointerS(n, "T");
+                                refc_update_pointerS(n, "T"); /* ie T(Top) */
                                 Pop(1);
                                 return *n;
                             }
@@ -810,7 +810,7 @@ pointer reduce(pointer *n)
                                 }
                                     
                                 case MATCH_TAG_comb: {
-                                    /* MATCH tag E x => tag = Tag(x) -> E x; FAIL */
+                                    /* MATCH_TAG tag E x => tag = Tag(x) -> E x; FAIL */
                                     
                                     if (reduce_is_equal_tag(arg1,  arg3)) {
                                         refc_updateSS(&Top, "HT", "T");

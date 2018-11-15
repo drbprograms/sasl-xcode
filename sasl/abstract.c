@@ -207,7 +207,7 @@ pointer reduce_abstract(pointer pattern, pointer exp, tag t)
   int recursive;
   
   if (debug) {
-    fprintf(stderr, "%s%d[", "abstract", (int) t);
+    fprintf(stderr, "%s%d[", "abstract", (int) t-2/*XX*/);
     out_debug1(pattern);
     fprintf(stderr, "] ");
     out_debug(exp);
@@ -268,7 +268,7 @@ pointer reduce_abstract(pointer pattern, pointer exp, tag t)
   }
   
   if (debug) {
-    fprintf(stderr, "%s%d[", "abstract", (int) t);
+    fprintf(stderr, "%s%d[", "abstract", (int) t-2/*XXX*/);
     out_debug1(pattern);
     fprintf(stderr, "] --> ");
     out_debug(exp);

@@ -12,7 +12,9 @@
 */
 		      
 static char *tag_names[] = {
+  "zero_t",
   "free_t",
+  "deleting_t",
   /* Constants - node contains the value of the constant and never points to anything else */
   "int_t",
   "floating_t",
@@ -200,9 +202,9 @@ int err_refc(char *msg1)
   return 0; /*NOTEREACHED*/
 }
 
-int err_refc1(char *msg1, int i)
+int err_refc1(char *msg1, unsigned u)
 {
-  (void) fprintf(stderr, "reset: refc: %s%d\n", msg1, i);
+  (void) fprintf(stderr, "reset: refc: %s%u\n", msg1, u);
   longjmp(jmpbuffer, 5);
   return 0; /*NOTEREACHED*/
 }
@@ -282,9 +284,16 @@ static int out_out(FILE *where, pointer n)
         (void) fprintf(where, "@");	/* hint for weak loops */
       
       switch (Tag(n)) {	/* (tag) cast ensures compler warnings for any tags not covered */
+        case zero_t:
+          /* Should Never Happen */
+          return fprintf(where, "\n!!zero.... "); /* Hd should be NIL; Tl should be rest of feelist of any */
         case free_t: {
           /* Should Never Happen - so do NOT print freelist*/
           return fprintf(where, "\n!!free.... "); /* Hd should be NIL; Tl should be rest of feelist of any */
+        }
+        case deleting_t: {
+          /* Should Never Happen - so do NOT print freelist*/
+          return fprintf(where, "\n!!deleting.... "); /* Hd should be NIL; Tl should be rest of feelist of any */
         }
         case int_t:
           return fprintf(where, "%d",Num(n));

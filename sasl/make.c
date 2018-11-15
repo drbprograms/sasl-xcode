@@ -56,6 +56,8 @@ static pointer make_err(char *f, char *msg1, int i)
   return NIL;
 }
 
+#ifdef notdef
+// notused
 static pointer make_err1(char *f)
 {
   (void) make_reset();
@@ -63,6 +65,7 @@ static pointer make_err1(char *f)
   /*NOTREACHED*/
   return NIL;
 }
+#endif
 
 static pointer make_err2(char *f, char *msg)
 {
