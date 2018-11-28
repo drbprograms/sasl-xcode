@@ -992,7 +992,7 @@ pointer reduce(pointer *n)
             
             do {fprintf(stderr, "Stack[%d]: ",i--); out_debug(sp[i]); } while (-i < Stacked);
         }
-//        err_reduce("unimplemented tag");
+        err_reduce("unimplemented tag");
         /*NOTREACHED*/
     }
     {

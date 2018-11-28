@@ -27,6 +27,8 @@ extern pointer new_comb(tag t);
 extern pointer new_unary_strict(char *name, pointer (*fun)(pointer p));
 extern pointer new_unary_nonstrict(char *name, pointer (*fun)(pointer p));
 
+
+extern int refc_okPointer(pointer p);
 extern void refc_delete(pointer *pp);
 //deprecated:extern pointer refc_update(pointer n, pointer new);
 extern pointer refc_update_to_int(pointer n, int i);

@@ -419,6 +419,7 @@ static pointer refc_change_to_deleting(pointer p)
   Log1("refc_change_to_deleting%s\n", refc_pointer_info(p));
 
   Assert(HasPointers(p));
+  Assert(! IsFree(p));
   Tag(p) = deleting_t;
 
   return p;
@@ -498,16 +499,16 @@ static void refc_flip_node_log(pointer p)
 {
   refc_flip_node_count++;
   
-  Log2("refc_flip_pointer%s (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
+  Log2("refc_flip_node%s (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
   
   return;
 }
 
-static unsigned refc_make_weak_count = 0;  /* pointers weakened */
+static unsigned refc_flip_pointer_count = 0;  /* pointers weakened */
 
-static void refc_make_weak_log(pointer p)
+static void refc_flip_pointer_log(pointer p)
 {
-  refc_make_weak_count++;
+  refc_flip_pointer_count++;
   
   Log2("refc_flip_pointer%s (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
   
@@ -534,19 +535,6 @@ void refc_search_log(pointer start, pointer p)
 
 static unsigned refc_search_flip_start_count = 0;  /* start pointers made weak by search */
 static unsigned refc_search_flip_strong_count = 0;  /* strong pointers made weak by seach */
-
-void refc_search_flip_log(pointer start, pointer p)
-{
-  if (SameNode(p, start))
-    refc_search_flip_start_count++;
-  else
-    refc_search_flip_strong_count++;
-  
-  Log2("refc_search_flip%s%s\t", refc_pointer_info(p), (Node(p) == Node(start) ? "$" : ""));   /*NB refc_pointer_info() returns pointer to a *fixed string* */
-  Log1("start%s\n", refc_pointer_info(start));
-  
-  return;
-}
 
 void refc_delete_log(pointer p)
 {
@@ -619,7 +607,7 @@ void refc_log_report(FILE *where)
   fprintf(where, "%s\t%u\n", "weak made cyclic", refc_copy_make_cyclic_Wcount);
   
   fprintf(where, "%s\t%u\n", "nodes inverted to make weak pointers strong",  refc_flip_node_count);
-  fprintf(where, "%s\t%u\n", "pointers weakened",  refc_make_weak_count);
+  fprintf(where, "%s\t%u\n", "pointers weakened",  refc_flip_pointer_count);
   fprintf(where, "%s\t%u\n", "start pointers searched",  refc_search_start_count);
   fprintf(where, "%s\t%u\n", "strong pointers searched",  refc_search_strong_count);
   fprintf(where, "%s\t%u\n", "start pointers made weak by search",  refc_search_flip_start_count);
@@ -690,7 +678,7 @@ void refc_copy_pointerS_log(pointer p, const char *s)
 
 void refc_copyNth_log(pointer p, unsigned n)
 {
-  Log2("refc_copy_Nth%s n==%u\n", zone_pointer_info(p), n);
+  Log2("refc_copyNth%s n==%u\n", zone_pointer_info(p), n);
   return;
 }
 
@@ -725,37 +713,53 @@ static void refc_flip_node(pointer p)
   return;
 }
 
-/* refc_make_weak - make a strong pointer weak, but do nothing for constants and NIL */
-static void refc_make_weak(pointer p)
+/* refc_flip_pointer - make a strong pointer weak and vv, but do nothing for constants and NIL */
+static void refc_flip_pointer(pointer *pp)
 {
+  const pointer p = *pp; /* local copy for convenience */
+
   if (IsNil(p) || ! HasPointers(p))
     return;
   
-  refc_make_weak_log(p);
+  refc_flip_pointer_log(p);
   
   Wrefc(p)++;
   Srefc(p)--;
-  PtrBit(p) = !NodeBit(p); /* Was: PtrBit(p) = !PtrBit(p); */
+  PtrBit(*pp) = !NodeBit(p); /* Was: PtrBit(p) = !PtrBit(p); */
   return;
 }
 
 /*
- * The rule for all graph nodes is: "all nodes have at least one strong reference, and only non-constants have a weak reference"
+ * The general rule for all graph nodes is: "all nodes have at least one strong reference, and only non-constants have a weak reference".
+ * Special nodes have one special strong reference, which is not from any onother node but is counted
+ *  root      the graph being evaluated
+ *  freelist  simple linked list of node no longer needed in the graph being evaluated
+ *  builtin   list of definitions which are built in to SASL - maths (eg sin cos), characters (code/decode), type predicated (list, char)
+ *  defs      list of definitions added (SASL "DEF"s)
  *
- * However during deletion, the rule for all graph nodes is relaxed additioanlly: deleting nodes have at least one reference (either strong or weak).
+ * However during deletion, the rule for is relaxed: "additionally
+ *      (1) nodes being freed may have no pointers at all before being addedd to the freelist
+ *      (2) loop nodes being deleted are tagged 'deleting' and have at least one reference (either strong or weak)
  *
  * It is a given that deleting nodes can always have pointers.
  * It is a given that deleting nodes only exisit during deletion.
  */
-#define InDeletion  (refc_delete_depth > 0)
-
-#define OkPointer1(p)   (Srefc(p) > 0 && (HasPointers(p) || Wrefc(p) == 0) && !IsDeleting(p))
-#define OkPointer2(p)  ((Srefc(p) > 0 && (HasPointers(p) || Wrefc(p) == 0)) || (InDeletion && IsDeleting(p) && ALLrefc(p) > 0))
 
 /* True always for pointers */
-#define OkPointer(p)  (IsNil(p) || (InDeletion && OkPointer2(p)) || OkPointer1(p))
+inline int refc_okPointer(pointer p)
+{
+  return IsNil(p) || (Srefc(p) > 0 && (HasPointers(p) || Wrefc(p) == 0) /* && !IsDeleting(p) */ );
+}
 
-
+static inline int inDeleting(void)
+{
+  return refc_delete_depth > 0;
+}
+/* True for pointers when deleting */
+static inline int okPointerDel(pointer p)
+{
+  return refc_okPointer(p) || (inDeleting() > 0 && ((IsDeleting(p) ? ALLrefc(p) > 0 : ALLrefc(p) == 0)));
+}
 
 /*
  refc_search = helper function for refc_delete
@@ -772,24 +776,30 @@ static void refc_make_weak(pointer p)
  search(start, <S,hd(s)>); search(start, <S,tl(S)>)  ++ provided Srefc(S) == 1
  */
 
-static void refc_search(pointer start, pointer p)
+static void refc_search(pointer start, pointer *pp)
 {
-  if (IsNil(p) || ! HasPointers(p) || IsWeak(p))  /* never try to make weak pointers to constants or NIL */
+  if (IsDeleting(*pp)) /* deletion of p already underway */
+    return;
+    
+  if (IsNil(*pp) || ! HasPointers(*pp) || IsWeak(*pp))  /* never try to make weak pointers to constants or NIL */
     return;
   
-  refc_search_log(start, p); /* don't log NIL, weak pointers, or consants */
+  refc_search_log(start, *pp); /* don't log NIL, weak pointers, or consants */
   
-  if (SameNode(start, p) || Srefc(p) > 1) {  /* make a strong pointer to a non-constant weak, end of search */
-    refc_search_flip_log(start, p);
-    refc_make_weak(p);
-  } else if (Srefc(p) == 1) {  /* "lone" strong pointer stays strong: recurse when node contains pointers */
-    if (HasPointers(p)) {
-      refc_search(start, Hd(p));
-      refc_search(start, Tl(p));
-    }
-  } else {  /*  (Srefc(p) == 0) and presumably Wrefc(p) > 0  - Nothing to do, except to double-check validity. */
-    Assert(OkPointer(p));
+  if (SameNode(start, *pp) || Srefc(*pp) > 1) {  /* make a strong pointer to a non-constant weak, end of search */
+    refc_flip_pointer(pp);
+    return;
   }
+  
+  if (Srefc(*pp) == 1) {  /* "lone" strong pointer stays strong: recurse when node contains pointers */
+    if (HasPointers(*pp)) {
+      refc_search(start, &Hd(*pp));
+      refc_search(start, &Tl(*pp));
+    }
+    return;
+  }
+  
+  /* Nothing to do */  
   return;
 }
 
@@ -812,11 +822,17 @@ static void refc_search(pointer start, pointer p)
 /* helper - main work in here, with logging in refc_delete() */
 static void refc_delete_do(pointer *pp)
 {
-  pointer p = *pp; /* local copy, so that pointer itself can be erased */
+  const pointer p = *pp; /* local copy, so that pointer itself can be erased */
   
   /* 0. IsNil => return */
   if (IsNil(p))
     return;
+//
+  if (IsFree(p)) {
+    Log1("refc_delete%s sttempt to delete pointer to freed node - no action\n", refc_pointer_info(p));
+    return;
+  }
+//
   
   /* 1. erase pointer; adjust refc */
   *pp = NIL;
@@ -849,12 +865,12 @@ static void refc_delete_do(pointer *pp)
   if (IsDeleting(p))
     return;
   
-  /* 5. loop: flip */      Assert(HasPointers(p) && (Srefc(p) == 0) && (Wrefc(p) > 0));
-  refc_flip_node(p);      Assert(OkPointer(p));
+  /* 5. loop: flip */     Assert(HasPointers(p) && (Srefc(p) == 0) && (Wrefc(p) > 0));
+  refc_flip_node(p);      Assert(refc_okPointer(p));
   
   /* 6. search H; search T */
-  refc_search(p, Hd(p));
-  refc_search(p, Tl(p));  refc_delete_post_search_log(p);
+  refc_search(p, &Hd(p));
+  refc_search(p, &Tl(p));  refc_delete_post_search_log(p);
   
   /* 7. (Srefc > 0) => return */
   if (Srefc(p) > 0)
@@ -864,20 +880,24 @@ static void refc_delete_do(pointer *pp)
   refc_change_to_deleting(p);
   refc_delete(&H(p));
   refc_delete(&T(p)); /* deletion of last pointer to p will free the node */
-  
+
+  if (!IsFree(p) && ALLrefc(p) == 0) { /* deletion of last pointer has not freed the node*/
+    Log1("refc_delete%s deletion of last pointer has not freed node - freeing it\n", refc_pointer_info(p));
+    free_node(p);
+  }
+//
   return;
 }
 
 
 void refc_delete(pointer *pp)
 {
-  pointer p = *pp; /* local copy, as pointer itself is erased by refc_delete_do();  */
-  refc_delete_log(p);
-  refc_delete_depth++;
+  const pointer p = *pp; /* local copy, as pointer itself is erased by refc_delete_do();  */
   
-  Assert(OkPointer(p));
+  refc_delete_depth++;
+  refc_delete_log(p);
+
   refc_delete_do(pp);
-  Assert(OkPointer(p));
   
   refc_delete_post_delete_log(p);
   refc_delete_depth--;
@@ -1192,7 +1212,7 @@ pointer refc_copy_pointerS(pointer p, char *s)
  *        'H' then (n-1) 'T' then 'H'
  * specifically used to implement (list int) eg ('Hello" 5) => 'o"
  * returns FAIL on error, rather then calling err_refc(), and reduce() handles the problem
- * NB p in this example must point to the *whole* application not just the list!
+ * NB p in this example must point to the *whole* application (list int) not just the list!
  */
 pointer refc_copyNth(pointer p, unsigned n)
 {

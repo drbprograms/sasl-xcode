@@ -213,7 +213,14 @@ int err_zone(char *msg1)
 {
   (void) fprintf(stderr, "reset: zone: %s\n", msg1);
   longjmp(jmpbuffer, 5);
-  return 0; /*NOTEREACHED*/
+  return 0; /*NOTREACHED*/
+}
+
+int err_zone1(char *msg1, unsigned u)
+{
+  (void) fprintf(stderr, "reset: zone: %s%u\n", msg1, u);
+  longjmp(jmpbuffer, 5);
+  return 0; /*NOTREACHED*/
 }
 
 int err_store(char *msg1)
@@ -280,20 +287,22 @@ static int out_out(FILE *where, pointer n)
       char *sep = " ";
       int i;
       
+      char *refc_pointer_info(pointer p); /* for debugging */
+
       if (Wrefc(n) > 0)
         (void) fprintf(where, "@");	/* hint for weak loops */
       
       switch (Tag(n)) {	/* (tag) cast ensures compler warnings for any tags not covered */
         case zero_t:
           /* Should Never Happen */
-          return fprintf(where, "\n!!zero.... "); /* Hd should be NIL; Tl should be rest of feelist of any */
+          return fprintf(where, "\n!!zero%s\n.... ", refc_pointer_info(n)); /* Hd should be NIL; Tl should be rest of feelist of any */
         case free_t: {
           /* Should Never Happen - so do NOT print freelist*/
-          return fprintf(where, "\n!!free.... "); /* Hd should be NIL; Tl should be rest of feelist of any */
+          return fprintf(where, "\n!!free%s\n.... ", refc_pointer_info(n)); /* Hd should be NIL; Tl should be rest of feelist of any */
         }
         case deleting_t: {
           /* Should Never Happen - so do NOT print freelist*/
-          return fprintf(where, "\n!!deleting.... "); /* Hd should be NIL; Tl should be rest of feelist of any */
+          return fprintf(where, "\n!!deleting%s\n.... ", refc_pointer_info(n)); /* Hd should be NIL; Tl should be rest of feelist of any */
         }
         case int_t:
           return fprintf(where, "%d",Num(n));
@@ -305,7 +314,7 @@ static int out_out(FILE *where, pointer n)
           return fprintf(where, "%s", Bool(n) ? "TRUE" : "FALSE");
         case fail_t:
           return fprintf(where, "FAIL");
-          
+
         case cons_t:
           sep = ":";
           if (budget > 0)
