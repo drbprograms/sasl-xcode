@@ -295,14 +295,14 @@ static int out_out(FILE *where, pointer n)
       switch (Tag(n)) {	/* (tag) cast ensures compler warnings for any tags not covered */
         case zero_t:
           /* Should Never Happen */
-          return fprintf(where, "\n!!zero%s\n.... ", refc_pointer_info(n)); /* Hd should be NIL; Tl should be rest of feelist of any */
+          return fprintf(where, "\n!!zero_t%s\n.... ", refc_pointer_info(n)); /* Hd should be NIL; Tl should be rest of feelist of any */
         case free_t: {
           /* Should Never Happen - so do NOT print freelist*/
-          return fprintf(where, "\n!!free%s\n.... ", refc_pointer_info(n)); /* Hd should be NIL; Tl should be rest of feelist of any */
+          return fprintf(where, "\n!!free_t%s\n.... ", refc_pointer_info(n)); /* Hd should be NIL; Tl should be rest of feelist of any */
         }
         case deleting_t: {
-          /* Should Never Happen - so do NOT print freelist*/
-          return fprintf(where, "\n!!deleting%s\n.... ", refc_pointer_info(n)); /* Hd should be NIL; Tl should be rest of feelist of any */
+          /* Should Never Happen - so do NOT print "being deleted" node "*/
+          return fprintf(where, "\n!!deleting_t%s\n.... ", refc_pointer_info(n)); /* Hd should be NIL; Tl should be rest of feelist of any */
         }
         case int_t:
           return fprintf(where, "%d",Num(n));

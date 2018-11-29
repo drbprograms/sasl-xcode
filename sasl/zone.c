@@ -1168,7 +1168,7 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
  * WARNING overwrites all debug nodes
  * WARNING not reentrant
  */
-zone_check_node_data zone_check_island(pointer p)
+zone_check_node_data zone_check_island(pointer p, unsigned depth)
 {
   int res;
   unsigned nil_count = 0, s_count = 0, w_count = 0, struct_count = 0, atom_count = 0;
@@ -1198,10 +1198,7 @@ zone_check_node_data zone_check_island(pointer p)
       (void) refc_check_traverse_nodes(z, i, &data, refc_check_traverse_valid_island, 1);
     }
 
-    Log1("zone_check_island: %s\n",
-//         s_count + w_count,
-//         s_count,  w_count,
-         zone_node_info(data));
+    Log2("zone_check_island: %s (depth=%u)\n", zone_node_info(data), depth);
 #if 0
     fprintf(stderr, "root\t%s\n", zone_pointer_info(root));
     fprintf(stderr, "defs\t%s\n", zone_pointer_info(defs));

@@ -559,7 +559,7 @@ void refc_delete_post_search_log(pointer p)
   refc_delete_search_count++;
   
   if (loop_check && Srefc(p) == 0) {  /* loop_check is set: log check_node_info and check for non-islands being deleted */
-    zone_check_node_data data = zone_check_island(p);
+    zone_check_node_data data = zone_check_island(p, refc_delete_depth);
     
     Log5("%srefc_delete_post_search%s (depth=%u) %s%s\n",
          ! zone_is_island(data) ? "" : "!!",
@@ -569,7 +569,7 @@ void refc_delete_post_search_log(pointer p)
          ! zone_is_island(data) ? "" : " about to delete something which is NOT free");
     
   } else if (loop_check > 1) {     /* loop_check > 1 and (SRefc != 0), about to delete so check for islands NOT being deleted */
-    zone_check_node_data data = zone_check_island(p);
+    zone_check_node_data data = zone_check_island(p, refc_delete_depth);
     
     Log5("%srefc_delete_post_search%s (depth=%u) %s%s\n",
          zone_is_island(data) ? "" : "!!",
@@ -827,12 +827,12 @@ static void refc_delete_do(pointer *pp)
   /* 0. IsNil => return */
   if (IsNil(p))
     return;
-//
+//Start Deprecated
   if (IsFree(p)) {
     Log1("refc_delete%s sttempt to delete pointer to freed node - no action\n", refc_pointer_info(p));
     return;
   }
-//
+//End Deprecated
   
   /* 1. erase pointer; adjust refc */
   *pp = NIL;

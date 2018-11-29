@@ -23,7 +23,7 @@ extern const refc_pair zero_refc_pair;
  */
 typedef struct { refc_pair total, excess, deficit;} zone_check_node_data;
 
-extern zone_check_node_data zone_check_island(pointer p);
+extern zone_check_node_data zone_check_island(pointer p, unsigned depth);
 extern int zone_is_island(zone_check_node_data data);
 
 extern const zone_check_node_data zero_data;
