@@ -544,6 +544,18 @@ pointer reduce(pointer *n)
                         if (u < 1)
                             err_reduce("applying a list to a number less then 1");
 
+                        /* force "u" conses into existence */
+                        { /* 2018-11-30 https://tree.taiga.io/project/northgate91-project-one/issue/42 */
+                            pointer *pp= &H(Top);
+                            unsigned uu;
+                            for (uu = u; uu >= 1; uu--) {
+                                reduce(pp);
+                                if (! IsCons(*pp))
+                                    err_reduce("applying list to a number: not enough elements in list");
+                                pp = &T(*pp);
+                            }
+                        }
+//                        TODO simplify refc_copy_Nth() as the list has  been "forced successfuly above
                         Top = refc_update_Itl(Top, refc_copyNth(Top, u));
                         continue;
                     }
