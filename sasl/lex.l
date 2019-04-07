@@ -21,7 +21,9 @@ NAME       [A-Za-z][A-Za-z0-9_]*
 	static tok lex_token;
 	static int lex_got_token = 0;	/* is lex_token ready and unconsumed? */
 
-	int lex_col = 0;	/* current column (fixed width character set ;-), source program columns are numbered 1..  */
+    char *lex_filename = "";
+
+    int lex_col = 0;	/* current column (fixed width character set ;-), source program columns are numbered 1..  */
 	int lex_margin = 0;	/* offside column, token is offside when (col <= margin), initially 0 */
 	int lex_got_newline = 0;	/* 1 iff current token is preceded by newline (since previous token) */
 	static int margins[Max] = {0};
@@ -85,6 +87,7 @@ NAME       [A-Za-z][A-Za-z0-9_]*
   void lex_do_get(char* filename)
   {
     FILE *f = fopen(filename, "r");
+    lex_filename = filename;
     if (!f) {
       LEX_ERROR2("unable to GET \"%s\"\n", filename);
     } else {
@@ -208,7 +211,7 @@ TAB	{ LEX_DEBUG("A special char: %s\n", yytext); lex_tc = tok_const_special_char
 ">"	{ lex_oper_fix = "i"; lex_oper_assoc = 'l'; lex_oper = op_greater; return off(tok_operator); }
 ">="	{ lex_oper_fix = "i"; lex_oper_assoc = 'l'; lex_oper = op_greater_equal; return off(tok_operator); }
 "="	{ lex_oper_fix = "i"; lex_oper_assoc = 'l'; lex_oper = op_equal; return off(tok_operator); }
-"∼="	{ lex_oper_fix = "i"; lex_oper_assoc = 'l'; lex_oper = op_not_equal; return off(tok_operator); }
+"~="	{ lex_oper_fix = "i"; lex_oper_assoc = 'l'; lex_oper = op_not_equal; return off(tok_operator); }
 "<="	{ lex_oper_fix = "i"; lex_oper_assoc = 'l'; lex_oper = op_less_equal; return off(tok_operator); }
 "<"	{ lex_oper_fix = "i"; lex_oper_assoc = 'l'; lex_oper = op_less; return off(tok_operator); }
 "<<"	{ lex_oper_fix = "i"; lex_oper_assoc = 'l'; lex_oper = op_much_less; return off(tok_operator); }

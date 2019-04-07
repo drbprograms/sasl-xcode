@@ -129,7 +129,7 @@ static void indent(FILE *where, long int n)
     fprintf(where, "%s", b+max-n);
 }
 
-#define Limit 1024
+#define Limit 16
 #define ArgLimit 6
 void reduce_log(pointer *base, pointer *sp)
 {
@@ -216,7 +216,7 @@ void reduce_log_report(FILE *where)
     (void) fprintf(where,"%s\t%d\n", "got_max", poss_optimisations_max);
 #endif
     if (check != reductions || opt_check != optimisations)
-        (void) fprintf(where, "%s\t%d\t§%d\n", "Total Error!", check - reductions, opt_check - optimisations);
+        (void) fprintf(where, "%s\t%d\t%d\n", "Total Error!", check - reductions, opt_check - optimisations);
     
     return;
 }
@@ -291,10 +291,10 @@ pointer reduce_cons(pointer *nn)
 
 /* equality is polymophic and expands through lists [SASL Manual 1983] 
  
- The equality operators = and ∼=, however, are defined between arbitrary pairs of objects.
- Objects of different type are always unequal. E.g. — the following expressions all take the value true:
- 2 + 2 = 4	1 ∼= 2	 false ∼= true
- 1 ∼= false	%A ∼= %a
+ The equality operators = and ~=, however, are defined between arbitrary pairs of objects.
+ Objects of different type are always unequal. E.g. - the following expressions all take the value true:
+ 2 + 2 = 4	1 ~= 2	 false ~= true
+ 1 ~= false	%A ~= %a
  (1,2,3) = (1,1+1,1+1+1)
  */
 char reduce_is_equal(pointer *nn1, pointer *nn2)
@@ -528,6 +528,10 @@ pointer reduce(pointer *n)
                         err_reduce("reducing a free node");
                         /*NOTREACHED*/
                     }
+                    case deleting_t: {
+                        err_reduce("reducing a deleting node");
+                        /*NOTREACHED*/
+                    }
                     case cons_t: {
 
                         unsigned u;
@@ -545,7 +549,7 @@ pointer reduce(pointer *n)
                             err_reduce("applying a list to a number less then 1");
 
                         /* force "u" conses into existence */
-                        { /* 2018-11-30 https://tree.taiga.io/project/northgate91-project-one/issue/42 */
+                        {   /* 2018-11-30 https://tree.taiga.io/project/northgate91-project-one/issue/42 */
                             pointer *pp= &H(Top);
                             unsigned uu;
                             for (uu = u; uu >= 1; uu--) {
@@ -555,7 +559,7 @@ pointer reduce(pointer *n)
                                 pp = &T(*pp);
                             }
                         }
-//                        TODO simplify refc_copy_Nth() as the list has  been "forced successfuly above
+//                        TODO simplify refc_copy_Nth() as the list has  been "forced" successfuly above
                         Top = refc_update_Itl(Top, refc_copyNth(Top, u));
                         continue;
                     }

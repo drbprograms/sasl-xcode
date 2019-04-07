@@ -735,7 +735,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           
         case 1: {
           /* substitute for builtins and known DEFs; return pointer to-be-reduced; parser then checks for unbound names */
-          /* scope of names: "((expr) WHERE defs) WHERE builtin" */
+          /* scope of names: "(expr) WHERE defs) WHERE builtin" */
           if (IsDef(defs))
             n1 = make_where(n1, refc_copy(DefDefs(defs)));
           
@@ -758,7 +758,8 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           if (IsNil(defs))
             defs = new_def(new_name("<Top>"), n1);
           else
-            defs = add_deflist_to_def(defs, n1);//deprecated
+            make_err("multiple DEFs not implemented (yet)", ruledef, rule);
+//            defs = add_deflist_to_def(defs, n1);//deprecated
           
           return defs; /* this is the global defs */
         }

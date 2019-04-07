@@ -115,6 +115,10 @@ extern int lex_looking_at_operator_fix_prio(char f, char prio);
 extern int yylex(void);	/* get next token */
 extern char *yytext;	/* current token */
 extern unsigned long yyleng;	/* length of current token */
+extern int yylineno; /* source file lne number */
+
+extern char *lex_filename; /* set in lex_get() */
+
 /* there are others less useful ... */
 
 void lex_onside(void);
