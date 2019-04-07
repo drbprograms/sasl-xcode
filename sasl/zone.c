@@ -702,9 +702,9 @@ static int refc_check_traverse_valid_island(int res_i, pointer p, pointer debug_
     if (Wrefc(p) > Wrefc(debug_p))
       Log(" loop protected by weak pointer");
     if (Srefc(debug_p) > Srefc(p))
-      Log("\n!!strong pointer deficit");
+      Log(" strong pointer deficit");
     if (Wrefc(debug_p) > Wrefc(p))
-      Log("\n!!weak pointer deficit");
+      Log(" weak pointer deficit");
     Log("\n");
   }
   return 0; /* NO failures here */
@@ -772,7 +772,7 @@ static int refc_check_traverse_nodes(zone_header *z, int zone_no, refc_check_nod
 }
 #endif
 
-static int refc_check_traverse_nodes(zone_header *z, int zone_no, zone_check_node_data *info, int (check(int res_i, pointer p, pointer debug_p)), int ignore_unpopulated)
+static int refc_check_traverse_nodes(zone_header *z, int zone_no, zone_check_node_data *data, int (check(int res_i, pointer p, pointer debug_p)), int ignore_unpopulated)
 {
   int i, res = 0;
   
@@ -786,28 +786,28 @@ static int refc_check_traverse_nodes(zone_header *z, int zone_no, zone_check_nod
     /* accumulate node info, noting mismatch in res_i (taking care not to generate "negative" unsigneds) */
     
     /* strong */
-    info->total.s += z->nodes[i].s_refc;
+    data->total.s += z->nodes[i].s_refc;
     if (z->nodes[i].s_refc  != z->debug_nodes[i].s_refc) {
       res_i++;
       if (z->nodes[i].s_refc > z->debug_nodes[i].s_refc)
-        info->excess.s +=
+        data->excess.s +=
           z->nodes[i].s_refc - z->debug_nodes[i].s_refc;
       else
       if (z->debug_nodes[i].s_refc > z->nodes[i].s_refc)
-        info->deficit.s +=
+        data->deficit.s +=
           z->debug_nodes[i].s_refc - z->nodes[i].s_refc;
     }
     
     /* weak */
-    info->total.w += z->nodes[i].w_refc;
+    data->total.w += z->nodes[i].w_refc;
     if (z->nodes[i].w_refc  != z->debug_nodes[i].w_refc) {
       res_i++;
       if (z->nodes[i].w_refc > z->debug_nodes[i].w_refc)
-        info->excess.w +=
+        data->excess.w +=
           z->nodes[i].w_refc - z->debug_nodes[i].w_refc;
       else
       if (z->debug_nodes[i].w_refc > z->nodes[i].w_refc)
-        info->deficit.w +=
+        data->deficit.w +=
           z->debug_nodes[i].w_refc - z->nodes[i].w_refc;
     }
 
@@ -1179,7 +1179,7 @@ zone_check_node_data zone_check_island(pointer p, unsigned depth)
   if (! HasPointers(p))
     return zero_data;
     
-#ifdef notdef /*XXX XXX 2018-11-09*/
+#if 1 //2019-01-16 reinstated /*XXX XXX 2018-11-09*/
   res = refc_check_traverse_pointers0(H(p), refc_inuse_count*2, &nil_count, &s_count, &w_count, &struct_count, &atom_count);
   res = refc_check_traverse_pointers0(T(p), refc_inuse_count*2, &nil_count, &s_count, &w_count, &struct_count, &atom_count);
 #else

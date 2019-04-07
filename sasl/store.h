@@ -1,7 +1,5 @@
 extern pointer make_append(pointer list, pointer tl);
 
-extern pointer new_copy(pointer p);
-extern pointer new_nil_list(void);
 extern pointer new_int(int i);
 extern pointer new_double(double d);
 extern pointer new_char(char c);
@@ -10,7 +8,6 @@ extern pointer new_fail(void);
 extern pointer new_apply(pointer hd, pointer tl);
 extern pointer new_apply3(pointer hh, pointer th, pointer t);
 extern pointer new_apply4(pointer hhh, pointer thh, pointer th, pointer t);
-
 
 extern pointer new_cons(pointer hd, pointer tl);
 extern pointer new_abstract(pointer name, pointer def, tag t);
@@ -27,8 +24,6 @@ extern pointer new_comb(tag t);
 extern pointer new_unary_strict(char *name, pointer (*fun)(pointer p));
 extern pointer new_unary_nonstrict(char *name, pointer (*fun)(pointer p));
 
-
-extern int refc_okPointer(pointer p);
 extern void refc_delete(pointer *pp);
 //deprecated:extern pointer refc_update(pointer n, pointer new);
 extern pointer refc_update_to_int(pointer n, int i);
@@ -44,8 +39,6 @@ extern pointer refc_copyT(pointer p);
 extern pointer refc_copyS(pointer p, char *s);
 extern pointer refc_copyNth(pointer p, unsigned n);
 
-extern pointer refc_update_hd(pointer n, pointer new);
-extern pointer refc_update_tl(pointer n, pointer new);
 extern pointer refc_update_Itl(pointer n, pointer newtl);
 
 extern pointer refc_update_hdS(pointer *p, char *h);

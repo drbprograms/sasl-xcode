@@ -55,6 +55,8 @@ void store_log_new(pointer p)
 {
   store_log("new", p);
 }
+
+#ifdef deprecated
 /* new node containing a copy of tag and contents of Node(p) */
 pointer new_copy(pointer p)
 {
@@ -63,7 +65,7 @@ pointer new_copy(pointer p)
   store_log_new(n);
   return n;
 }
-
+#endif
 /* TODO
 change all these to add make_xx and redefine new_xx as make_xx(NIL,  ...)
 
@@ -176,24 +178,24 @@ pointer add_to_def(pointer def, pointer name, pointer expr)
   return def;
 }
 
-
-/*
- * add (namelist:def) any                  = || recurse over namelist
- *
- * add (name:newdef)  ((name:y): (def:z))  = (name:y):(newdef:z)      || replace def with newdef
- * add (name:newdef)  ((other:y):(def:z))  = (other:y_add):(def:z_add)
- *                                                   WHERE y_add:z_add = add (name:newdef) (y:z)  || recurse
- * add (name:newdef)  (():())              = (name:()):(newdef:())    || add_deflist_to_def
- * add ()             any                  = any
- *
- * to allow name *or* namelist, need to introduce 'nameMatch'
- * nameMatch (a:b) (a:b) = TRUE
- * nameMatch (a:b) (x:y) = any (member (a:b)) (x:y) -> throw error; FALSE || error case
- * nameMatch name  (x:y) = member name (x:y)
- * nameMatch ()     any  = FALSE
- *
- */
-
+/* look for duplicated of name/namelist - return first matching name, otherwise 0 */
+pointer def_any_for2(pointer names, pointer defs, pointer n)
+{
+  if (IsName(n)) {
+    /* name */
+    if (def_for2(names, defs, n))
+      return n;
+  } else {
+    /* namelist */
+    Assert(IsCons(n));
+    for ( /**/; IsSet(n); n = T(n)) {
+      pointer dup = def_any_for2(names, defs, H(n));
+      if (IsSet(dup))
+        return (dup);
+    }
+  }
+  return NIL;
+}
 
 /*
  * def_for2 - lookup name n in (list-of names, list-of defs) - returns 0 if not found, else pointer to expression
@@ -204,7 +206,7 @@ pointer *def_for2(pointer names, pointer defs, pointer n)
     return (pointer *)0;
   
   Assert(IsCons(names));
-
+  
   if (IsAtom(H(names))) {
     /* name */
     if (IsSameName(H(names), n)) {
@@ -223,25 +225,27 @@ pointer *def_for2(pointer names, pointer defs, pointer n)
   return def_for2(T(names), T(defs), n);
 }
 
-/* look for duplicated of name/namelist - return first matching name, otherwise 0 */
-pointer def_any_for2(pointer names, pointer defs, pointer n)
-{
-  if (IsName(n)) {
-    /* name */
-    if (def_for2(names, defs, n))
-      return n;
-  } else {
-    /* namelist */
-    Assert(IsCons(n));
-    for ( /**/; IsSet(n); n = T(n)) {
-      pointer dup = def_any_for2(names, defs, H(n));
-      if (IsSet(dup))
-        return (dup);
-    }
-  }
-  
-  return NIL;
-}
+
+#ifdef deprecated
+// this all needs a re-design to fix https://tree.taiga.io/project/northgate91-project-one/issue/3
+
+/*
+ * add (namelist:def) any                  = || recurse over namelist
+ *
+ * add (name:newdef)  ((name:y): (def:z))  = (name:y):(newdef:z)      || replace def with newdef
+ * add (name:newdef)  ((other:y):(def:z))  = (other:y_add):(def:z_add)
+ *                                                   WHERE y_add:z_add = add (name:newdef) (y:z)  || recurse
+ * add (name:newdef)  (():())              = (name:()):(newdef:())    || add_deflist_to_def
+ * add ()             any                  = any
+ *
+ * to allow name *or* namelist, need to introduce 'nameMatch'
+ * nameMatch (a:b) (a:b) = TRUE
+ * nameMatch (a:b) (x:y) = any (member (a:b)) (x:y) -> throw error; FALSE || error case
+ * nameMatch name  (x:y) = member name (x:y)
+ * nameMatch ()     any  = FALSE
+ *
+ */
+
 
 /*
  * def_for - lookup name n in def - returns 0 if not found, else pointer to expression
@@ -355,7 +359,7 @@ pointer add_deflist_to_defNEW(pointer def, pointer deflist)
 
   return def;
 }
-
+#endif
 pointer new_name(char *s)
 {
   pointer n = new_node(name_t);
@@ -635,7 +639,7 @@ void refc_final_report(FILE *where)
 
 /*-ends-ends-ends-ends-ends-*/
 
-void refc_copyN_log(pointer p, int n)
+static void refc_copyN_log(pointer p, int n)
 {
   Log2("refc_copyN%s(N=%d)\n", zone_pointer_info(p), n);
   
@@ -664,25 +668,25 @@ static void refc_make_copy_log(pointer p, unsigned weak)
     }
 }
 
-void refc_copyS_log(pointer p, const char *s)
+static void refc_copyS_log(pointer p, const char *s)
 {
   Log2("refc_copyS%s \"%s\"\n", zone_pointer_info(p), s);
   return;
 }
 
-void refc_copy_pointerS_log(pointer p, const char *s)
+static void refc_copy_pointerS_log(pointer p, const char *s)
 {
   Log2("refc_copy_pointerS%s \"%s\"\n", zone_pointer_info(p), s);
   return;
 }
 
-void refc_copyNth_log(pointer p, unsigned n)
+static void refc_copyNth_log(pointer p, unsigned n)
 {
   Log2("refc_copyNth%s n==%u\n", zone_pointer_info(p), n);
   return;
 }
 
-void refc_copy_make_cyclic_log(pointer p)
+static void refc_copy_make_cyclic_log(pointer p)
 {
   if (IsNil(p))
     refc_copy_NILcount++;
@@ -746,7 +750,7 @@ static void refc_flip_pointer(pointer *pp)
  */
 
 /* True always for pointers */
-inline int refc_okPointer(pointer p)
+static inline int refc_okPointer(pointer p)
 {
   return IsNil(p) || (Srefc(p) > 0 && (HasPointers(p) || Wrefc(p) == 0) /* && !IsDeleting(p) */ );
 }
@@ -778,6 +782,7 @@ static inline int okPointerDel(pointer p)
 
 static void refc_search(pointer start, pointer *pp)
 {
+
   if (IsDeleting(*pp)) /* deletion of p already underway */
     return;
     
@@ -865,8 +870,10 @@ static void refc_delete_do(pointer *pp)
   if (IsDeleting(p))
     return;
   
-  /* 5. loop: flip */     Assert(HasPointers(p) && (Srefc(p) == 0) && (Wrefc(p) > 0));
-  refc_flip_node(p);      Assert(refc_okPointer(p));
+//  /* 5. loop: flip */     Assert(HasPointers(p));
+  Assert(Srefc(p) == 0); Assert(Wrefc(p) > 0);
+  refc_flip_node(p);
+//  Assert(refc_okPointer(p));
   
   /* 6. search H; search T */
   refc_search(p, &Hd(p));
@@ -876,13 +883,18 @@ static void refc_delete_do(pointer *pp)
   if (Srefc(p) > 0)
     return;
   
-  /* 8. (HasPointers => Set deleting delete H; delete T); return  */  Assert(HasPointers(p) && ! IsDeleting(p)); /* belt and braces*/
-  refc_change_to_deleting(p);
-  refc_delete(&H(p));
-  refc_delete(&T(p)); /* deletion of last pointer to p will free the node */
+  /* 8. (HasPointers => Set deleting delete H; delete T); return  */
+//  Assert(HasPointers(p));
+  Assert(! IsDeleting(p)); /* belt and braces*/
+  if (HasPointers(p)) {
+    refc_change_to_deleting(p);
+    refc_delete(&H(p));
+    refc_delete(&T(p)); /* deletion of last pointer to p will free the node */
+  }
 
+  // *** This Never Happens ***
   if (!IsFree(p) && ALLrefc(p) == 0) { /* deletion of last pointer has not freed the node*/
-    Log1("refc_delete%s deletion of last pointer has not freed node - freeing it\n", refc_pointer_info(p));
+    Log1("!!refc_delete%s deletion of last pointer has not freed node - freeing it\n", refc_pointer_info(p));
     free_node(p);
   }
 //
@@ -907,14 +919,7 @@ void refc_delete(pointer *pp)
 
 
 /*-end-end-end-end-end-end-*/
-
 /*-end-end-end-end-end-end-*/
-
-pointer delete_hd_only(pointer p)
-{
-  (void)err_refc("delete_hd_only: not implemented");
-  return NIL; /*NOTREACHED*/
-}
 
 int refc_check()
 {
@@ -932,6 +937,9 @@ char *refc_pointer_info(pointer p)
  * Deletes any pointers in the node
  * Error if node not an apply node - intended for use only in reduce()
  */
+// TODO
+// a more comprehensive separation of HasPointers vs !HasPointers including formal ops to convert between one and another
+//... alos simpler definition of HasPointers in terms of check-a-bit
 pointer refc_update_to_int(pointer n, int i)
 {
   if ( !IsApply(n)) {
@@ -1041,7 +1049,7 @@ pointer refc_copy(pointer p)
 }
 #endif
 /* copy a pointer n times */
-pointer refc_copyN(pointer p, int n)
+static pointer refc_copyN(pointer p, int n)
 {
   refc_copyN_log(p, n);
   
@@ -1061,6 +1069,7 @@ pointer refc_copy(pointer p)
   return refc_copyN(p, 1);
 }
 
+#ifdef deprecated
 /* copy the H of a pointer, propagating weakness
  * result is strong if p is strong and H(p) is strong, otherwise weak
  */
@@ -1121,7 +1130,7 @@ pointer refc_copyT(pointer p)
   
   return c;
 }
-
+#endif
 /*
  * refc_make_copy() copy a pointer, making sure that there are never weak pointers to constants
  * "weak" is the number >=0, of "intermediate" pointers which have been visited before "p"
@@ -1197,7 +1206,7 @@ pointer refc_copyS(pointer p, char *s)
   return refc_copyS_do(p, s, 0);
 }
 
-/* copy taking into account strength of p - to update p itself*/
+/* copy taking into account strength of p - used to update p itself*/
 pointer refc_copy_pointerS(pointer p, char *s)
 {
   unsigned weak = 0;
@@ -1323,7 +1332,7 @@ pointer refc_update(pointer n, pointer new)
  * refc_update_hd
  *  replace the hd pointer of a node, with a new pointer (if different), deleting the old hd
  */
-pointer refc_update_hd(pointer n, pointer new)
+static pointer refc_update_hd(pointer n, pointer new)
 {
   if (!HasPointers(n)) {
     (void) err_refc("trying to update_hd a constant");
@@ -1345,7 +1354,7 @@ pointer refc_update_hd(pointer n, pointer new)
  * refc_update_tl
  *  replace the tl pointer of a node, with a new pointer (if different), deleting the old tl
  */
-pointer refc_update_tl(pointer n, pointer new)
+static pointer refc_update_tl(pointer n, pointer new)
 {
   if (!HasPointers(n)) {
     (void) err_refc("trying to update_tl a constant");
