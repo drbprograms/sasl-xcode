@@ -31,6 +31,8 @@ int unit_test;
 int mem_dump;
 
 static int no_reset;
+
+int weak_path;
 /*
  * getenv_int - get int value from named environment variable
  * 	var - environment variable name
@@ -104,7 +106,9 @@ static int main_init()
   /* deep debugging */
   unit_test         = getenv_int("unit_test", 0);       /* default off */
   mem_dump          = getenv_int("mem_dump", 0);        /* default off */
-
+  
+  /* deep changes */
+  weak_path         = getenv_int("weak_path", 1);       /* default on = examine weakness of pointers when copying *//*XXX to be implemented*/
  return store_init() || reduce_init();
 }
 
@@ -123,6 +127,7 @@ static int main_done()
 #define I(i) new_int(i)
 #define D(x,i) C(N(x)),I(i))
 
+#ifdef deprecated
 void unit_test_do002(void)
 {
   extern pointer make_flatten(pointer p);
@@ -160,6 +165,12 @@ void unit_test_do/*001*/(void)
   DF("t");
 
   return;
+}
+#endif
+
+void unit_test_do(void)
+{
+  /* nothing */
 }
 /* *** test *** test *** test *** test *** test *** test *** test *** test */
 
