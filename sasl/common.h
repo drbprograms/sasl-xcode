@@ -27,7 +27,7 @@ typedef enum tag {
 #define IsFreeTag(t) ((t)==free_t)
   deleting_t,
 #define IsDeletingTag(t) ((t)==deleting_t)
-  /* Special - node that is going to become free when refc_delete() has compltedrecursive deltions */
+  /* Special - node that is going to become free when refc_delete() has compltedrecursive deltions */
   /* Constants - node contains the value of the constant and neveer points to anything else */
   int_t,
 #define IsNumTag(t) ((t)==int_t)

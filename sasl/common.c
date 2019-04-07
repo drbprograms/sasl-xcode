@@ -149,8 +149,10 @@ jmp_buf jmpbuffer;	/* for longjmp() in case of errors */
 int err_parse(char *f, char *msg1, char *msg2)
 {
   extern char *yytext;
+  extern int yylineno;
+  extern char *lex_filename;
 
-  (void) fprintf(stderr, "reset: parsing: %s (%s in rule %s) got \"%s\"\n", msg1, f, msg2, yytext);
+  (void) fprintf(stderr, "reset: parsing: %s (%s in rule %s) got \"%s\" at %s:%d\n", msg1, f, msg2, yytext, lex_filename, yylineno);
   longjmp(jmpbuffer, 1);
   return 0; /*NOTEREACHED*/
 }
@@ -537,7 +539,7 @@ pointer out(pointer n)
   return n;
 }
 
-#define Limit 64  /* arbitrary limit to output */
+#define Limit 16  /* arbitrary limit to output */
 pointer out_debug(pointer n)
 {
  return out_debug_limit(n, Limit);

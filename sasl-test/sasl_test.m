@@ -3,7 +3,7 @@
 //  sasl-test
 //
 //  Created by David Brownbridge on 20/02/2018.
-//  Copyright © 2018 David Brownbridge. All rights reserved.
+//  Copyright (C) 2018 David Brownbridge. All rights reserved.
 //
 
 #import <XCTest/XCTest.h>
