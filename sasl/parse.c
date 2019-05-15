@@ -143,7 +143,7 @@ static int parse_err(char *f, char *msg1, char *msg2);
  */
 int parse_formal()
 {
-  Parse_Debug("parse_formal");
+  Debug("parse_formal");
 
   if (lex_looking_at(tok_name)) {
     Maker0("formal<=name",1,1);
@@ -162,7 +162,7 @@ int parse_formal()
        return s;
     }
     else
-      return parse_err("parse_formal","expecting \')\'","<formal> ::= ( <namelist> ) ");
+      return parse_err("parse_formal","expecting \')\'","<formal> ::= ( <namelist> )");
   }
  return parse_err("parse_formal","name constant or \'(\' not found","<name> | <constant> | (<namelist>)");
 }
@@ -176,7 +176,7 @@ int parse_struct()
 {
   int s;
   
-  Parse_Debug("parse_struct");
+  Debug("parse_struct\n");
   
   if (lex_looking_at(tok_left_paren)) {
     Maker1("struct<= ( formal )", 2,1);
@@ -210,7 +210,7 @@ int parse_namelist()
 {
   int count;
   
-  Parse_Debug("parse_namelist");
+  Debug("parse_namelist\n");
   
   parse_struct();
   count = 1;
@@ -260,7 +260,7 @@ int parse_condexp()
 {
   int count;
   
-  Parse_Debug("parse_condexp");
+  Debug("parse_condexp\n");
   
   /* opexp */
   parse_opexp();
@@ -313,7 +313,7 @@ int parse_rhs()
 {
   int formals;
   
-  Parse_Debug("parse_rhs");
+  Debug("parse_rhs\n");
   
   for (formals = 0; !lex_looking_at_operator(op_equal); formals++)
     parse_formal();
@@ -336,7 +336,7 @@ int parse_clause()
 {
   int s;
   
-  Parse_Debug("parse_clause");
+  Debug("parse_clause\n");
 
   s = parse_namelist();
   //?bug xxx should parse "a=1" as namelist=expr but does not;  changing this could simplify parse_rhs() nicely
@@ -392,7 +392,7 @@ int parse_defs_do(int rule, char *rule_name)
   int f; /* how many formals in clause */
   int new_f;
   
-  Parse_Debug(rule_name);
+  Debug(rule_name);
   
   /* always at least one clause */
   f = parse_clause();
@@ -403,7 +403,7 @@ int parse_defs_do(int rule, char *rule_name)
     /* if looking_at(tok_semicolon) must have another clause
      * if newline then clause is optional - there another clause only if the next token is onside
      */
-    Parse_Debug("defs2"); /* temp */
+    Debug("defs2\n"); /* temp */
     new_f = parse_clause();
     Maker2i(rule_name, rule, 2, f); /* maker needs number of formals in *previous* clause */
     f = new_f;
@@ -414,7 +414,7 @@ int parse_defs_do(int rule, char *rule_name)
 
 int parse_defs()
 {
-  return parse_defs_do(7, "defs<=clause+");
+  return parse_defs_do(7, "defs<=clause+\n");
 }
 
 /*
@@ -425,7 +425,7 @@ int parse_defs()
  */
 int parse_expr()
 {
-  Parse_Debug("parse_expr");
+  Debug("parse_expr\n");
 
   parse_condexp();
   Maker1("expr<=condexp",8,1);
@@ -455,7 +455,7 @@ int parse_expr()
 
 int parse_comb()
 {
-  Parse_Debug("parse_comb");
+  Debug("parse_comb\n");
 
   if (parse_simple(0)) { /* preceeding newlines allowed */
     Maker1("comb<=simple",9,1);
@@ -464,7 +464,7 @@ int parse_comb()
     return 1;
   }
 
-  Parse_Debug("comb <= <empty>");
+  Debug("comb <= <empty>\n");
   return 0; /* permit failure */
 }
 
@@ -477,7 +477,7 @@ int parse_comb()
  */
 int parse_simple(char no_newline)
 {
-  Parse_Debug1("parse_simple", no_newline?", no newline":"");
+  Debug1("parse_simple%s\n", no_newline?", no newline":"");
 
   if (lex_looking_at_no_newline(tok_name, no_newline))
     return Maker0("simple<=name",10,1);
@@ -491,7 +491,7 @@ int parse_simple(char no_newline)
       return parse_err("parse_simple","expecting \')\' after expr","<simple> ::= (<expr>)");
   }
   
-  Parse_Debug("simple <= <empty>");
+  Debug("simple <= <empty>\n");
   return 0; /* permit failure */
 }
 
@@ -537,7 +537,7 @@ int parse_opx(char prio)
   char done = 0;
   char p = prio;
 
-  Parse_Debug("parse_opx");
+  Debug("parse_opx\n");
 
   /* prefix */
   if (lex_looking_at_operator_fix_prio('p', p)) { /* prefix */
@@ -589,7 +589,7 @@ int parse_opx(char prio)
 
 int parse_opexp()
 {
-  Parse_Debug("parse_opexp");
+  Debug("parse_opexp\n");
 
   if (parse_opx(0)) {
     Maker1("opexp<=opx", 11,1);
@@ -610,7 +610,7 @@ int parse_opexp()
  */
 int parse_deflist()
 {
-  return parse_defs_do(13, "deflist<=clause+");
+  return parse_defs_do(13, "deflist<=clause+\n");
 }
 
 /*
@@ -619,7 +619,7 @@ int parse_deflist()
  */
 pointer parse_program()
 {
-  Parse_Debug("parse_program");
+  Debug("parse_program\n");
   
   if (lex_looking_at(tok_def)) {
     Maker0("program<=DEF ...", 14,2);
@@ -627,7 +627,7 @@ pointer parse_program()
     
     if(lex_looking_at(tok_question_mark)) {
       Maker1("program<=defs ?", 14,3);
-      return parse_check(defs, "program<=defs ?");   /*xxx parse_check is NOT correct here or "the most recent"defs? */
+      return parse_check(defs, "program<=defs ?\n");   /*xxx parse_check is NOT correct here or "the most recent"defs? */
     } else {
       parse_err("parse_program","expecting \'?\'","<program> ::= DEF <defs>?");
       return NIL;
@@ -636,7 +636,7 @@ pointer parse_program()
     parse_expr();
     if(lex_looking_at(tok_question_mark)) {
       Maker1("program<=expr?", 14,1);
-      return parse_check(root, "program<=expr?");
+      return parse_check(root, "program<=expr?\n");
     }    else {
       parse_err("parse_program","expecting \'?\'","<program> ::= <expr>?");
       return NIL;

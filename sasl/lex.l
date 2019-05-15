@@ -1,5 +1,7 @@
 /* scanner for sasl */
-     
+
+%option   yylineno
+
 %{
 #include <math.h>	/* need this for the call to atof() below */
 #include <string.h>	/* need this for strchr() */
@@ -9,6 +11,19 @@
 
 #define Max 1000
 %}
+
+/*
+ * 2019-04-20 14.37.27 Cleansing
+ *  Consider making tokens in lex.l - eg lex rukes TRUE {....} would push const TRUE on the stack;  consider also havinga *single instance* of const TRUE (with refc).
+ *    This would make Maker0() redundant, instead Maker1() would process the const already on the stack
+ *
+ *  Consider making "offside" a token and signalling offside when it occurs to simplify indentation processing
+ *
+ *
+ *  Condsider re-formulating LEX_BEBUG{,0,2} to make printing of "explainatory text" options - so that lex become a pretty-printer.  LInk thids to error reporting so tht the programmer can see exactly where the syntx error or whatever occured.
+ *    eg Debug1 ("A question mark: %s\n", yytext) -> LEX_SHOW("A question mark"); // yytext is implicit
+ *    eg Debug2("An integer: %s (%d)\n", yytext, atoi( yytext ) ) -> LEX_SHOW1("An integer (%d), atoi(yytext));
+ */
 
 SIGN	 [+-]
 DIGIT    [0-9]
@@ -42,7 +57,7 @@ NAME       [A-Za-z][A-Za-z0-9_]*
 	  m++;
 	  margins[m] = lex_margin = lex_col;
 	  if (debug>1)
-	    fprintf(stderr,"offside:%d\n", lex_margin);
+	    Debug1("offside:%d\n", lex_margin);
 	}
 
 	static void scan(void);
@@ -52,7 +67,7 @@ NAME       [A-Za-z][A-Za-z0-9_]*
       m--;
 	  lex_margin = margins[m];
 	  if (debug>1)
-	    fprintf(stderr,"onside:%d\n", lex_margin);
+	    Debug1("onside:%d\n", lex_margin);
 	  scan();/* is a token revelealed by the new margin? */
 	}
 
@@ -86,10 +101,18 @@ NAME       [A-Za-z][A-Za-z0-9_]*
   /* GET file */
   void lex_do_get(char* filename)
   {
-    FILE *f = fopen(filename, "r");
-    lex_filename = filename;
+    FILE *f;
+    
+    if (filename) {
+      f = fopen(filename, "r");
+      lex_filename = filename;
+    }
+    else {
+      f = stdin;
+      lex_filename = "";
+    }
     if (!f) {
-      LEX_ERROR2("unable to GET \"%s\"\n", filename);
+      Error1("unable to GET \"%s\"\n", filename);
     } else {
       yypush_buffer_state(yy_create_buffer(f, YY_BUF_SIZE ));
     }
@@ -103,24 +126,24 @@ NAME       [A-Za-z][A-Za-z0-9_]*
 
 	/* delimiters */
 
-WHERE		{ LEX_DEBUG("A Where: %s\n", yytext); return off(tok_where); }
-"->"		{ LEX_DEBUG("A then: %s\n", yytext); return off(tok_then); }
+WHERE		{ Debug1("A Where: %s\n", yytext); return off(tok_where); }
+"->"		{ Debug1("A then: %s\n", yytext); return off(tok_then); }
 
-"?"		{ LEX_DEBUG("A question mark: %s\n", yytext); return indent(tok_question_mark); }
+"?"		{ Debug1("A question mark: %s\n", yytext); return indent(tok_question_mark); }
 
-"("		{ LEX_DEBUG("A left paren: %s\n", yytext); return off(tok_left_paren); }
-")"		{ LEX_DEBUG("A right paren: %s\n", yytext); return off(tok_right_paren); }
-";"		{ LEX_DEBUG("A semi-colon: %s\n", yytext); return off(tok_semicolon); }
-","		{ LEX_DEBUG("A comma: %s\n", yytext); return off(tok_comma); }
+"("		{ Debug1("A left paren: %s\n", yytext); return off(tok_left_paren); }
+")"		{ Debug1("A right paren: %s\n", yytext); return off(tok_right_paren); }
+";"		{ Debug1("A semi-colon: %s\n", yytext); return off(tok_semicolon); }
+","		{ Debug1("A comma: %s\n", yytext); return off(tok_comma); }
 
-"<-"		{ LEX_DEBUG("A generator: %s\n", yytext); return off(tok_generator); /* ZF */ }
-"{"		{ LEX_DEBUG("A left paren: %s\n", yytext);  return off(tok_left_brace); /* ZF */}
-"}"		{ LEX_DEBUG("A right paren: %s\n", yytext); return off(tok_right_brace); /* ZF */ }
+"<-"		{ Debug1("A generator: %s\n", yytext); return off(tok_generator); /* ZF */ }
+"{"		{ Debug1("A left paren: %s\n", yytext);  return off(tok_left_brace); /* ZF */}
+"}"		{ Debug1("A right paren: %s\n", yytext); return off(tok_right_brace); /* ZF */ }
 
 	/* Constants - all tok_constant, with associated tok_const_xxx subtype */
 	/* numbers */
 
-{DIGIT}+	{ LEX_DEBUG2( "An integer: %s (%d)\n", yytext, atoi( yytext ) ); lex_tc = tok_const_integer; return off(tok_constant); /* prefer to make integers; TODO make float iff integer has too many digts */ }
+{DIGIT}+	{ Debug2( "An integer: %s (%d)\n", yytext, atoi( yytext ) ); lex_tc = tok_const_integer; return off(tok_constant); /* prefer to make integers; TODO make float iff integer has too many digts */ }
 
 	/* floating point numbers
 	atof() format definition:
@@ -134,57 +157,57 @@ WHERE		{ LEX_DEBUG("A Where: %s\n", yytext); return off(tok_where); }
 	*/     
 {DIGIT}+{EXP} |
 {DIGIT}+"."{DIGIT}*{EXP}? |
-{DIGIT}*"."{DIGIT}+{EXP}?	{ LEX_DEBUG2( "A float: %s (%g)\n", yytext, atof(yytext)); lex_tc = tok_const_floating; return off(tok_constant); }
+{DIGIT}*"."{DIGIT}+{EXP}?	{ Debug2( "A float: %s (%g)\n", yytext, atof(yytext)); lex_tc = tok_const_floating; return off(tok_constant); }
 
 	/* truth values */
 
-TRUE	{ LEX_DEBUG("A boolconst: %s\n", yytext); lex_tc = tok_const_true; return off(tok_constant); }
-FALSE	{ LEX_DEBUG("A boolconst: %s\n", yytext); lex_tc = tok_const_false; return off(tok_constant); }
+TRUE	{ Debug1("A boolconst: %s\n", yytext); lex_tc = tok_const_true; return off(tok_constant); }
+FALSE	{ Debug1("A boolconst: %s\n", yytext); lex_tc = tok_const_false; return off(tok_constant); }
 
 	/* characters */
-"%".		{ LEX_DEBUG("A charconst: %s\n", yytext+1); lex_tc = tok_const_char; return off(tok_constant); /* the character is in yytext[1] */ }
-NL	{ LEX_DEBUG("A special char: %s\n", yytext); lex_tc = tok_const_special_char_NL; return off(tok_constant); /* the special char is in yytext[0]*/ }
-NP	{ LEX_DEBUG("A special char: %s\n", yytext); lex_tc = tok_const_special_char_NP; return off(tok_constant); /* the special char is in yytext[0]*/ }
-SP	{ LEX_DEBUG("A special char: %s\n", yytext); lex_tc = tok_const_special_char_SP; return off(tok_constant); /* the special char is in yytext[0]*/ }
-TAB	{ LEX_DEBUG("A special char: %s\n", yytext); lex_tc = tok_const_special_char_TAB; return off(tok_constant); /* the special char is in yytext[0]*/ }
+"%".		{ Debug1("A charconst: %s\n", yytext+1); lex_tc = tok_const_char; return off(tok_constant); /* the character is in yytext[1] */ }
+NL	{ Debug1("A special char: %s\n", yytext); lex_tc = tok_const_special_char_NL; return off(tok_constant); /* the special char is in yytext[0]*/ }
+NP	{ Debug1("A special char: %s\n", yytext); lex_tc = tok_const_special_char_NP; return off(tok_constant); /* the special char is in yytext[0]*/ }
+SP	{ Debug1("A special char: %s\n", yytext); lex_tc = tok_const_special_char_SP; return off(tok_constant); /* the special char is in yytext[0]*/ }
+TAB	{ Debug1("A special char: %s\n", yytext); lex_tc = tok_const_special_char_TAB; return off(tok_constant); /* the special char is in yytext[0]*/ }
 
 	/* nil */
-"()"		{ LEX_DEBUG("A nil: %s\n", yytext); lex_tc = tok_const_nil; return off(tok_constant); }
+"()"		{ Debug1("A nil: %s\n", yytext); lex_tc = tok_const_nil; return off(tok_constant); }
 
 	/* end of Constants */
 
 	/* string */
 
-'		{ BEGIN(STRING); LEX_DEBUG("Start string: %s\n", yytext); lex_nesting = 1; lex_tc = tok_const_string_start; return off(tok_constant); }
-<STRING>'	{ LEX_DEBUG("Start nested string: %s\n", yytext); lex_nesting++; lex_tc = tok_const_string_start_nested; return indent(tok_constant); }
+'		{ BEGIN(STRING); Debug1("Start string: %s\n", yytext); lex_nesting = 1; lex_tc = tok_const_string_start; return off(tok_constant); }
+<STRING>'	{ Debug1("Start nested string: %s\n", yytext); lex_nesting++; lex_tc = tok_const_string_start_nested; return indent(tok_constant); }
 <STRING>"\""	{
   			if (--lex_nesting <= 0) 
 			{
 				BEGIN(INITIAL);	/* reset prefix */	
- 				LEX_DEBUG("String end: %s\n", yytext);
+ 				Debug1("String end: %s\n", yytext);
 				lex_tc = tok_const_string_end;
 			}
 			else
 			{
-    				LEX_DEBUG("String nested end: %s\n", yytext);
+    				Debug1("String nested end: %s\n", yytext);
 				lex_tc = tok_const_string_end_nested;
 			}
 			return indent(tok_constant);
 		}
-<STRING>.|\n	{ LEX_DEBUG("String item: %s\n", yytext); lex_tc = tok_const_string_char; return indent(tok_constant); /* allow string to contain newlines */ }
+<STRING>.|\n	{ Debug1("String item: %s\n", yytext); lex_tc = tok_const_string_char; return indent(tok_constant); /* allow string to contain newlines */ }
 
 	/* End Constants */
 
 	/* comments */
 
-"||".*\n	{ LEX_DEBUG("A Comment: %s", yytext); yyless(yyleng - 1); grow(); /* put back the newline terminator - consume without returning */}
+"||".*\n	{ Debug1("A Comment: %s", yytext); yyless(yyleng - 1); grow(); /* put back the newline terminator - consume without returning */}
 
 	/* whitespace */
 ^[ \t]+	{ grow();  /* leading whitespace - calculate indentation level - consume without returning */ }
 
-[ \t]+		{ LEX_DEBUG2("Whitespace \"%s\" (%lu characters)\n", yytext, strlen(yytext)); grow();  /* no need to return a token */ }
+[ \t]+		{ Debug2("Whitespace \"%s\" (%lu characters)\n", yytext, strlen(yytext)); grow();  /* no need to return a token */ }
 
-\n		{ LEX_DEBUG0("A Newline.\n"); lex_got_newline = 1; grow();  /* no need to return a token */ }
+\n		{ Debug("A Newline.\n"); lex_got_newline = 1; grow();  /* no need to return a token */ }
 
 	/* Operators - in order from 1 of increasing binding power */
 ":"	{ lex_oper_fix = "i"; lex_oper_assoc = 'r'; lex_oper = op_colon; return off(tok_operator); /* <<-- lhs/rhs symbol overload to be sorted in parser */ }
@@ -231,9 +254,9 @@ TAB	{ LEX_DEBUG("A special char: %s\n", yytext); lex_tc = tok_const_special_char
 
 	/* directives - for interactive use, not part of the sasl languages itself */
 
-^DEF.*		{ LEX_DEBUG( "DEF: %s\n", yytext); return indent(tok_def); }
+^DEF.*		{ Debug1( "DEF: %s\n", yytext); return indent(tok_def); }
 	
-^GET" ".* { LEX_DEBUG( "A GET: \"%s\"\n", yytext+4); grow(); lex_do_get(yytext+4); }
+^GET" ".* { Debug1( "A GET: \"%s\"\n", yytext+4); grow(); lex_do_get(yytext+4); }
 
 ^COUNT.* |
 ^GC.* |
@@ -244,27 +267,27 @@ TAB	{ LEX_DEBUG("A special char: %s\n", yytext); lex_tc = tok_const_special_char
 ^READ.* |	/* TODO READ is a <simple> not a Command ... fix it */
 ^RESET.* |
 ^TO.* |
-^WRITE.*	{ LEX_DEBUG( "A command: %s\n", yytext); return indent(tok_command); 	/* "interactive" user commands - yytext includes remainder of line to be analysed */ }
-^"!".*		{ LEX_DEBUG( "A shell command: %s\n", yytext+1); return indent(tok_command); /* shell escape - yytext includes remainder of line to be executed */ }
+^WRITE.*	{ Debug1( "A command: %s\n", yytext); return indent(tok_command); 	/* "interactive" user commands - yytext includes remainder of line to be analysed */ }
+^"!".*		{ Debug1( "A shell command: %s\n", yytext+1); return indent(tok_command); /* shell escape - yytext includes remainder of line to be executed */ }
 
 	 /* names */     
 
-{NAME}		{ LEX_DEBUG( "A name: %s\n", yytext ); return off(tok_name); }
+{NAME}		{ Debug1( "A name: %s\n", yytext ); return off(tok_name); }
 
 	/* Unrecognised */
 
-.		{ LEX_DEBUG2( "Unrecognized character: %s (%u)\n", yytext, (unsigned) yytext[0] ); grow(); }
+.		{ Error2( "Unrecognized character: \'%c\' (%u)\n", yytext[0], yytext[0] ); grow(); }
 
     /* end of input */
 
 <<EOF>> {
-  LEX_DEBUG0("The end of file\n");
+  Debug("The end of file\n");
     yypop_buffer_state();
     if ( !YY_CURRENT_BUFFER ) {
       //    yyterminate();
       return (tok_eof);
     } else {
-      LEX_DEBUG0("continue where we left off ...\n");
+      Debug("continue where we left off ...\n");
     }
   }
 %%
@@ -347,14 +370,14 @@ static void scan()
     lex_got_token = 1;
   }
   else if (lex_token == tok_offside)
-    LEX_DEBUG0("scan: got token but it's tok_offside\n");/* error */
+    Error("scan: got token but it's tok_offside\n");/* error */
 }
 
 /* check if token is offside, return tok_offside, otherwise indent and return the token */
 static tok off(tok t)
 {
   if (lex_col < lex_margin) {
-    LEX_DEBUG("It's offside: %s\n", yytext);
+    Debug1("It's offside: %s\n", yytext);
     yyless(0);	/* put the token back for reprocessing when margin changes */
     return tok_offside;
   }
@@ -469,7 +492,7 @@ int lex_looking_at_operator_fix_prio(char fix, char prio)
     /* got a operator with matching fix */
     the_fix[0] = fix; lex_oper_fix = the_fix; /* make this "sticky" - set the lex_oper_fix even if prio is wrong */
     lex_oper_prio = lex_get_prio(lex_oper, fix);
-    LEX_DEBUG2("An operator: prio %d fix \"%s\"\n", lex_oper_prio, lex_oper_fix);
+    Debug2("An operator: prio %d fix \"%s\"\n", lex_oper_prio, lex_oper_fix);
     /* check priority */
     if (lex_oper_prio >= prio) { 
       consume();

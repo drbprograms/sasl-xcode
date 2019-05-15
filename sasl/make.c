@@ -41,7 +41,7 @@ static void make_show(void)
   pointer *spp;
   
   for (spp = sp; spp > stack; spp--) {
-    fprintf(stderr, "make[%ld]: ", sp-stack); out_debug_limit(*spp, Limit);
+    Debug1("make[%ld]: ", sp-stack); out_debug_limit(*spp, Limit);
   }
   return;
 }
@@ -84,7 +84,7 @@ pointer make_reset()
   
   for (/**/; sp > stack; sp--) {
     if (debug)
-      fprintf(stderr, "make_reset[%ld]: ", Stacked); out_debug(Top);
+      Debug1("make_reset[%ld]: ", Stacked); out_debug(Top);
     refc_delete(sp);
   }
   
@@ -97,7 +97,7 @@ pointer make_reset()
 pointer make_constant_string()
 {
   char c;
-  MAKE_DEBUG("make_constant_string\n");
+  Debug("make_constant_string\n");
   
   if (!lex_looking_at(tok_constant)) {
     (void) make_err("make_constant_string","lexer string error",0);
@@ -130,7 +130,7 @@ pointer make_constant()
   extern tok_const lex_tc;	/* set by the lexer iff tok_constant found */
   
   
-  MAKE_DEBUG("make_constant\n");
+  Debug("make_constant\n");
   
   switch (lex_tc) {
     case tok_const_nil:		return NIL;  /*???*/
@@ -237,9 +237,9 @@ pointer make_abstract(pointer formal, pointer def, tag t)
   pointer n;
   
   if (debug > 1) {
-    fprintf(stderr, "%s%d[", "make_abstract", (int)t);
+    Debug2("%s%d[", "make_abstract", (int)t);
     out_debug1(formal);
-    fprintf(stderr, "] ");
+    Debug("] ");
     out_debug(def);
   }
   
@@ -249,7 +249,7 @@ pointer make_abstract(pointer formal, pointer def, tag t)
     n = reduce_abstract(formal, def, t);
   
   if (debug > 1) {
-    fprintf(stderr, "%s%d--> ", "make_abstract", (int)t);
+    Debug2("%s%d--> ", "make_abstract", (int)t);
     out_debug(n);
   }
   
@@ -265,7 +265,7 @@ pointer make_abstract(pointer formal, pointer def, tag t)
  */
 pointer make_where(pointer condexp, pointer defs)
 {
-  MAKE_DEBUG("make_where ...\n");
+  Debug("make_where ...\n");
   
   if (IsNil(defs))
     return condexp;
@@ -298,7 +298,7 @@ pointer make_defs(pointer new, pointer old)
 /* multi def1 def2 n <= TRYn n def1 def2 */
 pointer make_multi_clause(pointer def1, pointer def2, int n)
 {
-  MAKE_DEBUG("make_multi_clause ...");
+  Debug("make_multi_clause ...");
     
   return new_apply4(new_comb(TRYn_comb), new_int(n), def1, def2);
 }
@@ -310,10 +310,10 @@ pointer make_multi_clause(pointer def1, pointer def2, int n)
 static int count_name(pointer name, pointer p)
 {
   /*temp*/
-  fprintf(stderr,"count_name: "); out_debug1(name); out_debug(p);
+  Debug("count_name: "); out_debug1(name); out_debug(p);
   
   Assert(IsName(name));
-  if (IsSameName(name, p))
+  if (is_same_name(name, p))
     return 1;
   
   if (IsStruct(p) && !IsMatchName(p))
@@ -342,7 +342,7 @@ pointer de_dup1(pointer name, pointer old)
     return old;
   }
   
-  if (IsSameName(name, old))
+  if (is_same_name(name, old))
     return new_apply(new_comb(MATCH_comb), old);
   
   return old;
@@ -354,7 +354,7 @@ pointer de_dup1(pointer name, pointer old)
 
 pointer de_dup(pointer new, pointer old)
 {
-  MAKE_DEBUG("de_dup: "); out_debug1(new); out_debug(old);
+  Debug("de_dup: "); out_debug1(new); out_debug(old);
 
   if (IsNil(new) || IsMatchName(new))
     return old;
@@ -471,7 +471,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
   n2 = sp[2];
   
   if (debug >2)
-    fprintf(stderr, "%s %d,%d\n", ruledef, rule, subrule);
+    Debug3("%s %d,%d\n", ruledef, rule, subrule);
   
   switch (rule) {
     case 1:
@@ -642,7 +642,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
         pointer dup;
         /* || clause == names:expr */
         /* "info" gives the number of arguments */
-        if (info > 0 && IsSameName(HH(n1), H(n2))) {
+        if (info > 0 && is_same_name(HH(n1), H(n2))) {
           /* multi-clause definition - not allowed with zero formals */
           HT(n1) = make_multi_clause(HT(n1), refc_copy(T(n2)), info);
         } else {
@@ -796,7 +796,7 @@ int maker(int howmany, char *ruledef, int rule, int subrule, int info)
   Push(n);
   
   if(debug){
-    fprintf(stderr, "%s %d,%d,%d,%d (Stacked=%ld) <= ", ruledef, rule, subrule, info, howmany, Stacked);
+    Debug6("%s %d,%d,%d,%d (Stacked=%ld) <= ", ruledef, rule, subrule, info, howmany, Stacked);
     out_debug_limit(sp[0], Limit);
   }
   

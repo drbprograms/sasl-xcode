@@ -88,16 +88,16 @@ static pointer reduce_abstract_do(pointer name, pointer n, int *got)
 {
   int hgot = 0, tgot = 0; /* counts how many occurences of x in Hd(n), Tl(n) */
   int ap; /* IsApply(n) - used to determine S vs Sp etc */
-  
-  if (debug > 1) {
-    fprintf(stderr, "%s[%s] (got==%d) ", "recursive_abstract_do", IsNil(name)?"NIL":Name(name), *got);
+
+    if (debug > 1) {
+    Debug3("%s[%s] (got==%d) ", "recursive_abstract_do", IsNil(name)?"NIL":Name(name), *got);
     out_debug(n);
   }
   
   if (IsNil(n))
     return n;	/* do[x] NIL => NIL */ /*assert((*got)==0)*/
-  
-  if (IsSameName(name, n)) {
+
+  if (is_same_name(name, n)) {
     /* combinator "labelling" do[x] x => Ix */
     /* was - update in place */
     (*got)++;
@@ -161,7 +161,7 @@ static pointer reduce_abstract1(pointer name, pointer exp, int r)
   Assert(IsName(name) || IsNil(name));
   
   if (debug > 1)
-    fprintf(stderr, "%s[%s] ", (r?"recursive_abstract1":"abstract1"), IsNil(name)?"NIL":Name(name)); out_debug(exp);
+    Debug2("%s[%s] ", (r?"recursive_abstract1":"abstract1"), IsNil(name)?"NIL":Name(name)); out_debug(exp);
 
   exp = reduce_abstract_do(name, exp, &got);
 
@@ -185,7 +185,7 @@ static pointer reduce_abstract1(pointer name, pointer exp, int r)
 #endif
   
   if (debug > 1)
-    fprintf(stderr, "%s[%s] --> ", (r?"recursive_abstract1":"abstract1"), IsNil(name)?"NIL":Name(name)); out_debug(exp);
+    Debug2("%s[%s] --> ", (r?"recursive_abstract1":"abstract1"), IsNil(name)?"NIL":Name(name)); out_debug(exp);
     
   return exp;
 }
@@ -206,12 +206,8 @@ pointer reduce_abstract(pointer pattern, pointer exp, tag t)
 {
   int recursive;
   
-  if (debug) {
-    fprintf(stderr, "%s%d[", "abstract", (int) t-2/*XX*/);
-    out_debug1(pattern);
-    fprintf(stderr, "] ");
-    out_debug(exp);
-  }
+  Debug1("%s[", err_tag_name(t)); out_debug1(pattern); Debug("] ");
+  out_debug(exp);
 
   Assert(t == abstract_condexp_t || t== abstract_formals_t || t == abstract_defs_t);
   Assert(!IsComb(pattern));
@@ -267,12 +263,7 @@ pointer reduce_abstract(pointer pattern, pointer exp, tag t)
     }
   }
   
-  if (debug) {
-    fprintf(stderr, "%s%d[", "abstract", (int) t-2/*XXX*/);
-    out_debug1(pattern);
-    fprintf(stderr, "] --> ");
-    out_debug(exp);
-  }
+  Debug1("%s[", err_tag_name(t)); out_debug1(pattern); Debug("] --> "); out_debug(exp);
   
   refc_delete(&pattern);
 

@@ -23,8 +23,10 @@ pointer builtin = {(node *)0,0};
 int partial_compile;
 int reduce_optimise;
 int debug;
+int logging;
 int no_code;
 int prelude = 0;
+int check;
 int loop_check;
 
 int unit_test;
@@ -45,8 +47,8 @@ static int getenv_int(char *var, int def)
   char *val = getenv(var);
   if (!val || sscanf(val, "%d", &res) != 1)
     res = def;
-  if (debug)
-    fprintf(stderr, "%s=%d\n", var, res);
+
+  Debug2("%s=%d\n", var, res);
   return res;
 }
 #ifdef getnenv_bool
@@ -55,7 +57,7 @@ static int getenv_bool(char *var)
 {
   int res = getenv("no_reset") ? 1 : 0;
   if (res && debug)
-    fprintf(stderr, "%s\n", var);
+    Debug("%s\n", var);
   return res;
 }
 #endif
@@ -70,23 +72,20 @@ static int read_file(char *filename)
   for (p = parse(); IsSet(p); p = parse()) {
     
     if (debug) {
-      fprintf(stderr, "program ==> "); out_debug(IsSet(root) ? root : defs);/*todo be more selective printing *new* defs*/
-      (void) reduce_log_report(stderr);
+      Debug("program ==> "); out_debug(IsSet(root) ? root : defs);/*todo be more selective printing *new* defs*/
     }
-    
+    (void) reduce_log_report(stderr);
+
     if (IsSet(root)) {
       root = reduce_print(&root);
-      printf("\n"); /* in deference to Unix */
+      User("\n"); /* in deference to Unix */
       
-      fprintf(stderr,"Start extra\n");
-      (void) reduce_log_report(stderr);
-      fprintf(stderr,"End extra\n");
+      Log("Start extra\n"); (void) reduce_log_report(stderr); Log("End extra\n");
 
       refc_delete(&root);
     }
     
-    if (debug)
-      (void) reduce_log_report(stderr);
+    (void) reduce_log_report(stderr);
   }
   
   return 0;
@@ -99,16 +98,19 @@ static int main_init()
   partial_compile 	= getenv_int("partial_compile", 0); /* default off */
   reduce_optimise 	= getenv_int("reduce_optimise", 0); /* default off */
   no_code		    = getenv_int("no_code", 0);         /* default off */
-  prelude           = getenv_int("prelude", 0);         /* default prelude - "-p" in argv[] overrides */
+  prelude           = getenv_int("prelude", 1);         /* default prelude - "-p" in argv[] overrides */
   no_reset          = getenv_int("no_reset", 1);        /* default off - todo change for interactive use */
-  loop_check        = getenv_int("loop_check", 1);      /* default ON xxx could be off when tests fininshed? */
 
   /* deep debugging */
   unit_test         = getenv_int("unit_test", 0);       /* default off */
+  logging           = getenv_int("logging", 1);         /* default on */
   mem_dump          = getenv_int("mem_dump", 0);        /* default off */
-  
+  check             = getenv_int("check", 1);           /* default ON - should always be 1 to validate refc algorithm */
+  loop_check        = getenv_int("loop_check", 1);      /* default ON xxx could be off when tests fininshed? */
+
   /* deep changes */
   weak_path         = getenv_int("weak_path", 1);       /* default on = examine weakness of pointers when copying *//*XXX to be implemented*/
+
  return store_init() || reduce_init();
 }
 
@@ -116,7 +118,9 @@ static int main_init()
 static int main_done()
 {
   store_done();
-  (void) reduce_log_report(stderr);
+  reduce_log_report(stderr);
+  reduce_final_report(stderr);
+
   return 0;
 }
 
@@ -186,9 +190,9 @@ int main(int argc, char **argv)
   int i;
  
   if(debug > 1) {
-    fprintf(stderr, "sizeof(node) %lu\n", sizeof(node));
-    fprintf(stderr, "_LastTag %d\n", _LastTag);
-    fprintf(stderr, "_TagCount %d\n", _LastTag);
+    Debug1("sizeof(node) %lu\n", sizeof(node));
+    Debug1("_LastTag %d\n", _LastTag);
+    Debug1("_TagCount %d\n", _LastTag);
   }
 
   (void) main_init();
@@ -210,12 +214,11 @@ int main(int argc, char **argv)
       resetting++;
       (void) main_init();
       (void) parse_reset();
-      if (debug)
-        (void) reduce_log_report(stderr);
+      (void) reduce_log_report(stderr);
       
-      fprintf(stderr, "reset ");
+      Error("reset ");
       for (i=1; i<=err; i++) /* indicate discreetely which reset occurred */
-        fprintf(stderr, ". ");
+        Error(". ");
     }
     resetting = 0;
   }
@@ -224,7 +227,7 @@ int main(int argc, char **argv)
 
   /* process command line: sasl [-p] [file..] */
   
-  /* option: -p  suprsess prelude - overrides prelude environment variable */
+  /* option: -p  supress prelude - overrides prelude environment variable */
   i = 1;
   if (argc > 1 && ! strcmp(argv[1], "-p")) {
     prelude = 0;
@@ -245,18 +248,15 @@ int main(int argc, char **argv)
         read_file(argv[i]);
     } else {
       /* no files - interactive */
-      (void) fprintf(stderr, "hello from %s\n", argv[0]);
-      read_file("/dev/stdin"); /*todo not quite right - need to say what next after ever program */
-      fprintf(stderr, "what next?\n");
+      Error1("hello from %s\n", argv[0]);
+      read_file(NULL); /* defaults to stdin */
+      Error("what next?\n");
     }
   
   /*
    * all done - wrap up
    */
   main_done();
-  
-  if (debug)
-    (void) reduce_final_report(stderr);
   
   return(0);
 }

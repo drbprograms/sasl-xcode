@@ -35,7 +35,10 @@ pointer make_append(pointer list, pointer tl)
  */
 void store_log(char *s, pointer p)
 {
-  Log2("%s%s ", s, zone_pointer_info(p));
+  if (! logging)
+    return;
+  
+  Debug2("%s%s ", s, zone_pointer_info(p));
   out_debug_limit(p, Limit);
 }
 
@@ -45,7 +48,7 @@ void store_log(char *s, pointer p)
 static int refc_err(char *msg, pointer p)
 {
   if (debug) {
-    Log2("refc_err: %s: %s\n", msg, zone_pointer_info(p));
+    Debug2("refc_err: %s: %s\n", msg, zone_pointer_info(p));
     refc_check();
   }
   return err_refc(msg);
@@ -146,7 +149,7 @@ pointer new_abstract(pointer name, pointer def, tag t)
     break;
   default:
       err_refc1("new_abstract: bad tag: ", (unsigned) t);
-    /*NOTREACHED*/
+      return NIL; /*NOTREACHED*/
   }
   Hd(n) = name;
   Tl(n) = def;
@@ -209,9 +212,9 @@ pointer *def_for2(pointer names, pointer defs, pointer n)
   
   if (IsAtom(H(names))) {
     /* name */
-    if (IsSameName(H(names), n)) {
+    if (is_same_name(H(names), n)) {
       if (debug >1)
-        fprintf(stderr, "def_for: \"%s\"\n", Name(n) );
+        Debug1("def_for: \"%s\"\n", Name(n) );
       return &H(defs);
     }
   } else {
@@ -272,9 +275,9 @@ pointer *def_for0(pointer deflist, pointer name)
   for (n = H(deflist), d = T(deflist); IsSet(n); n = T(n), d = T(d)) {
     if (IsAtom(H(n))) {
       /* name */
-      if (IsSameName(H(n), name)) {
+      if (is_same_name(H(n), name)) {
         if (debug >1)
-          fprintf(stderr, "def_for: \"%s\"\n", Name(Hd(n)) );
+          Debug("def_for: \"%s\"\n", Name(Hd(n)) );
         return &H(d);
       }
       continue; /*loop*/
@@ -360,21 +363,29 @@ pointer add_deflist_to_defNEW(pointer def, pointer deflist)
   return def;
 }
 #endif
+
 pointer new_name(char *s)
 {
   pointer n = new_node(name_t);
   
   if (!s)
-    (void) err_store("new_name: null string pointer");
-  
-  Name(n) = (char *)malloc(strlen(s)+1);
-  
+    return err_store("new_name: null string pointer");
+
+  Name(n) = strdup(s);
   if (!Name(n))
-    (void) err_store("new_name: malloc out of space");
-  
-  if (!strcpy(Name(n), s))
-    (void) err_store("new_name: strcpy failed");
-  
+    return err_store("new_name: strdup out of space");
+
+//
+//  Name(n) = (char *)malloc(strlen(s)+1);
+//
+//  if (!Name(n))
+//    return err_store("new_name: malloc out of space");
+//
+//  if (!strcpy(Name(n), s))
+//    return err_store("new_name: strcpy failed");
+//
+// end TODO
+//
   store_log_new(n);
   return n;
 }
@@ -390,13 +401,15 @@ static pointer new_unary(tag t, char *name, pointer (*fun)(pointer p))
 {
   pointer n = new_node(t);
   
-  Uname(n) = (char *)malloc(strlen(name)+1);
+  if (!name)
+    return err_store("new_unary: null string pointer");
   
+  Uname(n) = strdup(name);
   if (!Uname(n))
-    (void) err_store("new_unary: malloc out of space");
-  
-  if (!strcpy(Uname(n), name))
-    (void) err_store("new_unary: strcpy failed");
+    return err_store("new_unary: strdup out of space");
+
+  if (!fun)
+    return err_store("new_unary: null function pointer");
 
   Ufun(n) = fun;
   
@@ -420,7 +433,7 @@ pointer new_unary_nonstrict(char *name, pointer (*fun)(pointer p))
 /* special tag to indicate cell is being freed - no change to any pointers already there */
 static pointer refc_change_to_deleting(pointer p)
 {
-  Log1("refc_change_to_deleting%s\n", refc_pointer_info(p));
+  Debug1("refc_change_to_deleting%s\n", refc_pointer_info(p));
 
   Assert(HasPointers(p));
   Assert(! IsFree(p));
@@ -503,7 +516,7 @@ static void refc_flip_node_log(pointer p)
 {
   refc_flip_node_count++;
   
-  Log2("refc_flip_node%s (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
+  Debug2("refc_flip_node%s (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
   
   return;
 }
@@ -514,7 +527,7 @@ static void refc_flip_pointer_log(pointer p)
 {
   refc_flip_pointer_count++;
   
-  Log2("refc_flip_pointer%s (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
+  Debug2("refc_flip_pointer%s (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
   
   return;
 }
@@ -530,9 +543,9 @@ void refc_search_log(pointer start, pointer p)
     refc_search_strong_count++;
   /*... or as Chris Strachey would have said: "(Node(p) == Node(start) ? refc_search_start_count : refc_search_strong_count) += 1;"*/
   
-  /*NB two Log calls because refc_pointer_info() returns pointer to a *fixed string* */
-  Log2("refc_search%s%s\t", refc_pointer_info(p), (Node(p) == Node(start) ? "$" : ""));
-  Log1("start%s\n", refc_pointer_info(start));
+  /*NB two Debug calls because refc_pointer_info() returns pointer to a *fixed string* */
+  Debug2("refc_search%s%s\t", refc_pointer_info(p), (Node(p) == Node(start) ? "$" : ""));
+  Debug1("start%s\n", refc_pointer_info(start));
   
   return;
 }
@@ -543,14 +556,14 @@ static unsigned refc_search_flip_strong_count = 0;  /* strong pointers made weak
 void refc_delete_log(pointer p)
 {
   if (! IsNil(p))
-  Log2("refc_delete%s (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
+    Debug2("refc_delete%s (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
   
   return;
 }
 
 void refc_delete_post_delete_log(pointer p)
 {
-  Log2("refc_delete_post_delete%s (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
+  Debug2("refc_delete_post_delete%s (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
   
   return;
 }
@@ -565,7 +578,7 @@ void refc_delete_post_search_log(pointer p)
   if (loop_check && Srefc(p) == 0) {  /* loop_check is set: log check_node_info and check for non-islands being deleted */
     zone_check_node_data data = zone_check_island(p, refc_delete_depth);
     
-    Log5("%srefc_delete_post_search%s (depth=%u) %s%s\n",
+    Debug5("%srefc_delete_post_search%s (depth=%u) %s%s\n",
          ! zone_is_island(data) ? "" : "!!",
          refc_pointer_info(p),
          refc_delete_depth,
@@ -575,7 +588,7 @@ void refc_delete_post_search_log(pointer p)
   } else if (loop_check > 1) {     /* loop_check > 1 and (SRefc != 0), about to delete so check for islands NOT being deleted */
     zone_check_node_data data = zone_check_island(p, refc_delete_depth);
     
-    Log5("%srefc_delete_post_search%s (depth=%u) %s%s\n",
+    Debug5("%srefc_delete_post_search%s (depth=%u) %s%s\n",
          zone_is_island(data) ? "" : "!!",
          refc_pointer_info(p),
          refc_delete_depth,
@@ -583,7 +596,7 @@ void refc_delete_post_search_log(pointer p)
          zone_is_island(data) ? "" : " about to NOT delete something which is free");
     
   }else {
-    Log2("refc_delete_post_search%s (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
+    Debug2("refc_delete_post_search%s (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
   }
   
   return;
@@ -597,6 +610,9 @@ void refc_delete_post_search_log(pointer p)
 void refc_log_report(FILE *where)
 {
   /* first report on storage */
+  if (! logging)
+    return;
+  
   new_log_report(where);
   
   fprintf(where, "%s\t%s\n", "What","count");
@@ -625,6 +641,9 @@ void refc_log_report(FILE *where)
 
 void refc_final_report(FILE *where)
 {
+  if (! logging)
+    return;
+  
   if (refc_inuse() > 0)
     err_refc1("!!final report but number of pointers in use==", refc_inuse());
   if (refc_delete_depth > 0)
@@ -641,7 +660,7 @@ void refc_final_report(FILE *where)
 
 static void refc_copyN_log(pointer p, int n)
 {
-  Log2("refc_copyN%s(N=%d)\n", zone_pointer_info(p), n);
+  Debug2("refc_copyN%s(N=%d)\n", zone_pointer_info(p), n);
   
   if (IsNil(p))
     refc_copy_NILcount += n;
@@ -656,7 +675,7 @@ static void refc_copyN_log(pointer p, int n)
 
 static void refc_make_copy_log(pointer p, unsigned weak)
 {
-  Log2("refc_make_copy(weak=%u)%s \n", weak, zone_pointer_info(p));
+  Debug2("refc_make_copy(weak=%u)%s \n", weak, zone_pointer_info(p));
   
   if (IsNil(p))
     refc_copy_NILcount++;
@@ -670,19 +689,19 @@ static void refc_make_copy_log(pointer p, unsigned weak)
 
 static void refc_copyS_log(pointer p, const char *s)
 {
-  Log2("refc_copyS%s \"%s\"\n", zone_pointer_info(p), s);
+  Debug2("refc_copyS%s \"%s\"\n", zone_pointer_info(p), s);
   return;
 }
 
 static void refc_copy_pointerS_log(pointer p, const char *s)
 {
-  Log2("refc_copy_pointerS%s \"%s\"\n", zone_pointer_info(p), s);
+  Debug2("refc_copy_pointerS%s \"%s\"\n", zone_pointer_info(p), s);
   return;
 }
 
 static void refc_copyNth_log(pointer p, unsigned n)
 {
-  Log2("refc_copyNth%s n==%u\n", zone_pointer_info(p), n);
+  Debug2("refc_copyNth%s n==%u\n", zone_pointer_info(p), n);
   return;
 }
 
@@ -759,7 +778,7 @@ static inline int inDeleting(void)
 {
   return refc_delete_depth > 0;
 }
-/* True for pointers when deleting */
+/* True for pointers when deleting *//*UNUSED*/
 static inline int okPointerDel(pointer p)
 {
   return refc_okPointer(p) || (inDeleting() > 0 && ((IsDeleting(p) ? ALLrefc(p) > 0 : ALLrefc(p) == 0)));
@@ -894,8 +913,8 @@ static void refc_delete_do(pointer *pp)
 
   // *** This Never Happens ***
   if (!IsFree(p) && ALLrefc(p) == 0) { /* deletion of last pointer has not freed the node*/
-    Log1("!!refc_delete%s deletion of last pointer has not freed node - freeing it\n", refc_pointer_info(p));
-    free_node(p);
+    Debug1("!!refc_delete%s deletion of last pointer has not freed node\n", refc_pointer_info(p));
+    err_refc("deletion of last pointer has not freed node");
   }
 //
   return;
@@ -1209,9 +1228,7 @@ pointer refc_copyS(pointer p, char *s)
 /* copy taking into account strength of p - used to update p itself*/
 pointer refc_copy_pointerS(pointer p, char *s)
 {
-  unsigned weak = 0;
-  if (IsSet(p) && IsWeak(p))
-    weak++;
+  unsigned weak = IsSet(p) && IsWeak(p) ? 1 : 0;
 
   refc_copy_pointerS_log(p, s);
   return refc_copyS_do(p, s, weak);
@@ -1422,7 +1439,7 @@ pointer refc_update_Itl(pointer n, pointer newtl)
 pointer /*so can be used in an expression*/ refc_update_pointerS(pointer *pp, char *s)
 {
   Assert( s);
-  Assert(*s);
+  Assert(*s); /* prohibit "" */
   
   if (IsNil(*pp)) {
     refc_err("attempting to update a NIL pointer", *pp);
@@ -1457,7 +1474,7 @@ pointer refc_update_hdtl(pointer n, pointer newhd, pointer newtl)
   
 //  /* */
 //  if (!HasPointers(n) && Wrefc(n) > 0)
-//    (void) fprintf(stderr,"refc_update: making constant with Wrefc>0: %s\n", zone_pointer_info(n));
+//    Debug("refc_update: making constant with Wrefc>0: %s\n", zone_pointer_info(n));
   
   return n;
   

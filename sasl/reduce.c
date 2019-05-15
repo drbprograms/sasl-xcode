@@ -139,21 +139,21 @@ void reduce_log(pointer *base, pointer *sp)
     if (debug) {
         int i = 0;
         
-        fprintf(stderr, "\n");
-        fprintf(stderr, "reduction %d: %s (%ld/%ld Depth/Stacked)\n",  reductions, refc_pointer_info(Top), Depth, Stacked);
+        Debug("\n");
+        Debug4("reduction %d: %s (%ld/%ld Depth/Stacked)\n",  reductions, refc_pointer_info(Top), Depth, Stacked);
         
         indent(stderr, Depth);
         out_debug_limit1(Top, Limit); /*arbitrary limit to output */
-        fprintf(stderr, " ");
+        Debug(" ");
         for (i=1; i < ArgLimit && i < Stacked; i++) {
             out_debug_limit1(Tl(sp[-i]), Limit); /*arbitrary limit to output */
-            fprintf(stderr, " ");
+            Debug(" ");
         }
-        fprintf(stderr, "\n");
+        Debug("\n");
         
         (void) refc_check();
         
-        fprintf(stderr, "\n");
+        Debug("\n");
     }
     
     return;
@@ -169,8 +169,7 @@ void reduce_poss_optimise_log(pointer *base, pointer *sp, pointer *last)
     if (last && sp)
     {
         int i = (int)(sp - last);
-        if (debug)
-            (void) fprintf(stderr, "reduce_optimise?: %s: got: %d\n", err_tag_name(Tag(*sp)), i);
+        Debug2("reduce_optimise?: %s: got: %d\n", err_tag_name(Tag(*sp)), i);
         
         poss_optimisations++;
         if (i > poss_optimisations_max)
@@ -185,8 +184,7 @@ void reduce_optimise_log(pointer p, int got)
 {
     optimisations += got;
     tag_optimisations[Tag(p)] += got;
-    if (debug)
-        fprintf(stderr, "reduce_optimise:\t"); out_tag(Tag(p)); fprintf(stderr, "\t%d\n", got);
+    Debug2("reduce_optimise:\t%s\t%d\n", err_tag_name(Tag(p)), got);
     return;
 }
 
@@ -199,6 +197,9 @@ void reduce_log_report(FILE *where)
 {
     int i, check=0, opt_check = 0;
     
+    if (! logging)
+        return;
+
     refc_log_report(where);
     
     (void) fprintf(where,"operator\treductions\toptimisations\n");
@@ -237,8 +238,7 @@ int reduce_int(pointer *nn)
     *nn = reduce(nn);
     
     if (Tag(*nn) != int_t) {
-        if (debug)
-            fprintf(stderr, "reduce_int: got %s\n", err_tag_name(Tag(*nn)));
+        Debug1("reduce_int: got %s\n", err_tag_name(Tag(*nn)));
         (void) err_reduce("expecting int");
     }
     
@@ -250,8 +250,7 @@ char reduce_bool(pointer *nn)
     *nn = reduce(nn);
     
     if (Tag(*nn) != bool_t) {
-        if (debug)
-            fprintf(stderr, "reduce_bool: got %s\n", err_tag_name(Tag(*nn)));
+        Debug1("reduce_bool: got %s\n", err_tag_name(Tag(*nn)));
         (void) err_reduce("expecting bool");
     }
     
@@ -263,8 +262,7 @@ char reduce_char(pointer *nn)
     *nn = reduce(nn);
     
     if (Tag(*nn) != char_t) {
-        if (debug)
-            fprintf(stderr, "reduce_char: got %s\n", err_tag_name(Tag(*nn)));
+        Debug1("reduce_char: got %s\n", err_tag_name(Tag(*nn)));
         (void) err_reduce("expecting char");
     }
     
@@ -334,17 +332,19 @@ char reduce_is_equal(pointer *nn1, pointer *nn2)
 }
 
 /*
- * like reduce_is_equal, but on the tags have to match
+ * like reduce_is_equal, but only the tags have to match
  * NB NIL never has same tag as *anything*
  */
 int reduce_is_equal_tag(pointer *nn1, pointer *nn2)
 {
     pointer n1, n2;
-    
+
     n1 = *nn1 = reduce(nn1); /* update in place */
     n2 = *nn2 = reduce(nn2); /* update in place */
-    
-    return (IsSet(n1) && IsSet(n1) && Tag(n1) == Tag(n2));
+
+    return (IsSet(n1) &&
+            IsSet(n2) && /* bugfix 2019-05-10 previously tested IsSet(n1) twice here */
+            Tag(n1) == Tag(n2));
 }
 
 /* unary stricts
@@ -417,13 +417,13 @@ int reduce_init()
 void reduce_show(pointer p)
 {
     if (IsNum(p))
-        printf("%d", Num(p));
+        User1("%d", Num(p));
     else if (IsDbl(p))
-        printf("%g", Dbl(p));
+        User1("%g", Dbl(p));
     else if (IsChar(p))
-        printf("%c", Char(p));
+        User1("%c", Char(p));
     else if (IsBool(p))
-        printf("%s", Bool(p) ? "TRUE" : "FALSE");
+        User1("%s", Bool(p) ? "TRUE" : "FALSE");
 }
 
 /*
@@ -437,10 +437,7 @@ pointer reduce_print(pointer *p)
     /* reduce to find a constant, print it, free it */
     *p = reduce(p);
     
-    if (debug) {
-        fprintf(stderr, "Reduce_print: ");
-        out_debug(*p);
-    }
+    Debug("Reduce_print: ");    out_debug(*p);
     
     if (IsCons(*p)) {
         Hd(*p) = reduce_print(&Hd(*p));
@@ -501,8 +498,8 @@ pointer reduce(pointer *n)
         
         if (debug > 1) {
             indent(stderr, Depth); out_debug1(Top);
-            fprintf(stderr, "\t%s (%ld/%ld Depth/Stacked)", refc_pointer_info(Top), Depth, Stacked);
-            fprintf(stderr, "\tTop\n");
+            Debug3("\t%s (%ld/%ld Depth/Stacked)", refc_pointer_info(Top), Depth, Stacked);
+            Debug("\tTop\n");
         }
         
 //      while (Tag(Top) == apply_t) {
@@ -554,8 +551,10 @@ pointer reduce(pointer *n)
                             unsigned uu;
                             for (uu = u; uu >= 1; uu--) {
                                 reduce(pp);
-                                if (! IsCons(*pp))
+                                if (!pp || ! IsCons(*pp)) {
                                     err_reduce("applying list to a number: not enough elements in list");
+                                    return NIL; /*NOTREACHED*/
+                                }
                                 pp = &T(*pp);
                             }
                         }
@@ -645,7 +644,7 @@ pointer reduce(pointer *n)
                                 /* elide (I x) y ==> x y on stack
                                  * Afterwards Arg1 is become H(Top')
                                  */
-                                Log("**I_comb Stacked>2 case\n");
+                                Debug("**I_comb Stacked>2 case\n");
                                 Assert(!SameNode(Top, *arg1)); /* avoid stack loops!?! */
 
                                 Pop(1);
@@ -653,13 +652,18 @@ pointer reduce(pointer *n)
 
                             } else {
                                 /* at the top of the stack: (I x) ==> x on stack
+                                 * recurse to reduce x (short-circuit)
                                  * and update return value "*n" to x ie T(Top) */
-                                Log("**I_comb Stacked==2 case\n");/*XXX*/
+                                Debug("**I_comb Stacked==2 case\n");/*XXX*/
                                 Assert(n && ! IsNil(*n));   /*xxx*/
                                 Assert(SameNode(*n, Top));  /* should always be the case for Depth==1 */
-                                
-                                T(Top) = reduce(&T(Top)); /* carry on reducing OR *arg1 = reduce(arg1) */
-                                refc_update_pointerS(n, "T"); /* ie T(Top) */
+
+                                *arg1 = reduce(arg1); /* recurse - carry on reducing */
+                                *n = refc_update_pointerS(n, "T");
+//                                Assert(SameNode(*n, Top));  /* should always be the case for Depth==1 */
+//
+//                                T(Top) = reduce(&T(Top)); /* carry on reducing OR *arg1 = reduce(arg1) */
+//                                refc_update_pointerS(n, "T"); /* ie T(Top) */
                                 Pop(1);
                                 return *n;
                             }
@@ -1004,9 +1008,9 @@ pointer reduce(pointer *n)
         /* nothing found */
         if (debug) {
             int i=0;
-            fprintf(stderr, "unimplemented tag: Stacked %ld:%s\n", Stacked, err_tag_name(tt));
+            Debug2("unimplemented tag: Stacked %ld:%s\n", Stacked, err_tag_name(tt));
             
-            do {fprintf(stderr, "Stack[%d]: ",i--); out_debug(sp[i]); } while (-i < Stacked);
+            do {Debug1("Stack[%d]: ",i--); out_debug(sp[i]); } while (-i < Stacked);
         }
         err_reduce("unimplemented tag");
         /*NOTREACHED*/
@@ -1015,11 +1019,11 @@ pointer reduce(pointer *n)
         /* THN - this never happens? */
         if (debug) {
             int i=0;
-            fprintf(stderr, "reduce done Stacked=%ld\n",  Stacked);/*XXX*/
+            Debug1("reduce done Stacked=%ld\n",  Stacked);/*XXX*/
 
             out_debug(Top);
 
-            do {fprintf(stderr, "Stack[%d]: ",i--); out_debug(sp[i]); } while (-i < Stacked);
+            do {Debug1("Stack[%d]: ",i--); out_debug(sp[i]); } while (-i < Stacked);
         }
 //      xxx  Assert(Stacked == 1 || IsCons(Top));
         return R;

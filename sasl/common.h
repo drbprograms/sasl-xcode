@@ -266,8 +266,8 @@ typedef struct node
 #define Dbl(ptr)	_GETVCHECK((ptr),d,IsDbl)
 #define Bool(ptr)	_GETVCHECK((ptr),b,IsBool)
 #define Char(ptr)	_GETVCHECK((ptr),c,IsChar)
-#define UnName(ptr)  _GETVCHECK((ptr),op,IsFun).n         /* function name char * */
-#define UnFun(ptr)   _GETVCHECK((ptr),op,IsFun).fun       /* function (*fun)(pointer p) */
+#define Uname(ptr)  _GETVCHECK((ptr),op,IsFun).n         /* function name char * */
+#define Ufun(ptr)   _GETVCHECK((ptr),op,IsFun).fun       /* function (*fun)(pointer p) */
 #define DefName(ptr) (_GETVCHECK((ptr),pointers,IsDef).hd)
 #define DefDefs(ptr) (_GETVCHECK((ptr),pointers,IsDef).tl)
 #define DefNames(ptr) H(_GETVCHECK((ptr),pointers,IsDef).tl)
@@ -297,9 +297,10 @@ typedef struct node
 #define TH(x) T(H(x))
 #define TT(x) T(T(x))
 
+/*
+ * strings, names etc
+ */
 #include <string.h>
-#define EqName(n1, n2)	(!strcmp(Name(n1), Name(n2)))   /* textual equality of the names */
-#define IsSameName(n1,n2) (IsName(n1) && IsName(n2) && EqName(n1,n2)) /* are both arugments names and the same */
 
 /*
  * error handling - err...
@@ -316,7 +317,7 @@ extern int err_reduce(char *msg1);
 extern int err_reduce2(char *msg1, char *msg2b);
 extern int err_refc(char *msg1);
 extern int err_refc1(char *msg1, unsigned i);
-extern int err_store(char *msg);
+extern pointer err_store(char *msg);
 extern int err_zone(char *msg1);
 
 /*
@@ -326,23 +327,72 @@ extern int debug;
 extern int mem_dump;
 
 /*
+ * memory checks - usually set
+ */
+extern int check;
+
+/*
  * logging
  */
+extern int logging;
 extern int loop_check;
 
 /*
- * Log helper macros does not observe "debug" as debugging is differnet from logging
+ * Debug reporting macros - used for fault diagnosis - enabled for debugging only
+ */
+#define DebugWhere stderr
+#define Debug(s)                          (!debug ? 0 : fprintf(DebugWhere, (s)))
+#define Debug1(s,a1)                      (!debug ? 0 : fprintf(DebugWhere, (s),(a1)))
+#define Debug2(s,a1,a2)                   (!debug ? 0 : fprintf(DebugWhere, (s),(a1),(a2)))
+#define Debug3(s,a1,a2,a3)                (!debug ? 0 : fprintf(DebugWhere, (s),(a1),(a2),(a3)))
+#define Debug4(s,a1,a2,a3,a4)             (!debug ? 0 : fprintf(DebugWhere, (s),(a1),(a2),(a3),(a4)))
+#define Debug5(s,a1,a2,a3,a4,a5)          (!debug ? 0 : fprintf(DebugWhere, (s),(a1),(a2),(a3),(a4),(a5)))
+#define Debug6(s,a1,a2,a3,a4,a5,a6)       (!debug ? 0 : fprintf(DebugWhere, (s),(a1),(a2),(a3),(a4),(a5),(a6)))
+#define Debug7(s,a1,a2,a3,a4,a5,a6,a7)    (!debug ? 0 : fprintf(DebugWhere, (s),(a1),(a2),(a3),(a4),(a5),(a6),(a7)))
+#define Debug8(s,a1,a2,a3,a4,a5,a6,a7,a8) (!debug ? 0 : fprintf(DebugWhere, (s),(a1),(a2),(a3),(a4),(a5),(a6),(a7),(a8)))
+
+/*
+ * Log reporting macros - used for day-to-day recording of program behaviour - usually enabled
+ * does not observe "debug" as debugging is different from logging
  */
 #define LogWhere stderr
-#define Log(s)                          (fprintf(LogWhere, (s)))
-#define Log1(s,a1)                      (fprintf(LogWhere, (s),(a1)))
-#define Log2(s,a1,a2)                   (fprintf(LogWhere, (s),(a1),(a2)))
-#define Log3(s,a1,a2,a3)                (fprintf(LogWhere, (s),(a1),(a2),(a3)))
-#define Log4(s,a1,a2,a3,a4)             (fprintf(LogWhere, (s),(a1),(a2),(a3),(a4)))
-#define Log5(s,a1,a2,a3,a4,a5)          (fprintf(LogWhere, (s),(a1),(a2),(a3),(a4),(a5)))
-#define Log6(s,a1,a2,a3,a4,a5,a6)       (fprintf(LogWhere, (s),(a1),(a2),(a3),(a4),(a5),(a6)))
-#define Log7(s,a1,a2,a3,a4,a5,a6,a7)    (fprintf(LogWhere, (s),(a1),(a2),(a3),(a4),(a5),(a6),(a7)))
-#define Log8(s,a1,a2,a3,a4,a5,a6,a7,a8) (fprintf(LogWhere, (s),(a1),(a2),(a3),(a4),(a5),(a6),(a7),(a8)))
+#define Log(s)                          (!logging ? 0 : fprintf(LogWhere, (s)))
+#define Log1(s,a1)                      (!logging ? 0 : fprintf(LogWhere, (s),(a1)))
+#define Log2(s,a1,a2)                   (!logging ? 0 : fprintf(LogWhere, (s),(a1),(a2)))
+#define Log3(s,a1,a2,a3)                (!logging ? 0 : fprintf(LogWhere, (s),(a1),(a2),(a3)))
+#define Log4(s,a1,a2,a3,a4)             (!logging ? 0 : fprintf(LogWhere, (s),(a1),(a2),(a3),(a4)))
+#define Log5(s,a1,a2,a3,a4,a5)          (!logging ? 0 : fprintf(LogWhere, (s),(a1),(a2),(a3),(a4),(a5)))
+#define Log6(s,a1,a2,a3,a4,a5,a6)       (!logging ? 0 : fprintf(LogWhere, (s),(a1),(a2),(a3),(a4),(a5),(a6)))
+#define Log7(s,a1,a2,a3,a4,a5,a6,a7)    (!logging ? 0 : fprintf(LogWhere, (s),(a1),(a2),(a3),(a4),(a5),(a6),(a7)))
+#define Log8(s,a1,a2,a3,a4,a5,a6,a7,a8) (!logging ? 0 : fprintf(LogWhere, (s),(a1),(a2),(a3),(a4),(a5),(a6),(a7),(a8)))
+
+/*
+ * Error reporting macros - error messages to the user
+ */
+#define ErrorWhere stderr
+#define Error(s)                          (fprintf(ErrorWhere, (s)))
+#define Error1(s,a1)                      (fprintf(ErrorWhere, (s),(a1)))
+#define Error2(s,a1,a2)                   (fprintf(ErrorWhere, (s),(a1),(a2)))
+#define Error3(s,a1,a2,a3)                (fprintf(ErrorWhere, (s),(a1),(a2),(a3)))
+#define Error4(s,a1,a2,a3,a4)             (fprintf(ErrorWhere, (s),(a1),(a2),(a3),(a4)))
+#define Error5(s,a1,a2,a3,a4,a5)          (fprintf(ErrorWhere, (s),(a1),(a2),(a3),(a4),(a5)))
+#define Error6(s,a1,a2,a3,a4,a5,a6)       (fprintf(ErrorWhere, (s),(a1),(a2),(a3),(a4),(a5),(a6)))
+#define Error7(s,a1,a2,a3,a4,a5,a6,a7)    (fprintf(ErrorWhere, (s),(a1),(a2),(a3),(a4),(a5),(a6),(a7)))
+#define Error8(s,a1,a2,a3,a4,a5,a6,a7,a8) (fprintf(ErrorWhere, (s),(a1),(a2),(a3),(a4),(a5),(a6),(a7),(a8)))
+
+/*
+ * User reporting macros - SASL output to the user
+ */
+#define UserWhere stdout
+#define User(s)                          (fprintf(UserWhere, (s)))
+#define User1(s,a1)                      (fprintf(UserWhere, (s),(a1)))
+#define User2(s,a1,a2)                   (fprintf(UserWhere, (s),(a1),(a2)))
+#define User3(s,a1,a2,a3)                (fprintf(UserWhere, (s),(a1),(a2),(a3)))
+#define User4(s,a1,a2,a3,a4)             (fprintf(UserWhere, (s),(a1),(a2),(a3),(a4)))
+#define User5(s,a1,a2,a3,a4,a5)          (fprintf(UserWhere, (s),(a1),(a2),(a3),(a4),(a5)))
+#define User6(s,a1,a2,a3,a4,a5,a6)       (fprintf(UserWhere, (s),(a1),(a2),(a3),(a4),(a5),(a6)))
+#define User7(s,a1,a2,a3,a4,a5,a6,a7)    (fprintf(UserWhere, (s),(a1),(a2),(a3),(a4),(a5),(a6),(a7)))
+#define User8(s,a1,a2,a3,a4,a5,a6,a7,a8) (fprintf(UserWhere, (s),(a1),(a2),(a3),(a4),(a5),(a6),(a7),(a8)))
 
 /* 
  * defaults and environment variables
@@ -371,8 +421,8 @@ extern int reduce_optimise;
 extern char *err_tag_name(tag t);
 
 extern int got_name(pointer name, pointer p);
+extern int is_same_name(pointer n1, pointer n2);
 
-extern int out_tag(tag t);
 extern pointer out(pointer n);
 extern pointer out_debug(pointer n);
 extern pointer out_debug_limit(pointer n, int limit);

@@ -138,11 +138,11 @@ extern void lex_do_get(char *f);
 
 extern int debug;
 
-#define LEX_ERROR1(string)      fprintf(stderr, string)
-#define LEX_ERROR2(string, value)      fprintf(stderr, string, value)
+#define LEX_ERROR1(string)      Debug(string)
+#define LEX_ERROR2(string, value)      Debug(string, value)
 
-#define LEX_DEBUG0(string)      ((debug) ? fprintf(stderr, string) : 0)
-#define LEX_DEBUG(string,value)			((debug) ? fprintf(stderr, string, value) : 0)
-#define LEX_DEBUG2(string,value1, value2)	((debug) ? fprintf(stderr, string, value1, value2) : 0)
+#define LEX_DEBUG0(string)      ((debug) ? Debug(string) : 0)
+#define LEX_DEBUG(string,value)			((debug) ? Debug(string, value) : 0)
+#define LEX_DEBUG2(string,value1, value2)	((debug) ? Debug(string, value1, value2) : 0)
 
 /* end lex.h */

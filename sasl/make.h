@@ -9,7 +9,5 @@ extern int maker(int howmany, char *ruledef, int rule, int subrule, int info);
 #define Maker2i(def,r,s,i) 	maker(2,(def),(r),(s),(i))
 #define MakerNi(n,def,r,s,i)	maker(n,(def),(r),(s),(i))
 
-#define MAKE_DEBUG(where) 		(debug/*>1*/ ? fprintf(stderr, "%s", where) : 0)
-
 extern pointer make_reset(void);
 

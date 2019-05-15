@@ -126,18 +126,27 @@ char *err_tag_name(tag t)
 int got_name(pointer name, pointer p)
 {
     /*temp*/
-    fprintf(stderr,"got_name: "); out_debug1(name); out_debug(p);
+    Debug("got_name: "); out_debug1(name); out_debug(p);
     
     Assert(IsName(name));
-    if (IsSet(p) && IsName(p) && EqName(p, name))
+    if (is_same_name(name, p))
         return 1;
-    if (IsStruct(p)) {
+    if (IsStruct(p))
         return got_name(name, Hd(p)) || got_name(name, Tl(p));
-    }
+
     return 0;
 }
 
-
+/* Returns 1 if n1 and n2 are name nodes with same Name() strings, otherwise 0 */
+int is_same_name(pointer n1, pointer n2)
+{
+  return
+    IsName(n1) &&
+    IsName(n2) &&
+    Name(n1) &&
+    Name(n2) &&
+    (! strcmp(Name(n1), Name(n2)));
+}
 /*
  * error handling - err...
  */
@@ -152,42 +161,42 @@ int err_parse(char *f, char *msg1, char *msg2)
   extern int yylineno;
   extern char *lex_filename;
 
-  (void) fprintf(stderr, "reset: parsing: %s (%s in rule %s) got \"%s\" at %s:%d\n", msg1, f, msg2, yytext, lex_filename, yylineno);
+  Error6("reset: parsing: %s (%s in rule %s) got \"%s\" at %s line:%d\n", msg1, f, msg2, yytext, lex_filename, yylineno);
   longjmp(jmpbuffer, 1);
   return 0; /*NOTEREACHED*/
 }
 
 int err_make(char *f, char *msg1, int i)
 {
-  (void) fprintf(stderr, "reset: making: %s (%s %d)\n", f, msg1, i);
+  Error3("reset: making: %s (%s %d)\n", f, msg1, i);
   longjmp(jmpbuffer, 2);
   return 0; /*NOTEREACHED*/
 }
 
 int err_make2(char *f, char *msg1)
 {
-  (void) fprintf(stderr, "reset: making: %s%s\n", f, msg1);
+  Error2("reset: making: %s%s\n", f, msg1);
   longjmp(jmpbuffer, 2);
   return 0; /*NOTEREACHED*/
 }
 
 int err_make1(char *f)
 {
-  (void) fprintf(stderr, "reset: making: %s\n", f);
+  Error1("reset: making: %s\n", f);
   longjmp(jmpbuffer, 2);
   return 0; /*NOTEREACHED*/
 }
 
 int err_out(char *f, char *msg1, char *msg2, int n)
 {
-  (void) fprintf(stderr, "reset: out: %s (%s %s)\n", msg1, f, msg2);
+  Error3("reset: out: %s (%s %s)\n", msg1, f, msg2);
   longjmp(jmpbuffer, 3);
   return 0; /*NOTEREACHED*/
 }
 
 int err_reduce2(char *msg1, char *msg2)
 {
-  (void) fprintf(stderr, "reset: reduce: %s %s\n", msg1, msg2);
+  Error2("reset: reduce: %s %s\n", msg1, msg2);
   longjmp(jmpbuffer, 4);
   return 0; /*NOTEREACHED*/
 }
@@ -199,50 +208,42 @@ int err_reduce(char *msg1)
 
 int err_refc(char *msg1)
 {
-  (void) fprintf(stderr, "reset: refc: %s\n", msg1);
+  Error1("reset: refc: %s\n", msg1);
   longjmp(jmpbuffer, 5);
   return 0; /*NOTEREACHED*/
 }
 
 int err_refc1(char *msg1, unsigned u)
 {
-  (void) fprintf(stderr, "reset: refc: %s%u\n", msg1, u);
+  Error2("reset: refc: %s%u\n", msg1, u);
   longjmp(jmpbuffer, 5);
   return 0; /*NOTEREACHED*/
 }
 
 int err_zone(char *msg1)
 {
-  (void) fprintf(stderr, "reset: zone: %s\n", msg1);
+  Error1("reset: zone: %s\n", msg1);
   longjmp(jmpbuffer, 5);
   return 0; /*NOTREACHED*/
 }
 
 int err_zone1(char *msg1, unsigned u)
 {
-  (void) fprintf(stderr, "reset: zone: %s%u\n", msg1, u);
+  Error2("reset: zone: %s%u\n", msg1, u);
   longjmp(jmpbuffer, 5);
   return 0; /*NOTREACHED*/
 }
 
-int err_store(char *msg1)
+pointer err_store(char *msg1)
 {
-    (void) fprintf(stderr, "reset: store: %s\n", msg1);
+    Error1("reset: store: %s\n", msg1);
     longjmp(jmpbuffer, 5);
-    return 0; /*NOTEREACHED*/
+    return NIL; /*NOTEREACHED*/
 }
 
 /*
  * outputter - out...
  */
-
-int out_tag(tag t)
-{
-  if (debug)
-    return fprintf(stderr, "reset: %s", err_tag_name(t));
-
-  return 0;
-}
 
 static int out_out(FILE *where, pointer n);
 
@@ -435,9 +436,9 @@ static int out_out(FILE *where, pointer n)
           return fprintf(where, "~");
           
         case unary_plus_op:
-          return fprintf(where, "U+");/* "U" to be different binary plus */
+          return fprintf(where, "unary+");/* "U" to be different binary plus */
         case unary_minus_op:
-          return fprintf(where, "U-"); /* "U" to be different binary minus */
+          return fprintf(where, "unary-"); /* "U" to be different binary minus */
           
         case unary_count_op:
           return fprintf(where, "#");
@@ -524,7 +525,7 @@ static int out_out(FILE *where, pointer n)
         case unary_nonstrict:
           return fprintf(where, "non-strict-:%s", Uname(n));
         case _LastTag:
-          return err_store("invalid tag: _LastTag");
+          return err_zone("invalid tag: _LastTag");
       }
     }
   return 0; /*NOTEREACHED*/
@@ -535,7 +536,7 @@ pointer out(pointer n)
   budget = -1; /* unlimited output */
 
   (void) out_out(stdout, n);
-  (void) printf("\n");
+  (void) User("\n");
   return n;
 }
 
@@ -553,7 +554,7 @@ pointer out_debug_limit(pointer n, int limit)
   
   budget = limit;
   (void) out_out(stderr, n);
-  (void) fprintf(stderr, "\n");
+  Debug("\n");
   return n;
 }
 

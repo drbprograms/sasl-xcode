@@ -17,6 +17,7 @@
 		0F7E655D201A4BFF001A6B3C /* parse.c in Sources */ = {isa = PBXBuildFile; fileRef = 0F7E6553201A4BFF001A6B3C /* parse.c */; };
 		0F7E655E201A4BFF001A6B3C /* store.c in Sources */ = {isa = PBXBuildFile; fileRef = 0F7E6554201A4BFF001A6B3C /* store.c */; };
 		0F7E6560201A4C8F001A6B3C /* lex.l in Sources */ = {isa = PBXBuildFile; fileRef = 0F7E655F201A4C8F001A6B3C /* lex.l */; };
+		0F98ED9C22844E3C002794A3 /* test.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F98ED9B22844E3C002794A3 /* test.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -55,6 +56,7 @@
 		0F7E6554201A4BFF001A6B3C /* store.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 2; lastKnownFileType = sourcecode.c.c; path = store.c; sourceTree = "<group>"; };
 		0F7E655F201A4C8F001A6B3C /* lex.l */ = {isa = PBXFileReference; indentWidth = 2; lastKnownFileType = sourcecode.lex; name = lex.l; path = /Users/dad/Dropbox/Dev/xcode/sasl/sasl/lex.l; sourceTree = "<absolute>"; };
 		0F7E6561201B75DD001A6B3C /* ToDo.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ToDo.txt; sourceTree = "<group>"; };
+		0F98ED9B22844E3C002794A3 /* test.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = test.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -78,6 +80,7 @@
 		0F671196203CD54F00E9DD0B /* sasl-test */ = {
 			isa = PBXGroup;
 			children = (
+				0F98ED9B22844E3C002794A3 /* test.m */,
 				0F671197203CD54F00E9DD0B /* sasl_test.m */,
 				0F671199203CD54F00E9DD0B /* Info.plist */,
 			);
@@ -218,6 +221,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0F671198203CD54F00E9DD0B /* sasl_test.m in Sources */,
+				0F98ED9C22844E3C002794A3 /* test.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
