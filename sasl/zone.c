@@ -51,11 +51,11 @@ static unsigned zone_seq = 1; /* sequence number counting how many new zones hav
 /* zone_header points to the most recently created zone */
 static zone_header *zone_current = 0;  /* zone currently being used by new_node() to create nodes */
 
-static unsigned zone_size_default = 500;  /* to be updated elsewhere */
+static unsigned zone_size_default = 1024;  /* to be updated elsewhere */
 
-void new_zone_log(zone_header *z)
+void zone_new_log(zone_header *z)
 {
-  Debug2("new_zone: seq: %u\tsize:\t%u\n", z->seq, z->size);
+  Debug3("zone_new: seq: %u\tsize:\t%u\t%s\n", z->seq, z->size, z->check_nodes ? " with checking" : "") ;
   return;
 }
 
@@ -113,6 +113,7 @@ static int zone_pointer_detail(pointer p, unsigned *seq, long *off, int chk)
     if (!z) {
       *seq = 0;
       *off = 0;
+      Log1("zone_pointer_detail failed  (p:0x%p)\n", Node(p));
       return 1; /*fail*/
     }
     *seq = z->seq;
@@ -137,16 +138,6 @@ static char *zone_pointer_info_do(pointer p, int chk)
   
   if (zone_pointer_detail(p, &seq, &off, chk)) {
     /* fail */
-    Debug7("zone_pointer_detail: /%c (s/w %u/%u) [%u.%ld] %s (p:0x%p)\n",
-              (IsStrong(p)?'s':'w'),
-              Srefc(p),
-              Wrefc(p),
-              seq,
-              off,
-//              err_tag_name(Tag(p))
-              "can't get Tag"
-             , (void *) Node(p)
-              );
     if (chk)
       err_refc("can't get pointer check zone info");
     else
@@ -252,7 +243,7 @@ zone_header *zone_new(unsigned size, struct zone_header *parent)
   
   /* count different kinds of zone when the they are introduced */
   
-  new_zone_log(z);
+  zone_new_log(z);
   
   return z;
 }
@@ -319,7 +310,7 @@ unsigned refc_free()
 }
 
 /* is given node on the freelist? */
-/* Deprecated due to linear earch */
+/* DEPRECATED due to linear earch */
 static int refc_isfree(pointer p)
 {
   pointer f;

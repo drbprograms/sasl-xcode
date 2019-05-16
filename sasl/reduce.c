@@ -235,7 +235,7 @@ void reduce_final_report(FILE *where)
 
 int reduce_int(pointer *nn)
 {
-    *nn = reduce(nn);
+    reduce(nn);
     
     if (Tag(*nn) != int_t) {
         Debug1("reduce_int: got %s\n", err_tag_name(Tag(*nn)));
@@ -247,7 +247,7 @@ int reduce_int(pointer *nn)
 
 char reduce_bool(pointer *nn)
 {
-    *nn = reduce(nn);
+    reduce(nn);
     
     if (Tag(*nn) != bool_t) {
         Debug1("reduce_bool: got %s\n", err_tag_name(Tag(*nn)));
@@ -259,7 +259,7 @@ char reduce_bool(pointer *nn)
 
 char reduce_char(pointer *nn)
 {
-    *nn = reduce(nn);
+    reduce(nn);
     
     if (Tag(*nn) != char_t) {
         Debug1("reduce_char: got %s\n", err_tag_name(Tag(*nn)));
@@ -278,7 +278,7 @@ double reduce_double(pointer n)
 
 pointer reduce_cons(pointer *nn)
 {
-    *nn = reduce(nn);
+    reduce(nn);
     
     if (!IsCons(*nn)) {
         (void) err_reduce("expecting cons");
@@ -299,9 +299,11 @@ char reduce_is_equal(pointer *nn1, pointer *nn2)
 {
     pointer n1, n2;
     
-    n1 = *nn1 = reduce(nn1); /* update in place */
-    n2 = *nn2 = reduce(nn2); /* update in place */
-    
+    reduce(nn1); /* update in place */
+    n1 = *nn1;
+    reduce(nn2); /* update in place */
+    n2 = *nn2;
+
     if (IsCons(n1))
         return (IsCons(n2) &&
                 reduce_is_equal(&Hd(n1), &Hd(n2)) &&
@@ -339,8 +341,10 @@ int reduce_is_equal_tag(pointer *nn1, pointer *nn2)
 {
     pointer n1, n2;
 
-    n1 = *nn1 = reduce(nn1); /* update in place */
-    n2 = *nn2 = reduce(nn2); /* update in place */
+    reduce(nn1); /* update in place */
+    n1 = *nn1;
+    reduce(nn2); /* update in place */
+    n2 = *nn2;
 
     return (IsSet(n1) &&
             IsSet(n2) && /* bugfix 2019-05-10 previously tested IsSet(n1) twice here */
@@ -435,7 +439,7 @@ pointer reduce_print(pointer *p)
         return NIL;
     
     /* reduce to find a constant, print it, free it */
-    *p = reduce(p);
+    reduce(p);
     
     Debug("Reduce_print: ");    out_debug(*p);
     
@@ -472,12 +476,13 @@ pointer reduce_print(pointer *p)
 /*TEMP*/
 #define Ref(x) refc_copyS(Top, x)
 
-pointer reduce(pointer *n)
+void reduce(pointer *n)
 {
     pointer *base = sp;	/* remember Top on entry - used to calculate Stacked */
     tag tt = _LastTag; /* Tag(Top) before popping */
+    
     if (IsNil(*n))
-        return NIL;
+        return;
     
     /* stack size is arbitrary, so check for potential overflow */
     if (Stacked >= ((STACK_SIZE)*0.9)) {
@@ -486,13 +491,7 @@ pointer reduce(pointer *n)
     }
     
     Push(*n);
-#if !old
-//#define R (reduce_done(n),Pop(Stacked), *n)
-#define R (Assert(SameNode(*n, Top)), Assert(Stacked==1), /*XXXX*n = Top,*/ Pop(Stacked), *n)
-//#define R (Assert(SameNode(*n, Top)), Assert(Stacked==1), (IsAppl(*n = refc_update_pointerS(n, "T"))), Pop(Stacked), *n)
-#else
-#define R (*n = Pop(Stacked))xxx error
-#endif
+
     while (IsSet(Top) && Stacked > 0) {
         /* Within the loop, Top is set to NIL on error; also halt if nothing on stack - should never happen error */
         
@@ -533,12 +532,14 @@ pointer reduce(pointer *n)
 
                         unsigned u;
 
-                        if (Stacked == 1)
-                            return R;
+                        if (Stacked == 1) {
+                            Pop(1);
+                            return;
+                        }
                         
                         Pop(1);
 
-                        T(Top) = reduce(&T(Top));
+                        reduce(&T(Top));
                         if (!IsNum(T(Top)))
                             err_reduce("applying a list to something that is not a number");
                         u = Num(T(Top));
@@ -553,7 +554,7 @@ pointer reduce(pointer *n)
                                 reduce(pp);
                                 if (!pp || ! IsCons(*pp)) {
                                     err_reduce("applying list to a number: not enough elements in list");
-                                    return NIL; /*NOTREACHED*/
+                                    return; /*NOTREACHED*/
                                 }
                                 pp = &T(*pp);
                             }
@@ -568,22 +569,25 @@ pointer reduce(pointer *n)
                     case floating_t:
                     case char_t:
                     case bool_t:
-                        if (Stacked == 1)
-                            return R;
-                        err_reduce("applying a constant as a function");
-                        /*NOTREACHED*/;
+                        if (Stacked != 1)
+                            err_reduce("applying a constant as a function");
+                        Pop(1);
+                        return;
                     case name_t:
-                        if (Stacked == 1)
-                            return R;
-                        err_reduce2("name undefined:", Name(Top));
-                        /*NOTREACHED*/;
+                        if (Stacked != 1)
+                            err_reduce2("name undefined:", Name(Top));
+                        Pop(1);
+                        return;
                     case fail_t:  {/* FAIL anything => FAIL */
-                        if (Stacked == 1)
-                            return R;
+                        if (Stacked == 1) {
+                            Pop(1);
+                            return;
+                        }
+
                         *n = refc_copy(Top);
                         Pop(Stacked);
                    /*XXX*/     refc_delete(sp + 1);  /* delete "FAIL anything ..." */
-                        return (*n); /* return the FAIL */
+                        return; /* return the FAIL */
                     }
                     case abstract_condexp_t: {
                         (void) err_reduce("abstract_condexp_t unexpected");
@@ -632,7 +636,7 @@ pointer reduce(pointer *n)
                             
                         case unary_strict:
                             /* ToDo - reduce_int() reduce_bool() etc to give better warning the "FAIL" */
-                            *arg1 = reduce(arg1); /* strict */
+                            reduce(arg1); /* strict */
                             /*FALLTHRU*/
                         case unary_nonstrict:
                             Assert(IsFun(H(Top)));
@@ -658,14 +662,14 @@ pointer reduce(pointer *n)
                                 Assert(n && ! IsNil(*n));   /*xxx*/
                                 Assert(SameNode(*n, Top));  /* should always be the case for Depth==1 */
 
-                                *arg1 = reduce(arg1); /* recurse - carry on reducing */
+                                reduce(arg1); /* recurse - carry on reducing */
                                 *n = refc_update_pointerS(n, "T");
 //                                Assert(SameNode(*n, Top));  /* should always be the case for Depth==1 */
 //
 //                                T(Top) = reduce(&T(Top)); /* carry on reducing OR *arg1 = reduce(arg1) */
 //                                refc_update_pointerS(n, "T"); /* ie T(Top) */
                                 Pop(1);
-                                return *n;
+                                return;
                             }
                             continue;
                             
@@ -682,7 +686,7 @@ pointer reduce(pointer *n)
                             /* H (a:x) => a */
                             /* H other => FAIL */
                         case H_comb:
-                            *arg1 = reduce(arg1);
+                            reduce(arg1);
                             if (IsCons(*arg1)) {
                                 refc_updateIS(&Top, "TH");
                                 Tag(Top) = apply_t;
@@ -695,7 +699,7 @@ pointer reduce(pointer *n)
                             /* T (a:x) => x */
                             /* T other => FAIL */
                         case T_comb:
-                            *arg1 = reduce(arg1);
+                            reduce(arg1);
                             if (IsCons(*arg1)) {
                                 refc_updateIS(&Top, "TT");
                                 Tag(Top) = apply_t;
@@ -731,7 +735,7 @@ pointer reduce(pointer *n)
                             case plusplus_op:
                                 /* ++ list1 list2 => append list2 to end of list1 NB () ++ x => x */
                                 /* xxx check list2 is a list?? */
-                                *arg1 = reduce(arg1);
+                                reduce(arg1);
                                 if ( ! (IsCons(*arg1) || IsNil(*arg1)))
                                     err_reduce("plusplus_op - non-list first arg");
                                 Top = refc_update_Itl(Top, make_append(Ref("HT"), Ref("T")));
@@ -792,7 +796,7 @@ pointer reduce(pointer *n)
                             case TRY_comb: {
                                 /* TRY FAIL y => y
                                  * TRY x    y => x */
-                                *arg1 = reduce(arg1);
+                                reduce(arg1);
                                 if (IsFail(*arg1)) {
                                     Top = refc_update_Itl(Top, Ref("T"));/*refc_update_IS(&Top, "T")*/
                                 } else {
@@ -1026,7 +1030,8 @@ pointer reduce(pointer *n)
             do {Debug1("Stack[%d]: ",i--); out_debug(sp[i]); } while (-i < Stacked);
         }
 //      xxx  Assert(Stacked == 1 || IsCons(Top));
-        return R;
+        Pop(Stacked);
+        return;
     }
 }
 
