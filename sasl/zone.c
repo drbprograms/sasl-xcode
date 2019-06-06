@@ -134,7 +134,7 @@ static char *zone_pointer_info_do(pointer p, int chk)
   Assert(chk ? check : 1);  /* chk only set if checking */
 
   if (IsNil(p))
-    return "NIL";
+    return "/NIL";  /* '/' separator from previous part of message */
   
   if (zone_pointer_detail(p, &seq, &off, chk)) {
     /* fail */
