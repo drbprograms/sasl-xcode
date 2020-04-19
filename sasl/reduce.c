@@ -104,10 +104,6 @@ inline pointer pop(const int n, const pointer *base, pointer *sp)
 }
 #endif
 /*
- * sasl - primitive to sasl functions
- */
-
-/*
  * log reductions to file as required
  */
 static int reductions = 0;
@@ -138,10 +134,14 @@ void reduce_log(pointer *base, pointer *sp)
     
     if (debug) {
         int i = 0;
+//
+         char tag_nargs(pointer p); /* forward reference - fix */
+//
         
         Debug("\n");
-        Debug4("reduction %d: %s (%ld/%ld Depth/Stacked)\n",  reductions, refc_pointer_info(Top), Depth, Stacked);
-        
+//        Debug4("reduction %d: %s (%ld/%ld Depth/Stacked)\n",  reductions, refc_pointer_info(Top), Depth, Stacked);
+        Debug5("reduction %d: %s (%ld/%ld/%d Depth/Stacked/Nargs)\n",  reductions, refc_pointer_info(Top), Depth, Stacked, tag_nargs(Top));
+
         indent(stderr, Depth);
         out_debug_limit1(Top, Limit); /*arbitrary limit to output */
         Debug(" ");
@@ -150,6 +150,15 @@ void reduce_log(pointer *base, pointer *sp)
             Debug(" ");
         }
         Debug("\n");
+        
+        //begin:pretty
+        if (IsOp(Top) || IsConst(Top) || IsCons(Top))
+        {
+            Debug("<sasl-reduce>\n");
+            pretty_print(stderr, base[1]);
+            Debug("\n</sasl-reduce>\n");
+        }
+        //end:pretty
         
         (void) refc_check();
         
@@ -237,8 +246,8 @@ int reduce_int(pointer *nn)
 {
     reduce(nn);
     
-    if (Tag(*nn) != int_t) {
-        Debug1("reduce_int: got %s\n", err_tag_name(Tag(*nn)));
+    if (Tag(sp[1]) != int_t) {
+        Debug1("reduce_int: got %s\n", err_tag_name(Tag(sp[1])));
         (void) err_reduce("expecting int");
     }
     
@@ -276,12 +285,14 @@ double reduce_double(pointer n)
     return Dbl(n);
 }
 
-pointer reduce_cons(pointer *nn)
+/* reduce to a list - NIL is a list too */
+pointer reduce_list(pointer *nn)
 {
     reduce(nn);
     
-    if (!IsCons(*nn)) {
-        (void) err_reduce("expecting cons");
+    if (!IsCons(*nn) && !IsNil(*nn)) {
+        Debug1("reduce_list: got %s\n", err_tag_name(Tag(*nn)));
+    (void) err_reduce("expecting cons");
     }
     
     return *nn;
@@ -304,11 +315,11 @@ char reduce_is_equal(pointer *nn1, pointer *nn2)
     reduce(nn2); /* update in place */
     n2 = *nn2;
 
-    if (IsCons(n1))
+    if (IsCons(n1)) {
         return (IsCons(n2) &&
                 reduce_is_equal(&Hd(n1), &Hd(n2)) &&
                 reduce_is_equal(&Tl(n1), &Tl(n2)));
-    
+    }
     
     if (IsNil(n1) || IsConst(n1)) {
         
@@ -351,6 +362,184 @@ int reduce_is_equal_tag(pointer *nn1, pointer *nn2)
             Tag(n1) == Tag(n2));
 }
 
+/*
+ * taginfo - container for information about tags
+ */
+
+/*
+ * kind - grouping of tags, broadly based on their suffices _comb _op etc.
+ */
+typedef enum kind{
+    special,
+    constant,
+    fail,        /* 1 only */
+    name,        /* 1 only */
+    apply,    /* 1 only */
+    cons,     /* 1 only */
+    abstract,
+    def,        /* 1 only */
+    operator,
+    builtin_op,        /* operator implemented by C function */
+    combinator
+} kind;
+
+
+static struct taginfo {
+    tag t;     /* the tag inquestion */
+    kind k;/* tag grouping, constant, combinator etc */
+    char *name;    /* printable name "+" "S" etc */
+    char nargs;    /* (>=0) how many apply nodes need to be stacked for a reduction: 0 for constant, + nargs 2, S nargs 3 */
+    char strict;    /* (>=0) how many arguments must be reduced (assumes first only, first+second only etc.) */
+    char new;    /* (>=0) how many apply nodes after the reduction: 0 for constant  or Indirection I node, + needs 0, S needs 3 */
+    // etc.
+} taginfo[TagCount];
+
+/*
+ * add_tag - set up taginfo
+ */
+static void add_tag(tag t, kind k, char *name, char nargs, char strict, char new /* etc. */)
+{
+    taginfo[t] = (struct taginfo) {t, k, name, nargs, strict, new /* etc. */};
+}
+
+inline char *tag_name(pointer p)    { return taginfo[Tag(p)].name; }
+inline kind tag_kind (pointer p)    { return taginfo[Tag(p)].k; }
+/*inline*/char tag_nargs(pointer p)    { return taginfo[Tag(p)].nargs; }
+inline char tag_strict(pointer p)   { return taginfo[Tag(p)].strict; }
+inline char tag_needs(pointer p)    { return taginfo[Tag(p)].new; }
+
+inline int is_tag(tag t, pointer p)       { return IsSet(p) && t ==         Tag(p); }
+inline int is(kind t, pointer p)      { return IsSet(p) && t == taginfo[Tag(p)].k; }
+
+inline int is_struct    (pointer p)    { return is(apply, p) || is(cons, p);  }
+
+inline int is_op    (pointer p)    { return is(operator, p); }
+inline int is_unary_op    (pointer p)    { return is_op(p) && tag_nargs(p) == 1; }
+inline int is_binary_op    (pointer p)    { return is_op(p) && tag_nargs(p) == 2; }
+inline int is_ternary_op(pointer p)    { return is_op(p) && tag_nargs(p) == 3; }
+
+/*
+ * tag_init call once to initialise taginfo - a bit like microcode load
+ */
+void tag_init()
+{
+    add_tag(zero_t,    special,    "zero_t ",    0, 0, 0);    /* Special - node not yet in use in graph nor freelist */
+    add_tag(free_t,    special,    "free_t",    0, 0, 0);    /* Special - node that is on the free list */
+    add_tag(deleting_t,    special,    "deleting_t",    0, 0, 0);    /* Special - node that is going to become free when refc_delete() has compltedrecursive deltions */
+    
+    
+    
+    /* Constants - node contains the value of the constant and neveer points to anything else */
+    add_tag(int_t,    constant,    "int_t",    0, 0, 0);
+    add_tag(floating_t,    constant,    "floating_t",    0, 0, 0);
+    add_tag(char_t,    constant,    "char_t",    0, 0, 0);
+    add_tag(bool_t,    constant,    "bool_t",    0, 0, 0);
+    
+    add_tag(fail_t,    fail,        "fail_t",    0, 0, 0);    /* Special constant - to indicate pattern match has failed */
+    
+    
+    /* Apply/Cons - these have a hl and tl (aka car and cdr) which can point to any other node, or be NIL */
+    add_tag(apply_t,    apply,    "apply_t",    1, 0, 0);
+    add_tag(cons_t,    apply,    "cons_t",    0, 0, 0);    /* (list n) => nth-item - when applied - apply list to number ...*/
+    
+    /* Name/Abstract tags used for partially compiled code - todo decide whether these are prohibited post-compilation */
+    add_tag(name_t,        name,         "name_t",        0, 0, 0);
+    
+    add_tag(abstract_condexp_t,    abstract,    "abstract_condexp_t",    1, 0, 0);
+    add_tag(abstract_formals_t,    abstract,    "abstract_formals_t",    1, 0, 0);
+    add_tag(abstract_where_t,    abstract,    "abstract_where_t",    1, 0, 0);
+    add_tag(abstract_defs_t,    abstract,    "abstract_defs_t",    1, 0, 0);
+    
+    add_tag(def_t,        def,         "def_t",        0, 0, 0);//???
+    
+    /* TODO when there's time to conduct before/aafter testing
+     # define HasPointers(t) ((t) >= 0  ) */
+    
+    /* Operators */
+    add_tag(cond_op,        operator, "->",    3, 1, 0);
+    
+    /* binary operators */
+    add_tag(colon_op,        operator,    ":",    2, 0, 1);    /* ((: a) b) => (a:b) */
+    add_tag(plusplus_op,        operator,    "++",    2, 3 /*XXX or 0*/, 1);    /* ++ () x => x */
+    /* ++ list1 list2 =>  (hd-list1 : ((++ tl-list1) list2))  */
+    // add_tag(minusminus_op,    operator,    "--",    2, 0, 0);
+    
+    // add_tag(range_op,        operator,    "..",    2, 0, 0);
+    
+    add_tag(and_op,        operator,    "&",    2, 2, 0);
+    
+    add_tag(much_greater_op,    operator,    ">>",    2, 2, 0);
+    add_tag(greater_op,        operator,    ">",    2, 2, 0);
+    add_tag(greater_equal_op,    operator,    ">=",    2, 2, 0);
+    add_tag(equal_op,        operator,    "=",    2, 2, 0);
+    add_tag(not_equal_op,        operator,    "~=",    2, 2, 0);
+    add_tag(less_equal_op,    operator,    "<=",    2, 2, 0);
+    add_tag(less_op,        operator,    "<",    2, 2, 0);
+    add_tag(much_less_op,        operator,    "<<",    2, 2, 0);
+    
+    add_tag(plus_op,        operator,    "+",    2, 2, 0);
+    add_tag(minus_op,        operator,    "-",    2, 2, 0);
+    
+    add_tag(times_op,        operator,    "*",    2, 2, 0);
+    add_tag(divide_op,        operator,    "/",    2, 2, 0);
+    add_tag(int_divide_op,    operator,    "DIV",    2, 2, 0);
+    add_tag(rem_op,        operator,    "REM",    2, 2, 0);
+    
+    add_tag(power_op,        operator,    "**",    2, 2, 0);
+    
+    /* unary operators */
+    add_tag(unary_strict,        builtin_op,    "unary",1, 1, 0);    /* Uname(p) contains name built in one-argument test eg "function" */
+    add_tag(unary_nonstrict,     builtin_op,    "unary",1, 0, 0);     /* Uname(p) contains name built-in one argument maths eg "sin" */
+    
+    add_tag(unary_not_op,        operator,    "~",    1, 1, 0);
+    add_tag(or_op,        operator,    "|",    1, 1, 0);
+    
+    add_tag(unary_plus_op,    operator,        "+",    1, 1, 0);
+    add_tag(unary_minus_op,    operator,        "-",    1, 1, 0);
+    
+    // add_tag(range_unbounded_op,    operator,    "...",    1, 1, 0);
+    // add_tag(unary_count_op,    operator,    "#",    1, 1, 0);
+    
+    /* Combinators - tl contains first argument.  Optionally hd points to name_t name of variable being abstracted,    for debugging purposes */
+    add_tag(I_comb,        combinator,    "I_comb",    1, 0, 0);
+    add_tag(K_comb,    combinator,    "K_comb",    2, 0, 0);
+    add_tag(K_nil_comb,    combinator,    "K_nil_comb",    2, 0, 0);    /* checks 2nd arg is NIL */
+    add_tag(S_comb,    combinator,    "S_comb",    3, 0, 3);    /* S f g x => f x (g x)     == ((f x) (g x)) */
+    add_tag(Sp_comb,    combinator,    "Sc_comb",    3, 0, 3);     /* cons instead of apply */
+    add_tag(B_comb,    combinator,    "B_comb",    3, 0, 2);    /* B f g x => f (g x)        == (f (g x))
+                                                                 add_tag(Bp_comb,    combinator,    "Bc_comb",    3, 0, 2);
+                                                                 add_tag(C_comb,    combinator,    "C_comb",    3, 0, 2);    /* C f g x => f x g        == ((f x) g)
+                                                                 add_tag(Cp_comb,    combinator,    "Cc_comb",    3, 0, 2);
+                                                                 
+                                                                 add_tag(Y_comb,    combinator,    "Y_comb",    1, 0, 1);    /* Y f => (f <self>) */
+    add_tag(Yc_comb,    combinator,    "Yc_comb",    1, 0, 1);
+    
+    add_tag(Sc_comb,    combinator,     "Sp_comb",  4, 0, 4);    /* Sp f g h x => f (g x) (h x)    == ((f (g x)) (h x)) */
+    add_tag(Spc_comb,   combinator,     "Spc_comb", 4, 0, 4);
+    add_tag(Bc_comb,    combinator,     "Bp_comb",  4, 0, 3);    /* Bp f g h x => f g (h x)    == ((f g) (h x))*/
+    add_tag(Bpc_comb,   combinator,     "Bpc_comb", 4, 0, 3);
+    add_tag(Cc_comb,    combinator,     "Cp_comb",  4, 0, 4);    /* Cp f g h x => f (g x) (h x)    == ((f (g x)) (h x))*/
+    add_tag(Cpc_comb,   combinator,     "Cpc_comb", 4, 0, 4);
+    
+    
+    add_tag(U_comb,     combinator,     "U_comb",   2, 0, 4);    /* U f g => f (H g) (T g)    == ((f (H g)) (T g)) */    /* U f(x:y)=f x (f y) [Turner79] */
+    add_tag(TRY_comb,   combinator,     "TRY_comb", 2, 0, 0);    /* TRY FAIL y => y; TRY x y => x */
+    add_tag(TRYn_comb,  combinator,     "TRYn_comb",4, /*xxx FIX IT 4 or */5 , 0);    /* TRYn 1 f g x => TRY (f x) (g x) == ((TRY (f x)) (g x)) */
+    add_tag(MATCH_comb, combinator,     "MATCH_comb",3, 0, 0);    /* MATCH const E x => const = x -> E; FAIL*/
+    add_tag(MATCH_TAG_comb,combinator,  "MATCH_TAG_comb",3, 0, 0);    /* MATCH test E x => (test x)= FALSE -> FAIL; E */
+    
+    // add_tag(PAIR_comb,    combinator,    "PAIR_comb",    2, 0, 0);    /* PAIR x y => 'x:y" notused */
+    add_tag(H_comb,     combinator,     "H_comb",   1, 1, 0);    /* (H x:y) => x */
+    add_tag(T_comb,     combinator,     "T_comb",   1, 1, 0);    /* (T x:y) => y */
+    
+    // _LastTag      /* Never appears in a node, used to calculate size of the array-of tag values */
+    
+    return;
+}
+/*
+ * sasl - primitive to sasl functions
+ */
+
 /* unary stricts
  * anything -> BOOL
  */
@@ -378,11 +567,18 @@ static pointer maths_log(pointer p)     { return IsNum(p) ? new_int((int) log((d
 static pointer maths_sin(pointer p)     { return IsNum(p) ? new_int((int) sin((double)  Num(p))) :  new_fail();}
 static pointer maths_sqrt(pointer p)    { return IsNum(p) ? new_int((int) sqrt((double) Num(p))) :  new_fail();}
 
+/* binary maths */
+
 /*
  * initialise reduction machine
  */
 int reduce_init()
 {
+    /*
+     * tags
+     */
+    tag_init();
+    
     /*
      * functions primitive to sasl
      */
@@ -414,22 +610,6 @@ int reduce_init()
     return 0;
 }
 
-
-/*
- * reduce_show - print a constant - unstructured results of reduction
- */
-void reduce_show(pointer p)
-{
-    if (IsNum(p))
-        User1("%d", Num(p));
-    else if (IsDbl(p))
-        User1("%g", Dbl(p));
-    else if (IsChar(p))
-        User1("%c", Char(p));
-    else if (IsBool(p))
-        User1("%s", Bool(p) ? "TRUE" : "FALSE");
-}
-
 /*
  * reduce_print - reduce something, print it and delete the result
  */
@@ -448,8 +628,8 @@ pointer reduce_print(pointer *p)
         Tl(*p) = reduce_print(&Tl(*p));
     }
     else {
-        reduce_show(*p);
-        /*    fflush(stdout); * temporary */
+        pretty_print_const(stdout, *p);
+        fflush(stdout); // ?? only when interactive
     }
     
     return *p;
@@ -501,7 +681,7 @@ void reduce(pointer *n)
             Debug("\tTop\n");
         }
         
-//      while (Tag(Top) == apply_t) {
+//      while (Tag(Top) == apply_t) { //2020-04-01 why not?
         if (Tag(Top) == apply_t) {
             /* travel down the 'spine' */
             Assert(Stacked <= ((STACK_SIZE)*0.9));
@@ -513,19 +693,31 @@ void reduce(pointer *n)
 
         /* Top is not apply_t, evaluate / return */
         reduce_log(base, sp);
-        {
+        {/*start:reduce loop*/
             if (Stacked >= 1) {
+                static const int MAXARG = 4; /* max number of apply nodes in spine for a reduction */
+                pointer *arg[MAXARG+1];
+                int i;
+                int nargs = tag_nargs(Top);
+                
                 tt = Tag(Top);
+                
+                /* locate args, numbered arg1, arg2, ... */
+                for (i = 1; i <= nargs;  i++) arg[i] = &Tl(Pop(1));
+//                for (i = 1; i <= nargs;  i++) arg[i] = &Tl(sp[i]);
+
                 /* zero args: const => const | list => list */
                 /* >0 args:   list number => nth item of list */
                 switch (tt) {
                         
                     case free_t: {
                         err_reduce("reducing a free node");
+                        continue;
                         /*NOTREACHED*/
                     }
                     case deleting_t: {
                         err_reduce("reducing a deleting node");
+                        continue;
                         /*NOTREACHED*/
                     }
                     case cons_t: {
@@ -561,6 +753,7 @@ void reduce(pointer *n)
                         }
 //                        TODO simplify refc_copy_Nth() as the list has  been "forced" successfuly above
                         Top = refc_update_Itl(Top, refc_copyNth(Top, u));
+                        Tag(Top) = apply_t;
                         continue;
                     }
 
@@ -578,32 +771,28 @@ void reduce(pointer *n)
                             err_reduce2("name undefined:", Name(Top));
                         Pop(1);
                         return;
-                    case fail_t:  {/* FAIL anything => FAIL */
-                        if (Stacked == 1) {
-                            Pop(1);
-                            return;
-                        }
-
-                        *n = refc_copy(Top);
+                    case fail_t:  {/* FAIL anything ... => FAIL */
+                        /*WIP here to fix 99.sasl; 3.1.20 q*/
+                        //BUG xxx here not sure refc is adjusted correctly when Stacked > 0
+                        pointer p = refc_copy(Top); /* fail */
                         Pop(Stacked);
-                   /*XXX*/     refc_delete(sp + 1);  /* delete "FAIL anything ..." */
+                        refc_delete(n);
+                        *n = p;
+                        Push(*n); Pop(1);//XXtemp
                         return; /* return the FAIL */
                     }
-                    case abstract_condexp_t: {
-                        (void) err_reduce("abstract_condexp_t unexpected");
-                        /*NOTREACHED*/
-                    }
-                    case abstract_formals_t: {
-                        (void) err_reduce("abstract_formals_t unexpected");
-                        /*NOTREACHED*/
-                    }
-                    case abstract_defs_t: {
-                        (void) err_reduce("abstract_defs_t unexpected");
-                        /*NOTREACHED*/
-                    }
+                    case abstract_condexp_t:
+                    case abstract_formals_t:
+                    case abstract_where_t:
+                    case abstract_defs_t:
+                        /* !! these tags are unuie as their arguments reside in the tag node itself */
+                        Tag(Top) = apply_t;
+                        Top = refc_update_Itl(Top, (reduce_abstract(refc_copy(H(Top)), refc_copy(T(Top)),  tt))); // 2020-03-17 ... and why not refc_update_hdtl()?
+                        continue;
                     case def_t:
-                        (void) err_reduce("def_t unexpected");
+                        (void) err_reduce2(err_tag_name(tt), "unexpected tag:");
                         /*NOTREACHED*/
+                        continue;
 #ifdef notdef
                         if (partial_compile) {
                             
@@ -623,7 +812,7 @@ void reduce(pointer *n)
                     /* unary: op arg1 => res */
                     pointer *arg1;
                     Pop(1);
-                    arg1 = &Tl(Top);
+                    arg1 = &Tl(Top); /* equivalent to Ref("T") but without the change of refcount */
                     switch (tt)
                     {
                             /* unary: op arg  => res*/
@@ -633,6 +822,7 @@ void reduce(pointer *n)
                             Top = refc_update_to_int (Top,   reduce_int(arg1)); continue;
                         case unary_not_op:
                             Top = refc_update_to_bool(Top, ! reduce_bool(arg1)); continue;
+                            //stack: push "H"; reduce; check-bool; theBool = -theBool; update
                             
                         case unary_strict:
                             /* ToDo - reduce_int() reduce_bool() etc to give better warning the "FAIL" */
@@ -641,6 +831,7 @@ void reduce(pointer *n)
                         case unary_nonstrict:
                             Assert(IsFun(H(Top)));
                             Top = refc_update_Itl(Top, Ufun(H(Top))(*arg1)); continue;
+                            //stack: push "H"; theValue = uFun(theValie); update
 
                         case I_comb:
                             /* I x => x */
@@ -653,23 +844,31 @@ void reduce(pointer *n)
 
                                 Pop(1);
                                 refc_update_hdS(&Top,"HT");
+                                //stack: pop; push "HT"; push "T"; mk_apply; update
 
                             } else {
-                                /* at the top of the stack: (I x) ==> x on stack
+                                /* at the top of the stack  (I x) ==> x on stack
                                  * recurse to reduce x (short-circuit)
                                  * and update return value "*n" to x ie T(Top) */
                                 Debug("**I_comb Stacked==2 case\n");/*XXX*/
                                 Assert(n && ! IsNil(*n));   /*xxx*/
                                 Assert(SameNode(*n, Top));  /* should always be the case for Depth==1 */
 
+#if 1
+                                Top = *n = refc_update_pointerS(n, "T");
+#else
                                 reduce(arg1); /* recurse - carry on reducing */
                                 *n = refc_update_pointerS(n, "T");
+                                Pop(1); Push(*n); // temp or not ??  Top = *n = refc_updat_pointerS ...
+                                Pop(1);
+#endif
+                                //stack: push "T"; reduce; update
 //                                Assert(SameNode(*n, Top));  /* should always be the case for Depth==1 */
 //
 //                                T(Top) = reduce(&T(Top)); /* carry on reducing OR *arg1 = reduce(arg1) */
 //                                refc_update_pointerS(n, "T"); /* ie T(Top) */
-                                Pop(1);
-                                return;
+//                                Pop(1);
+//                                return;
                             }
                             continue;
                             
@@ -680,6 +879,7 @@ void reduce(pointer *n)
                             refc_delete(&Hd(Top)); /* loose the "Y" */ /*new update(sp, T, me)*/
                             Hd(Top) = Tl(Top);
                             Tl(Top) = refc_copy_make_cyclic(Top);
+                            //stack: Y_comb: push "T"; push "."; mk_apply; update
                             continue;
                         }
                             
@@ -695,6 +895,8 @@ void reduce(pointer *n)
                                 err_reduce("taking head of non-cons");
                             }
                             continue;
+                            //stack: push "T"; reduce; not(isCons) ? (pop;new_comb(FAIL)) : (new_comb(I_Comb); mk_rev_apply)) ; update
+                            //stack: push "T"; reduce; check(cons_t); pop; new_comb(I_comb); push("TT"); mk_apply)) ; update
                             
                             /* T (a:x) => x */
                             /* T other => FAIL */
@@ -731,24 +933,48 @@ void reduce(pointer *n)
                                 refc_updateSS(&Top, "HT", "T");
                                 Tag(Top) = cons_t;
                                 continue;
-                                
+                                //stack: colon_op: push "HT"; push "T"; mk_cons; update
+#if 1 // old bug
+                                /* ++ () x => x */
+                                /* ++ list1 list2 =>  (hd-list1 : (++ tl-list1) list2)))  */
                             case plusplus_op:
-                                /* ++ list1 list2 => append list2 to end of list1 NB () ++ x => x */
-                                /* xxx check list2 is a list?? */
+                                /* check list2 is a list - no, leave it lazy */
                                 reduce(arg1);
                                 if ( ! (IsCons(*arg1) || IsNil(*arg1)))
                                     err_reduce("plusplus_op - non-list first arg");
-                                Top = refc_update_Itl(Top, make_append(Ref("HT"), Ref("T")));
+//                                Top = refc_update_Itl(Top, make_append(Ref("HT"), Ref("T")));BUGGG
+                                if (IsNil(*arg1)) {
+                                    Top = refc_update_Itl(Top, Ref("T"));
+                                } else {
+                                    Top = refc_update_hdtl(Top, Ref("HTH"),
+                                                           new_apply3(new_comb(plusplus_op), Ref("HTT"), Ref(("T"))));
+                                    Tag(Top) = cons_t;
+                                }
                                 continue;
+#else
+                            case plus_plus_op: /* "should not evaluate it's arguments" */
+                                /* ++ () x => x */
+                                /* ++ list1 list2 =>  ((hd list1) : (++ (tl list1) list2))) */
+                                /* 2020-04-02 fix: made properly lazy */
+                                if (IsNil(*arg1)) {
+                                    Top = refc_update_Itl(Top, Ref("T"));
+                                } else {
+                                    Top = refc_update_hdtl(Top,
+                                                           new_apply(new_comb(H_comb), Ref("HT")),
+                                                           new_apply3(new_comb(plusplus_op),
+                                                                      new_apply(new_comb(T_comb), Ref("HT")),
+                                                                      Ref("T")));
+                                    Tag(Top) = cons_t;
+                                }
+#endif
+                                //stack: plusplus_op: pushd "T"; reduce; (!IsCons || IsNil) ? <exception> : push "HT"; mk_rev_append; new_comb(I_comb); mk_rev_apply //WHY "I"?
+                                //stack: plusplus_op: push "HT"; reduce; isNil ? (new(I_comb); rev_make_cons) : (check(cons_t); pop; push "HTH"; new(plusplus_op); push "HTT"; push "T"; make_apply; make_cons
                                 
                             case minusminus_op:
-                                err_reduce("minusminus op not expected");
-                                /*FALLTHRU*/
                             case range_op:
-                                err_reduce("much_greater op not expected");
-                                /*FALLTHRU*/
                             case much_greater_op:
-                                err_reduce("much_greater op not expected");
+                                (void) err_reduce2( err_tag_name(tt), " unexpected");
+                                /*NOTREACHED*/
                                 continue;
                                 
                             case greater_op:        Top = refc_update_to_bool(Top, reduce_int(arg1) >  reduce_int(arg2)); continue;
@@ -785,6 +1011,7 @@ void reduce(pointer *n)
                                 /* K x y => I x  [i node] */
                                 Top = refc_update_Itl(Top, Ref("HT"));
                                 continue;
+                                //stack: K_comb: push "HT"; new_comb(I_comb); mk_rev_apply; update
                                 
                             case U_comb:
                                 /*  U f g => f (H g) (T g)    lazy version of U f (a:x) => f a x */
@@ -792,6 +1019,7 @@ void reduce(pointer *n)
                                                        new_apply(Ref("HT"), new_apply(new_comb(H_comb), Ref("T"))),
                                                        new_apply(new_comb(T_comb),  Ref("T")));
                                 continue;
+                                //stack: U_comb: push "HT"; new_comb(H_comb); push "T"; mk_apply; new_comb(T_comb); push "T"; mk_apply; mk_apply; mk_apply; update
                                 
                             case TRY_comb: {
                                 /* TRY FAIL y => y
@@ -799,10 +1027,12 @@ void reduce(pointer *n)
                                 reduce(arg1);
                                 if (IsFail(*arg1)) {
                                     Top = refc_update_Itl(Top, Ref("T"));/*refc_update_IS(&Top, "T")*/
+                                    //stack: new_comb(I_comb); push "T"; mk_apply; update
                                 } else {
                                     Top = refc_update_Itl(Top, Ref("HT"));
                                 }
                                 continue;
+                                //stack: TRY_comb: push "HT"; reduce; IsFail ? (pop; new_comb(I_comb); push "T"; mk_apply) : (new_comb(I_comb); rev_make_apply) update
                             }
                                 
                             default:
@@ -822,9 +1052,11 @@ void reduce(pointer *n)
                                     else
                                         Top = refc_update_Itl(Top, Ref("T"));
                                     continue;
+                                    //stack: cond_op: push "HHT"; reduce
                                 }
                                 case MATCH_comb: {
-                                    /* MATCH const E x => const = x -> E; FAIL*/
+                                    /*  */
+                                    /* ?should check arg1 is a constant? */
                                     if (reduce_is_equal(arg1, arg3)) {
                                         refc_updateIS(&Top, "HT");
                                     } else {
@@ -834,7 +1066,7 @@ void reduce(pointer *n)
                                 }
                                     
                                 case MATCH_TAG_comb: {
-                                    /* MATCH_TAG tag E x => tag = Tag(x) -> E x; FAIL */
+                                    /* MATCH_TAG t E x => Tag(t) = Tag(x) -> E x; FAIL */
                                     
                                     if (reduce_is_equal_tag(arg1,  arg3)) {
                                         refc_updateSS(&Top, "HT", "T");
@@ -845,7 +1077,7 @@ void reduce(pointer *n)
                                 }
                                     
 #ifdef match_with_test
-                                case MATCH_comb: {
+                                case MATCH_TEST_comb: {
                                     /* MATCH test E x => (test x)= FALSE -> FAIL; E */
                                     pointer res = new_apply(Ref("HHT"), Ref("T"));
                                     char c = reduce_bool(res);
@@ -868,6 +1100,7 @@ void reduce(pointer *n)
                                     /*FALLTHRU*/
                                 case S_comb:	 /* S f g x => (f x)(g x) */
                                 {
+#ifdef notyet
                                     long int got = 0;
                                     if (got >= 2) {
                                         /* optimise - update in place, no reference counts changed, apart from new pointer to Arg3 */
@@ -877,7 +1110,9 @@ void reduce(pointer *n)
                                         Hd(Top) = Tl(Top); Tl(Top) = refc_copy(Tl(Top));
                                         Hd(Top) = Top;     Tl(Top) = Top;
                                     }
-                                    else {
+                                    else
+#endif
+                                    {
                                         /*new update top-of-stack ap(ap(THH,T), ap(TH,T))*/
                                         pointer n1 = new_apply(Ref("HHT"), Ref("T"));
                                         pointer n2 = new_apply(Ref("HT"), Ref("T"));
@@ -907,24 +1142,31 @@ void reduce(pointer *n)
                                     
                                 {
                                     pointer
-                                    f = Arg1,
-                                    g = Arg2,
-                                    x = Arg3;
+                                        f = Ref("HHT"),
+                                        g = Ref("HT"),
+                                        x1 = Ref("T"),
+                                        x2 = Ref("T"); // xxx OR ELSE use just "x" and then "refc_copy(x)"
                                     
-                                    int got = (reduce_optimise ? (sp - last) : 0);
-                                    reduce_optimise_log(*sp, got);
-                                    if (got == 0) {	 /* no optimisations */
-                                        Pointers(Top) = (struct pointers) {new_apply(f, x), new_apply(g, refc_copy(x))};
-                                    }
-                                    else if (got == 1) { /* one optimisation - Top is apply_t with ALLrefc==1 so re-usable */
-                                        Pointers(Top) = (struct pointers) {f, x};
-                                        Pointers(Top) = (struct pointers) {Top, new_apply(g, refc_copy(x))};
-                                    }
-                                    else {	/* two optimisations assert got >= 2 */
-                                        Pointers(Top) = (struct pointers) {f, x};
-                                        Pointers(Top) = (struct pointers) {g, x};
-                                        Pointers(Top) = (struct pointers) {Top, Top};
-                                    }
+                                    pointer
+                                        ap1 = make_apply(f,x1),
+                                        ap2 = make_apply(g,x2);// xxx secretly recycle apply nodes on spine when not needed
+
+                                    refc_update_hdtl(Top, ap1, ap2);
+
+//                                    int got = (reduce_optimise ? (sp - last) : 0);
+//                                    reduce_optimise_log(*sp, got);
+//                                    if (got == 0) {     /* no optimisations */
+//                                        Pointers(Top) = (struct pointers) {new_apply(f, x1), new_apply(g, x2)};
+//                                    }
+//                                    else if (got == 1) { /* one optimisation - Top is apply_t with ALLrefc==1 so re-usable */
+//                                        Pointers(Top) = (struct pointers) {f, x1};
+//                                        Pointers(Top) = (struct pointers) {Top, new_apply(g, x2)};
+//                                    }
+//                                    else {    /* two optimisations assert got >= 2 */
+//                                        Pointers(Top) = (struct pointers) {f, x1};
+//                                        Pointers(Top) = (struct pointers) {g, x2};
+//                                        Pointers(Top) = (struct pointers) {Top, Top};//BUG HERE !!!!
+//                                    }
                                     /*
                                      sp -= 2;
                                      *sp = n1;
@@ -999,6 +1241,17 @@ void reduce(pointer *n)
                                     case Sp_comb:	{
                                         /* Sp f g h x => f (g x) (h x) */
                                         /*todo make this less tedious to specify!*/
+#ifdef lesstedious
+                                        pointer f = Ref("HHHT"),
+                                                g = Ref("HHT"),
+                                                h = Ref("HT"),
+                                                x1= Ref("T"),
+                                                x2= Ref("T");
+                                        pointer p1 = new_apply(f, new_apply(g, x1));
+                                        pointer p2 = new_apply(h, x2);
+                                        Top = refc_update_hdtl(Top, p1, p2)
+//                                        refc_update(ap(f, ap(g,x1)), ap(h,x2));
+#endif
                                         Top = refc_update_hdtl(Top,
                                                                   new_apply(Ref("HHHT"), new_apply(Ref("HHT"), Ref("T"))),
                                                                   new_apply(Ref("HT"), Ref("T")));
@@ -1008,7 +1261,7 @@ void reduce(pointer *n)
                                     default:
                                         ; /*FALLTHRU*/
                                 }
-                            }}}}}}
+                            }}}}}}/*end:reduce loop*/
         /* nothing found */
         if (debug) {
             int i=0;
