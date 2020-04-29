@@ -24,13 +24,15 @@ pointer make_reset(void);
 
 #define STACK_SIZE (10000)
 
-static pointer stack[STACK_SIZE];
-static pointer *sp = stack; /* sp points to top-of-stack (note: stack[0] never used) */
+//static 2020-01-12 make visible to zone.c
+pointer root_stack[STACK_SIZE];
+//static
+pointer *root_sp = root_stack; /* sp points to top-of-stack (note: stack[0] never used) */
 
-#define Stacked (sp-stack)    /* >=0 */
-#define Pop(n)  (Assert(Stacked >= (n)), sp -= (n), sp[n]) /* assert(sp>=base) value is previous Top of stack */
-#define Push(n) (Assert(Stacked < STACK_SIZE),sp[1] = (n), sp++) /* sequencing to ensure Push(*sp) works correctly */
-#define Top   (*sp)
+#define Stacked (root_sp-root_stack)    /* >=0 */
+#define Pop(n)  (Assert(Stacked >= (n)), root_sp -= (n), root_sp[n]) /* assert(sp>=base) value is previous Top of stack */
+#define Push(n) (Assert(Stacked < STACK_SIZE),root_sp[1] = (n), root_sp++) /* sequencing to ensure Push(*sp) works correctly */
+#define Top   (*root_sp)
 
 
 /* debug: make_show - display maker stack items  */
@@ -40,8 +42,8 @@ static void make_show(void)
 {
   pointer *spp;
   
-  for (spp = sp; spp > stack; spp--) {
-    Debug1("make[%ld]: ", sp-stack); out_debug_limit(*spp, Limit);
+  for (spp = root_sp; spp > root_stack; spp--) {
+    Debug1("make[%ld]: ", spp - root_stack); out_debug_limit(*spp, Limit);
   }
   return;
 }
@@ -82,10 +84,10 @@ pointer make_reset()
   no_code = 1; /* prevent all further code generation */
   /* todo reenable code generation at some stage? eg next '?' symbol? */
   
-  for (/**/; sp > stack; sp--) {
+  for (/**/; root_sp > root_stack; root_sp--) {
     if (debug)
       Debug1("make_reset[%ld]: ", Stacked); out_debug(Top);
-    refc_delete(sp);
+    refc_delete(root_sp);
   }
   
   refc_delete(&root);
@@ -197,7 +199,7 @@ pointer make_oper()
         case op_int_divide:		return new_oper(int_divide_op);
         case op_rem:		return new_oper(rem_op);
         case op_power:		return new_oper(power_op);
-        case op_period:		return new_comb_name(B_comb, new_name(".")); /* f.g == B f g; f.g x ==f (g x) */
+        case op_period:		return new_comb_label(B_comb, new_name(".")); /* f.g == B f g; f.g x ==f (g x) */
         case op_unary_count:	make_err("maker: opexp", "unexpected unary infix operator", lex_oper);
       }
       
@@ -237,7 +239,7 @@ pointer make_abstract(pointer formal, pointer def, tag t)
   pointer n;
   
   if (debug > 1) {
-    Debug2("%s%d[", "make_abstract", (int)t);
+    Debug2("%s:%s[", "make_abstract", err_tag_name(t));
     out_debug1(formal);
     Debug("] ");
     out_debug(def);
@@ -249,7 +251,7 @@ pointer make_abstract(pointer formal, pointer def, tag t)
     n = reduce_abstract(formal, def, t);
   
   if (debug > 1) {
-    Debug2("%s%d--> ", "make_abstract", (int)t);
+    Debug2("%s:%s--> ", "make_abstract", err_tag_name(t));
     out_debug(n);
   }
   
@@ -271,7 +273,7 @@ pointer make_where(pointer condexp, pointer defs)
     return condexp;
   
   pointer a1 = make_abstract(refc_copy(Hd(defs)), condexp, abstract_condexp_t);
-  pointer a2 = make_abstract(refc_copy(Hd(defs)), refc_copy(Tl(defs)), abstract_defs_t);
+  pointer a2 = make_abstract(refc_copy(Hd(defs)), refc_copy(Tl(defs)), abstract_where_t);
 
   condexp = new_apply(a1, a2);
   
@@ -296,11 +298,11 @@ pointer make_defs(pointer new, pointer old)
 }
 /* make a multi-cluase definition */
 /* multi def1 def2 n <= TRYn n def1 def2 */
-pointer make_multi_clause(pointer def1, pointer def2, int n)
+static pointer make_multi_clause(pointer def1, pointer def2, pointer clausename, int n)
 {
-  Debug("make_multi_clause ...");
+  Debug1("make_multi_clause \"%s\" ...", Name(clausename));
     
-  return new_apply4(new_comb(TRYn_comb), new_int(n), def1, def2);
+  return new_apply4(new_comb_label(TRYn_comb, clausename), new_int(n), def1, def2);
 }
 
 #ifdef notdef
@@ -360,14 +362,40 @@ pointer de_dup(pointer new, pointer old)
     return old;
   
   if (IsStruct(new)) {
-    old = de_dup(H(new), old);
-    old = de_dup(T(new), old);
+//    old =
+    de_dup(H(new), old);
+//    old =
+    de_dup(T(new), old);
     return old;
   }
     
   return de_dup1(new, old);
 }
 
+/*
+ */
+
+/*
+ * make_cons_at_end - make "end" last element of a list by attaching at the end
+ */
+/* helper */
+//static pointer make_cons_at_end(pointer n, pointer new)
+//{
+//  pointer n1;
+//  Assert(IsCons(n));
+//
+//  for (n1 = n; IsSet(Tl(n1)); n1 = Tl(n1))
+//    ;
+//
+//  Assert(IsCons(n1));
+//  Assert(IsNil(Tl(n1)));
+//
+//  Tl(n1) = new_cons(new, NIL);
+//
+//  return n;
+//}
+
+#ifdef deprecated
 /*
  * flatten a clause definition so that namelists appear as list of names in the def
  *    from: name:expr
@@ -438,7 +466,7 @@ void make_flatten0(pointer *n, pointer *e)
   }
   return;
 }
-
+#endif
 /*maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker*/
 
 
@@ -570,17 +598,17 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           /* use stack N reverse order of SASL text - abstract "rightmost" formal first */
           /* "f x y = E compiles to [x] ([y] E) where the innermost abstraction is performed first" [Turner] */
           /* this ensures correct de-dup'ing */
-          pointer s;
+          pointer formals;
           int i;
           Assert(howmany >= 1); /* expr */
           
           if (howmany > 1) {
             /* formal+ expr */
-            s = sp[howmany - 1];  /* last/only formal */
+            formals = sp[howmany - 1];  /* last/only formal */
             for (i = howmany - 2; i > 0; i--) /* rest of formals */
-              s = new_apply(sp[i], de_dup(sp[i], s));
+              formals = new_apply(sp[i], de_dup(sp[i], formals));
             
-            return make_abstract(s, sp[howmany], abstract_formals_t);  /* [formal+] expr */
+            return make_abstract(formals, sp[howmany], abstract_formals_t);  /* [formal+] expr */
           } else {
             return n1;/*sp[1]*/ /* expr */
           }
@@ -592,7 +620,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
       /*
        * (6)	<clause> ::= <namelist> = <expr> | <name><rhs>
        *                          1          2        3    4
-       clause == names:expr  || names may be simple name (rhs) or list-of names (namelist)
+       clause <= names:expr  || names may be simple name (rhs) or list-of names (namelist)
        */
       switch (subrule) {
         case 1: return n1;
@@ -607,7 +635,7 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
 //          how to arrange this?
 //
         case 2: return new_cons(n1, n2);
-        case 3: return n1;
+        case 3: return make_name();
         case 4: return new_cons(n1, n2);
       }
     break;
@@ -644,7 +672,8 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
         /* "info" gives the number of arguments */
         if (info > 0 && is_same_name(HH(n1), H(n2))) {
           /* multi-clause definition - not allowed with zero formals */
-          HT(n1) = make_multi_clause(HT(n1), refc_copy(T(n2)), info);
+          HT(n1) = make_multi_clause(HT(n1), refc_copy(T(n2)), refc_copy(H(n2)), info);
+#if 1
         } else {
           /* single clause definition, so far */
           H(n1) = new_cons(refc_copy(H(n2)), H(n1));/*new update(H(n1), H(n2), me)*/ /* Assert(IsARoot(n1) || IsARoot(n2)) */
@@ -654,6 +683,18 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
         dup = def_any_for2(TH(n1), TT(n1), H(n2)); /*search for latest name(s) in previous lists */
         if (IsSet(dup))
           (void) make_err2("clause: duplicate definition of the name: ", Name(dup));
+#else
+      } else {
+        /* single clause definition, so far */
+        dup = dup_any_for2(H(n1), T(n1), H(n2));
+        if (IsSet(dup))
+          (void) make_err2("clause: duplicate definition of the name: ", Name(H(n2)));
+
+
+        H(n1) = make_cons_at_end(H(n1), refc_copy(H(n2)));
+        T(n1) = make_cons_at_end(T(n1), refc_copy(T(n2)));
+      }
+#endif
         
         refc_delete(&n2); /* surplus cons node, possibly with contents */
         
@@ -736,11 +777,27 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
         case 1: {
           /* substitute for builtins and known DEFs; return pointer to-be-reduced; parser then checks for unbound names */
           /* scope of names: "(expr) WHERE defs) WHERE builtin" */
+//xx
+          Debug("<code>\n");
+          out_debug_limit1(n1, -1);  // has side effect of setting "budget = -1" which enables pretrty_print() xxx
+          Debug("\n</code>\n");
+          Debug("<sasl>\n");
+          pretty_print(stderr, n1);
+          Debug("\n</sasl>\n");
+//xx
           if (IsDef(defs))
             n1 = make_where(n1, refc_copy(DefDefs(defs)));
           
           n1 = make_where(n1, refc_copy(DefDefs(builtin)));
-          
+//xx
+          Debug("<code>\n");
+          out_debug_limit1  (n1, -1);  // has side effect of setting "budget = -1" which enables pretrty_print() xxx
+          Debug("\n</code>\n");
+          Debug("<sasl>\n");
+          pretty_print(stderr, n1);
+          Debug("\n</sasl>\n");
+//xx
+
           refc_delete(&root);
           root = n1; /* this is the global root */
           
@@ -791,13 +848,15 @@ int maker(int howmany, char *ruledef, int rule, int subrule, int info)
   if (debug > 2)
     make_show();
   
-  n = maker_do(howmany, ruledef, rule, subrule, info, sp);
+  n = maker_do(howmany, ruledef, rule, subrule, info, root_sp);
   
   Push(n);
   
   if(debug){
     Debug6("%s %d,%d,%d,%d (Stacked=%ld) <= ", ruledef, rule, subrule, info, howmany, Stacked);
-    out_debug_limit(sp[0], Limit);
+    out_debug_limit(root_sp[0], Limit);
+    if (debug > 1)
+      refc_check();/*!!!*/
   }
   
   return 1;
