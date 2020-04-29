@@ -192,12 +192,20 @@ int parse_struct()
   s = 1;
   Maker1("struct<= formal ...", 2,2);
   
+  //2020-03-25 fix for: fails to parse 1 WHERE f(z:(a:b):c)=42?
+  //ToDo get parse of formals correct
+  //reset: parsing: expecting ')' got: (parse_stuct in rule <struct> ::= (<formal>)) got ":" at  line:1
   while (lex_looking_at_operator(op_colon)) {
     s++;
     (void) parse_struct();
     Maker2("struct<= formal : struct", 2,3);
   }
-  
+//  if (lex_looking_at(tok_colon)) {
+//    (void) parse_struct();
+//    Maker2("struct<= formal : struct", 2,3);
+//  } else {
+//    return parse_err("parse_stuct","expecting \':\' got:","<struct> ::= (<formal>)");
+//  }
   return s;
 }
 
@@ -304,11 +312,11 @@ int parse_condexp()
 /*
  *	<rhs> ::= <formal><rhs> | <formal> = <expr>
  * rewritten as
- * (5)  <rhs> ::= <formal>+ = <expr> | = <expr>    + means 1 or more
- *                               1         2
+ * (5)  <rhs> ::= <formal>* = <expr>    + means 0 or more
+ *                               1
  * returns how many formals (>=0)
  */
-
+//2020-03-25 should be *at least 1 formal* in 1983 syntax - DAT bug
 int parse_rhs()
 {
   int formals;
@@ -318,10 +326,7 @@ int parse_rhs()
   for (formals = 0; !lex_looking_at_operator(op_equal); formals++)
     parse_formal();
   
-  lex_offside();
-  parse_expr();
-  lex_onside();
-  
+  lex_offside(); parse_expr(); lex_onside();
   MakerN(1 + formals /* include the expr */, "rhs<=formal* = expr",5,1);
   
   return formals;
@@ -334,34 +339,26 @@ int parse_rhs()
  */
 int parse_clause()
 {
-  int s;
-  
+  int formals;
+
   Debug("parse_clause\n");
 
-  s = parse_namelist();
-  //?bug xxx should parse "a=1" as namelist=expr but does not;  changing this could simplify parse_rhs() nicely
-//  ... or not
-  if (s > 1) { /* namelist */
-    Maker1("clause<=namelist ...",6,1);
-    if (lex_looking_at_operator(op_equal)) {
-      lex_offside();
-      parse_expr();
-      lex_onside();
-      Maker2("clause<=namelist = expr",6,2);
-      return 0; /* no formals */
-    } else
-      return parse_err("parse_clause","expecting \'=\' to follow namelist","clause<=namelist = expr");
-  } 
-
-  if (s == 1) { /* name */
-    int f;
-    Maker1("clause<=name...",6,3);
-    f = parse_rhs();  /* how many formals */
+  if (lex_looking_at(tok_name)) {
+    Maker0("clause<=name...",6,3);
+    formals = parse_rhs();  /* how many formals */
     Maker2("clause<=name rhs ",6,4);
-    return f;
+  } else {
+    Maker1("clause<=namelist ...",6,1);
+    parse_namelist();
+    if (lex_looking_at_operator(op_equal)) {
+      formals = 0;
+      lex_offside(); parse_expr(); lex_onside();
+      Maker2("clause<=namelist = expr",6,2);
+    } else {
+      return parse_err("parse_clause","expecting \'=\' to follow namelist","clause<=namelist = expr");
+    }
   }
-
-  return parse_err("parse_clause","expecting name","clause<=namelist = expr | clause <= name rhs");
+  return formals;
 }
 
 /*
@@ -622,7 +619,7 @@ pointer parse_program()
   Debug("parse_program\n");
   
   if (lex_looking_at(tok_def)) {
-    Maker0("program<=DEF ...", 14,2);
+//2020-01-13 stack imbalance    Maker0("program<=DEF ...", 14,2);
     parse_deflist();
     
     if(lex_looking_at(tok_question_mark)) {
