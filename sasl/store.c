@@ -19,14 +19,21 @@
  * || append () tl    = tl
  * return top of the list
  */
+/*BUG
+ f 'ab" WHERE f x = x ++ x ==> 'abab ......."
+ needs to COPY
+ append () tl = tl
+ append a:x tl = a: append x tl
+ */
+
 pointer make_append(pointer list, pointer tl)
 {
   if (IsNil(list))
     return tl;
 
-  /* was Assert(IsCons(list)); but wrong as that is strict */
+  /* was Assert(IsCons(list)); but wrong as that is strict */ /*?? is that right*/
   Assert(IsStruct(list));
-  T(list) = make_append(T(list), tl);
+  T(list) = make_append(T(list), tl); /*todo: change to iterative to avoid C implementation stack overflows */
   return list;
 }
 
@@ -141,16 +148,12 @@ pointer new_abstract(pointer name, pointer def, tag t)
 {
   pointer n;
   
-  switch (t) {
-  case abstract_condexp_t:
-  case abstract_formals_t:
-  case abstract_defs_t:
-    n = new_node(t);
-    break;
-  default:
-      err_refc1("new_abstract: bad tag: ", (unsigned) t);
-      return NIL; /*NOTREACHED*/
+  if (! IsAbstractTag(t)) {
+    err_refc2("new_abstract: bad tag: ", err_tag_name(t));
+    return NIL; /*NOTREACHED*/
   }
+  
+  n = new_node(t);
   Hd(n) = name;
   Tl(n) = def;
   store_log_new(n);
@@ -412,7 +415,8 @@ static pointer new_unary(tag t, char *name, pointer (*fun)(pointer p))
     return err_store("new_unary: null function pointer");
 
   Ufun(n) = fun;
-  
+
+  store_log_new(n);
   return n;
 }
 
@@ -434,11 +438,11 @@ pointer new_unary_nonstrict(char *name, pointer (*fun)(pointer p))
 static pointer refc_change_to_deleting(pointer p)
 {
   Debug1("refc_change_to_deleting%s\n", refc_pointer_info(p));
-
+  
   Assert(HasPointers(p));
   Assert(! IsFree(p));
   Tag(p) = deleting_t;
-
+  
   return p;
 }
 
@@ -446,54 +450,78 @@ static pointer refc_change_to_deleting(pointer p)
  * storage management - reference counting ref...
  */
 
-#ifdef new
-/*xxx incomplete - what is Tag(n)!= t ?*/
-pointer make_node(pointer n, tag t)
-{
-  if (IsNil(n))
-    n = new_node(t);
-
-  return n;
-}
-
-pointer make_comb_name(pointer n, tag t, pointer name)
-{
-  n = make_node(n, t);
-  Hd(n) = name;
-  Tl(n) = NIL; /*WIP is this needed?*/
-  store_log_new(n);
-  return n;
-}
-
-pointer new_comb_name(tag t, pointer name)
-{
-  return make_comb_name(NIL, t, name);
-}
-
-pointer make_apply(pointer n, pointer hd, pointer tl)
-{
-  make_node(n, apply_t);
-  Hd(n) = hd;
-  Tl(n) = tl;
-  store_log_new(n);
-  return n;
-}
-#else
-
+//#ifdef new
+///*xxx incomplete - what if Tag(n)!= t ?*/
+//static pointer make_node(pointer n, tag t)
+//{
+//  if (IsNil(n)) {
+//    return new_node(t);
+//  }
+//
+//  if (HasPointers(n)) {
+//    refc_delete(&Hd(n), &Tl(n));
+//  }
+//  Tag(n) = t;
+//  if (HasPointers(n) {
+//    Hd(n) = Tl(n) = NIL; /* always intitalise pointers (even if previously deleted) */
+//  }
+//      return n;
+//}
+//
+//      pointer make_comb_name(pointer n, tag t, pointer name)
+//  {
+//    n = make_node(n, t);
+//    Hd(n) = name;
+//    Tl(n) = NIL; /*WIP is this needed?*/
+//    store_log_new(n);
+//    return n;
+//  }
+//
+//      pointer new_comb_label(tag t, pointer name)
+//  {
+//    return make_comb_name(NIL, t, name);
+//  }
+//
+//      pointer make_apply(pointer n, pointer hd, pointer tl)
+//  {
+//    make_node(n, apply_t);
+//    Hd(n) = hd;
+//    Tl(n) = tl;
+//    store_log_new(n);
+//    return n;
+//  }
+//#else
+//
+//
+//
+//#endif
+  /* vanilla version */
+      
 /* hide the sasl variable name in hd of the combinator */
-pointer new_comb_name(tag t, pointer name)
+static pointer new_comb_do(tag t, pointer name)
 {
   pointer n = new_node(t);
+  
   Hd(n) = name;
+  Tl(n) = NIL;
   store_log_new(n);
   return n;
 }
 
-#endif
-/* vanilla version */
 pointer new_comb(tag t)
 {
-  return new_comb_name(t, NIL);
+  return new_comb_do(t, NIL);
+}
+
+pointer new_comb_label(tag t, pointer name)
+{
+  
+  if (! IsName(name)) {
+    /**/Debug2("new_comb_label %s: not a name: %s\n", err_tag_name(t), refc_pointer_info(name));
+    err_store("new_comb_label: not a name");
+  }
+  
+  return new_comb_do(t, name);
 }
 
 /* ... ... */
@@ -570,37 +598,66 @@ void refc_delete_post_delete_log(pointer p)
 
 static unsigned refc_delete_search_count = 0;  /* number of deletions causing search */
 
-/* run additional checks if global "loop_check" is set: loop_check==1 => check when deleting; loop_check > 1 => alwats check */
-void refc_delete_post_search_log(pointer p)
+/* run check from first priciples to determine is the loop is free and report accordingly */
+void refc_delete_pre_search_log(pointer p, zone_check_node_data *data_ref)
 {
-  refc_delete_search_count++;
   
-  if (loop_check && Srefc(p) == 0) {  /* loop_check is set: log check_node_info and check for non-islands being deleted */
-    zone_check_node_data data = zone_check_island(p, refc_delete_depth);
+  Log2("refc_delete_pre_search%s (depth=%u)\n",
+       refc_pointer_info(p),
+       refc_delete_depth
+       );
+
+  if (loop_check) {
+    *data_ref = zone_check_island(p, refc_delete_depth);
+
+    Log1(" %s\n",refc_pointer_info(p));
+  } else {
+    *data_ref = zero_data;
     
-    Debug5("%srefc_delete_post_search%s (depth=%u) %s%s\n",
-         ! zone_is_island(data) ? "" : "!!",
-         refc_pointer_info(p),
-         refc_delete_depth,
-         zone_node_info(data),
-         ! zone_is_island(data) ? "" : " about to delete something which is NOT free");
-    
-  } else if (loop_check > 1) {     /* loop_check > 1 and (SRefc != 0), about to delete so check for islands NOT being deleted */
-    zone_check_node_data data = zone_check_island(p, refc_delete_depth);
-    
-    Debug5("%srefc_delete_post_search%s (depth=%u) %s%s\n",
-         zone_is_island(data) ? "" : "!!",
-         refc_pointer_info(p),
-         refc_delete_depth,
-         zone_node_info(data),
-         zone_is_island(data) ? "" : " about to NOT delete something which is free");
-    
-  }else {
-    Debug2("refc_delete_post_search%s (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
+    Log("\n");
   }
   
   return;
 }
+
+      
+      
+/* run additional checks if global "loop_check" is set: loop_check==1 => check when about to delete; loop_check > 1 => always check */
+void refc_delete_post_search_log(pointer p, zone_check_node_data data)
+{
+  char *msg = 0;
+  
+  refc_delete_search_count++;
+  
+  if (loop_check) {
+    switch (data.status) {
+      case unknown:
+        msg = "<unknown status>";
+        break;
+      case strong_root:
+      case strong:
+      case weak:
+        if (Srefc(p) == 0)
+          msg = " - about to delete something which is NOT free";
+        break;
+      case island:
+        if (Srefc(p) > 0)
+          msg = " - about to NOT delete something which is free";
+        break;
+    }
+  }
+
+  Log5("%srefc_delete_post_search%s (depth=%u) %s%s\n",
+       (msg ? "!!" : ""),
+       refc_pointer_info(p),
+       refc_delete_depth,
+       (loop_check ? zone_node_info(data): ""),
+       (msg ? msg : "")
+       );
+  
+  return;
+}
+
 
 /*
  * refc_log_report(where)
@@ -724,7 +781,7 @@ static void refc_copy_make_cyclic_log(pointer p)
 /* refc_flip_node - invert pointers - by changing the node bit, also adjust strong/weak reference counts.  Do nothing for constants and NIL. */
 static void refc_flip_node(pointer p)
 {
-  if (IsNil(p) || ! HasPointers(p))
+  if (IsNil(p)) // || ! HasPointers(p))
     return;
   
   refc_flip_node_log(p);
@@ -746,8 +803,14 @@ static void refc_flip_pointer(pointer *pp)
   
   refc_flip_pointer_log(p);
   
-  Wrefc(p)++;
-  Srefc(p)--;
+  if (IsStrong(p)) {
+    Wrefc(p)++;
+    Srefc(p)--;
+  } else {
+    Srefc(p)++;
+    Wrefc(p)--;
+
+  }
   PtrBit(*pp) = !NodeBit(p); /* Was: PtrBit(p) = !PtrBit(p); */
   return;
 }
@@ -760,7 +823,7 @@ static void refc_flip_pointer(pointer *pp)
  *  builtin   list of definitions which are built in to SASL - maths (eg sin cos), characters (code/decode), type predicated (list, char)
  *  defs      list of definitions added (SASL "DEF"s)
  *
- * However during deletion, the rule for is relaxed: "additionally
+ * However * deletion, the rule for is relaxed: "additionally
  *      (1) nodes being freed may have no pointers at all before being addedd to the freelist
  *      (2) loop nodes being deleted are tagged 'deleting' and have at least one reference (either strong or weak)
  *
@@ -802,20 +865,23 @@ static inline int okPointerDel(pointer p)
 static void refc_search(pointer start, pointer *pp)
 {
 
-  if (IsDeleting(*pp)) /* deletion of p already underway */
-    return;
-    
+//  2020-01-04 disabled: need to allow search to progress and weaken last pointer?
+//  if (IsDeleting(*pp)) /* deletion of p already underway */
+//    return;
+  
   if (IsNil(*pp) || ! HasPointers(*pp) || IsWeak(*pp))  /* never try to make weak pointers to constants or NIL */
     return;
   
-  refc_search_log(start, *pp); /* don't log NIL, weak pointers, or consants */
+  refc_search_log(start, *pp); /* don't log NIL, weak pointers, or constants */
   
-  if (SameNode(start, *pp) || Srefc(*pp) > 1) {  /* make a strong pointer to a non-constant weak, end of search */
+  if (SameNode(start, *pp) || ((Srefc(*pp) > 1) && !IsDeleting(*pp)))
+  {  /* make a strong pointer to a non-constant weak, end of search */
     refc_flip_pointer(pp);
     return;
   }
   
-  if (Srefc(*pp) == 1) {  /* "lone" strong pointer stays strong: recurse when node contains pointers */
+// 2020-01 Assert(Srefc(*pp) == 1) so remove ... if (Srefc(*pp) == 1)
+  {  /* "lone" strong pointer stays strong: recurse when node contains pointers */
     if (HasPointers(*pp)) {
       refc_search(start, &Hd(*pp));
       refc_search(start, &Tl(*pp));
@@ -853,7 +919,7 @@ static void refc_delete_do(pointer *pp)
     return;
 //Start Deprecated
   if (IsFree(p)) {
-    Log1("refc_delete%s sttempt to delete pointer to freed node - no action\n", refc_pointer_info(p));
+    Log1("refc_delete%s attempt to delete pointer to freed node - no action\n", refc_pointer_info(p));
     return;
   }
 //End Deprecated
@@ -870,11 +936,17 @@ static void refc_delete_do(pointer *pp)
     Wrefc(p)--;
   }
   
+  //See Deprecated above
+  /* 1a (already free) => return */
+//  if (IsFree(p))
+//    return;
+//  //End See Deprecated above
+  
   /* 2. (Srefc > 0) => return */
   if (Srefc(p) > 0)
     return;
   
-  /* 3. (Wrefc == 0) => (HasPointers = set deleting; delete H; delete T) free_node; return */
+  /* 3. (Wrefc == 0) => (HasPointers => set deleting; delete H; delete T) free_node; return */
   if (Wrefc(p) == 0) { /* ie Allrefc(p) == 0 */
     if (HasPointers(p)) {
       refc_change_to_deleting(p);
@@ -885,36 +957,43 @@ static void refc_delete_do(pointer *pp)
     return;
   }
   
-  /* 4. (deleting) => return */
+  /* 4. (deleting) => return */ // move lower to allow deleting nodes to be flipped? xxxxxxxxxx????
   if (IsDeleting(p))
     return;
   
-//  /* 5. loop: flip */     Assert(HasPointers(p));
+  /* 5. loop: flip */
   Assert(Srefc(p) == 0); Assert(Wrefc(p) > 0);
   refc_flip_node(p);
-//  Assert(refc_okPointer(p));
-  
+
   /* 6. search H; search T */
-  refc_search(p, &Hd(p));
-  refc_search(p, &Tl(p));  refc_delete_post_search_log(p);
-  
+  if (HasPointers(p)) {
+    zone_check_node_data data;
+    refc_delete_pre_search_log(p, &data);
+    refc_search(p, &Hd(p));
+    refc_search(p, &Tl(p));
+    refc_delete_post_search_log(p, data);
+  }
+
+
   /* 7. (Srefc > 0) => return */
   if (Srefc(p) > 0)
     return;
   
   /* 8. (HasPointers => Set deleting delete H; delete T); return  */
-//  Assert(HasPointers(p));
+  Assert(HasPointers(p));
   Assert(! IsDeleting(p)); /* belt and braces*/
-  if (HasPointers(p)) {
-    refc_change_to_deleting(p);
-    refc_delete(&H(p));
-    refc_delete(&T(p)); /* deletion of last pointer to p will free the node */
-  }
+  Assert(Srefc(p) == 0); Assert(Wrefc(p) > 0);
+  refc_change_to_deleting(p);
+  refc_delete(&H(p));
+  refc_delete(&T(p)); /* deletion of last pointer to p will free the node */
 
   // *** This Never Happens ***
-  if (!IsFree(p) && ALLrefc(p) == 0) { /* deletion of last pointer has not freed the node*/
-    Debug1("!!refc_delete%s deletion of last pointer has not freed node\n", refc_pointer_info(p));
-    err_refc("deletion of last pointer has not freed node");
+  if (!IsFree(p)
+//      && ALLrefc(p) == 0
+      ) { /* deletion of last pointer has not freed the node*/
+    Debug2("!!refc_delete%s deletion of last pointer has not freed node (depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
+//    refc_check();
+//    err_refc("deletion of last pointer has not freed node");
   }
 //
   return;
@@ -1152,7 +1231,7 @@ pointer refc_copyT(pointer p)
 #endif
 /*
  * refc_make_copy() copy a pointer, making sure that there are never weak pointers to constants
- * "weak" is the number >=0, of "intermediate" pointers which have been visited before "p"
+ * "weak" is the number >=0, of "intermediate" weak pointers which have been visited before "p"
  */
 static pointer refc_make_copy(pointer p, unsigned weak)
 {
@@ -1200,14 +1279,14 @@ static pointer refc_copyS_do(pointer p, char *s, unsigned weak)
   /* selector encodes "path" to pointed-to node, visit each path item in turn, counting weaks */
   for ( /**/ ; *s; s++) {
     if (! HasPointers(p))
-      err_refc("refc_copyS: node does not contain pointers");
+      err_refc2("refc_copyS: node does not contain pointers", s);
     
     if (*s == 'H')
       p = H(p);
     else if (*s == 'T')
       p = T(p);
     else
-      err_refc1("refc_copyS: bad selector", *s);
+      err_refc2("refc_copyS: bad selector", s);
     
     if (IsSet(p) && IsWeak(p))
       weak++;
@@ -1305,6 +1384,30 @@ pointer refc_copy_make_cyclic(pointer p)
 }
 
 #ifdef deprecated
+/*
+ nrefc_update - update-in-place deleting existing contents, *moving* from new.  new is erased but not freed.
+ */
+      void refc_update(pointer n; pointer new)
+      {
+        if (HasPointers(n)) {
+          refc_delete(&Hd(n));
+          refc_delete(&Tl(n));
+        }
+        
+        Tag(n) = Tag(new);
+        Val(n) = Val(new);
+        
+        if (HasPointers(new)) {
+          Hd(new) = Tl(new) = NIL;
+        }
+        
+//        refc_delete(&new);
+//        
+//        Pop(1);
+      }
+      
+      */
+#endif
 /* refc_update - update-in-place overwriting contents.
  * NB old contents are deleted before installing new, so refc are incremented to be correct!
  * If new value is NIL, delete and return NIL.
@@ -1329,7 +1432,7 @@ pointer refc_update(pointer n, pointer new)
   t = Tag(new);
   
   if (HasPointers(new)) {
-    n = refc_update_hdtl(n, refc_copyH(new), refc_copyT(new));
+    n = refc_update_hdtl(n, refc_copy(H(new)), refc_copy(T(new)));
   } else {
     union val v = Val(new);
     n = refc_update_hdtl(n, NIL, NIL);
@@ -1340,7 +1443,6 @@ pointer refc_update(pointer n, pointer new)
   
   return n;
 }
-#endif
 
 /* insert new contents in an apply node, free old, new node can be any kind */
 /* copy hd, tl from new into old; delete hd to */
@@ -1445,13 +1547,23 @@ pointer /*so can be used in an expression*/ refc_update_pointerS(pointer *pp, ch
     refc_err("attempting to update a NIL pointer", *pp);
     /*NOTREACHED*/
   }
-  
+//  consider replacing with
+//  if (!pp)
+//  refc_err("updating nothing",NIL);
+
+
   {
     pointer newp = refc_copy_pointerS(*pp, s);
     refc_delete(pp);
     *pp = newp;
   }
-  
+//  2020-01-29 below makes strong pointer loops ?as does above!
+//  {
+//    pointer oldp = *pp;
+//    *pp = refc_copy_pointerS(*pp, s);
+//    refc_delete(&oldp);
+//  }
+// 2020-01-29 ends
   return *pp;
 }
 /*
