@@ -6,9 +6,52 @@
 #include <string.h>
 #include "common.h"
 
+#include "abstract.h"
+
 #include "store.h"
 
 #include "reduce.h"
+
+/* meta-rule */
+
+/* [any] ([something] E) ==> [any] E' ... where E' = reduce_abstract(something, E) */
+pointer abstract_meta_rule(pointer n)
+{
+  pointer new;
+  
+  if (!IsAbstract(n))
+    return n; /* nothing needed here */
+  
+  /* this never happens */
+  if (!partial_compile)
+    err_make2("unexpected abstraction: %s", err_tag_name(Tag(n)));
+  
+  /* innermost first for abstraction - could be made less strict but alpha-conversion is an implementation issue (todo) */
+  Debug1("abstract_meta_rule: %s:", err_tag_name(Tag(n))); out_debug(n);
+
+  new =  reduce_abstract(refc_copy(H(n)), refc_copy(T(n)), Tag(n));
+
+  Debug1("abstract_meta_rule: %s --> ", err_tag_name(Tag(n))); out_debug(new);
+
+  refc_delete(&n);
+  /* this refc stuff is all too complicated (todo) */
+  
+  return new;
+}
+//  ToDo - implement alpha-conversion to stop meta-abastraction being strict
+// 2020-03-17
+/* [any] ([... any ...] E) ==> ([... any ...] E)  otherwise [ ... others ... ] ([any] E)  */
+
+//  /* abstract over an "inner" abstraction - taking care to avoid aliasing "inner" names */
+//  if (IsAbstract(n)) { // nb abstract is not an atom!
+//    if (got_name(name, H(n)))
+//      return n; /* do nothing */
+//    else
+//      Tl(n) = reduce_abstract_do(name, Tl(n), &tgot);
+//  } else
+
+/* end meta-rules */
+
 
 /*
   [Turner 1979]
@@ -89,30 +132,31 @@ static pointer reduce_abstract_do(pointer name, pointer n, int *got)
   int hgot = 0, tgot = 0; /* counts how many occurences of x in Hd(n), Tl(n) */
   int ap; /* IsApply(n) - used to determine S vs Sp etc */
 
-    if (debug > 1) {
-    Debug3("%s[%s] (got==%d) ", "recursive_abstract_do", IsNil(name)?"NIL":Name(name), *got);
+  if (debug > 1) {
+    Debug3("%s[%s] (got==%d) ", "reduce_abstract_do", IsNil(name)?"NIL":Name(name), *got);
     out_debug(n);
   }
   
   if (IsNil(n))
     return n;	/* do[x] NIL => NIL */ /*assert((*got)==0)*/
 
+  n = abstract_meta_rule(n); /* nested abstractions */
+
   if (is_same_name(name, n)) {
     /* combinator "labelling" do[x] x => Ix */
     /* was - update in place */
     (*got)++;
-    return new_comb_name(I_comb, n);
+    return new_comb_label(I_comb, n);
   }
-  
+
   if (IsAtom(n)) {
     /* do[x] simple ==> simple */
     return n;
+  } else {
+    /*new update(n, reduce_abstract_do(name, H, &hgot), reduce_abstract_do(name, Tl, &tgot))*/
+    Hd(n) = reduce_abstract_do(name, Hd(n), &hgot); //stack: push H; push name;new_int(hgot); reduce_abstract_do
+    Tl(n) = reduce_abstract_do(name, Tl(n), &tgot);
   }
-  
-  /*new update(n, reduce_abstract_do(name, H, &hgot), reduce_abstract_do(name, Tl, &tgot))*/
-  Hd(n) = reduce_abstract_do(name, Hd(n), &hgot);
-  Tl(n) = reduce_abstract_do(name, Tl(n), &tgot);
-  
   *got += hgot + tgot;
   
   if (IsApply(n)) {
@@ -130,7 +174,8 @@ static pointer reduce_abstract_do(pointer name, pointer n, int *got)
   
   if (hgot) {
     if (tgot) {
-      Hd(n) = new_apply(new_comb(ap ? S_comb : Sc_comb), Hd(n));
+//2020-04-25      Hd(n) = new_apply(new_comb(ap ? S_comb : Sc_comb), Hd(n));  //stack: new_comb(S_comb||Sc_comb);push H; make_apply
+      Hd(n) = new_apply(new_comb_label(ap ? S_comb : Sc_comb, refc_copy(name)), Hd(n));  //stack: new_comb(S_comb||Sc_comb);push H; make_apply
     } else {
       Hd(n) = new_apply(new_comb(ap ? C_comb : Cc_comb), Hd(n));
     }
@@ -149,28 +194,24 @@ static pointer reduce_abstract_do(pointer name, pointer n, int *got)
 }
 
 
-/* abstract1 [name] exp - worker functions to abstract a single name (or NIL) */
+/* abstract1 [name] exp - worker function to abstract a single name (or NIL) */
 
 /* [x] E => K abstract_do(x, E)   || if x is *not* present in E (got == 1)*/
 /* [x] E =>   abstract_do(x, E)   || otherwise */
-
 /* deprecated: if "r then recursive abstract Y ... */
-static pointer reduce_abstract1(pointer name, pointer exp, int r)
+static pointer reduce_abstract1(pointer name, pointer exp)
 {
   int got = 0; /* counts how many occurences of name in exp */
   Assert(IsName(name) || IsNil(name));
   
-  if (debug > 1)
-    Debug2("%s[%s] ", (r?"recursive_abstract1":"abstract1"), IsNil(name)?"NIL":Name(name)); out_debug(exp);
+  if (debug /*> 1 better to see actual abstractiosn rather than mechanations of reduce_abstract_do() */)
+    Debug2("%s[%s]\t", "abstract1", IsNil(name)?"NIL":Name(name)); out_debug(exp);
 
   exp = reduce_abstract_do(name, exp, &got);
 
 #ifndef possiblytooclever
   if (got == 0)
-    exp = new_apply(new_comb(K_comb), exp);
-  
-  if (r)
-    exp = new_apply(new_comb(Y_comb), exp);
+    exp = new_apply(new_comb_label(K_comb, refc_copy(name)), exp);
 #else
   if (r == 0) {
     /* Let */
@@ -184,8 +225,8 @@ static pointer reduce_abstract1(pointer name, pointer exp, int r)
   }
 #endif
   
-  if (debug > 1)
-    Debug2("%s[%s] --> ", (r?"recursive_abstract1":"abstract1"), IsNil(name)?"NIL":Name(name)); out_debug(exp);
+  if (debug /*> 1*/)
+    Debug2("%s[%s]-->\t", "abstract1", IsNil(name)?"NIL":Name(name)); out_debug(exp);
     
   return exp;
 }
@@ -202,32 +243,34 @@ static pointer reduce_abstract1(pointer name, pointer exp, int r)
 /* [x:y] E     => MATCH_tag CONS U ([x] ([y] E)) */
 /* [a b] E     => [a] ([b] E) */
 
+/* meta-rules */
+/* [any] ([other] E) => [other] ([any'] E)  where any' = "any - namesof(other)"  - avoid alpha-rule renaming
+
+/* "pattern" is deleted before returning; so every recursive use of pattern needs to be "refc_copy(pattern)" */
+
 pointer reduce_abstract(pointer pattern, pointer exp, tag t)
 {
-  int recursive;
-  
   Debug1("%s[", err_tag_name(t)); out_debug1(pattern); Debug("] ");
   out_debug(exp);
 
-  Assert(t == abstract_condexp_t || t== abstract_formals_t || t == abstract_defs_t);
+  Assert(IsAbstractTag(t));
   Assert(!IsComb(pattern));
 
-  /* only apply "Y" at outermost level, so "downgrade" t, and set "recursive" for use below  */
-  if (t == abstract_defs_t) {
-    recursive = 1;
-    t = abstract_condexp_t;
-  } else {
-    recursive = 0;
-  }
-  
-  if (IsNil(pattern) || IsConst(pattern)) {
+  exp = abstract_meta_rule(exp); /* nested abstractions */
+
+  if (t == abstract_where_t) {
+    /* only apply "Y" at outermost level, so "downgrade" t then wrap Y round the result */
+    return new_apply(new_comb(Y_comb),
+                     reduce_abstract(pattern, exp, abstract_defs_t)
+                     ); /* "pattern" already deleted in inner call */
+  } else if (IsNil(pattern) || IsConst(pattern)) {
     Assert(t == abstract_formals_t);/*temporary xxx*/
     /* [const] E => MATCH const E */
     /* [NIL]   E => MATCH NIL   E */
     exp = new_apply3(new_comb(MATCH_comb), refc_copy(pattern), exp);
   } else if (IsName(pattern)) {
     /* [name] E => abstract1(name, E) */
-    exp = reduce_abstract1(pattern, exp, 0); /* nb bug was 1; todo remove "r" parameter from abstract1() */
+    exp = reduce_abstract1(pattern, exp);
   } else if (IsMatchName(pattern)) {
     Assert(t == abstract_formals_t);/*temporary xxx*/
     /* [MATCH name] E => MATCH name E */
@@ -240,26 +283,35 @@ pointer reduce_abstract(pointer pattern, pointer exp, tag t)
                             reduce_abstract(refc_copy(Tl(pattern)), exp, t),
                             t);
     } else {
+      pointer comb;
       Assert(IsCons(pattern));
+
+      if (IsName(Hd(pattern)) && (t != abstract_condexp_t)) {
+        comb = new_comb_label(U_comb, refc_copy(Hd(pattern)));
+      }
+      else
+        comb = new_comb(U_comb);
+
       if (IsNil(Tl(pattern))) {
         /* [x:NIL] E => U ([x] (K_nil E)) */
-        exp = new_apply(new_comb(U_comb),
+        //        exp = new_apply(new_comb(U_comb),
+        //        exp = new_apply(IsName(Hd(pattern)) ? new_comb_label(U_comb,  refc_copy(Hd(pattern))) : new_comb(U_comb),
+        exp = new_apply(comb,
                         reduce_abstract(refc_copy(Hd(pattern)),
                                         new_apply(new_comb(K_nil_comb), exp),
                                         t));
       } else {
         /* [x:y] E => U ([x] ([y] E)) */
-        exp = new_apply(new_comb(U_comb),
+        //        exp = new_apply(new_comb(U_comb),
+        //        exp = new_apply(IsName(Hd(pattern)) ? new_comb_label(U_comb,  refc_copy(Hd(pattern))) : new_comb(U_comb),
+        exp = new_apply(comb,
                         reduce_abstract(refc_copy(Hd(pattern)),
                                         reduce_abstract(refc_copy(Tl(pattern)), exp, t),
                                         t));
       }
       
-      if (t == abstract_formals_t) /* match against a list */
+      if (t == abstract_formals_t) /* match a list (cons_t) argument */
         exp = new_apply3(new_comb(MATCH_TAG_comb), new_cons(NIL,NIL), exp);
-      
-      if (recursive) /*t == abstract_defs_t && at-top-level */
-        exp = new_apply(new_comb(Y_comb), exp);
     }
   }
   
