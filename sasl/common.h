@@ -55,9 +55,10 @@ typedef enum tag {
 #define IsNameTag(t) ((t)==name_t)
   abstract_condexp_t,
   abstract_formals_t,
+  abstract_where_t,
   abstract_defs_t,
 
-#define IsAbstractTag(t) ((t)==abstract_condexp_t || (t)==abstract_formals_t || (t)==abstract_defs_t)
+#define IsAbstractTag(t) ((t)>=abstract_condexp_t && (t)<=abstract_defs_t)
 
   def_t,
 #define IsDefTag(t) ((t)==def_t)
@@ -101,7 +102,7 @@ typedef enum tag {
   rem_op,
   
   power_op,
-#define IsBinaryOpTag(t) ((t)>=range_op && (t)<=power_op)
+#define IsBinaryOpTag(t) ((t)>=colon_op && (t)<=power_op)
   
   /* unary operators */
   unary_not_op,
@@ -111,6 +112,7 @@ typedef enum tag {
   
   unary_count_op,
 #define IsUnaryOpTag(t) ((t)>=unary_not_op && (t)<=unary_count_op)
+#define IsOpTag(t) (IsUnaryOpTag(t) || IsBinaryOpTag(t) || IsTernaryOpTag(t))
   
   /* Combinators - tl contains first argument.  Optionally hd points to name_t name of variable being abstracted, for debugging purposes */
 #define IsCombTag(t) ((t)>=I_comb && (t)<unary_strict)
@@ -226,6 +228,7 @@ typedef struct node
 #define IsTernaryOp(p)  (IsSet(p) && IsTernaryOpTag(Tag(p)))
 #define IsBinaryOp(p)   (IsSet(p) && IsBinaryOpTag(Tag(p)))
 #define IsUnaryOp(p)    (IsSet(p) && IsUnaryOpTag(Tag(p)))
+#define IsOp(p)         (IsSet(p) && IsOpTag(Tag(p)))
 #define IsComb(p)	    (IsSet(p) && IsCombTag(Tag(p)))
 #define IsBuiltin(p)    (IsSet(p) && IsBuiltinTag(Tag(p)))
 /* is a particular combinator */
@@ -289,6 +292,50 @@ typedef struct node
 #define DefExprs(ptr) T(_GETV((ptr),pointers).tl)
 #endif
 
+
+/*
+ */
+/*
+ * kind - grouping of tags, broadly based on their suffices _comb _op etc.
+ */
+typedef enum kind{
+  special,
+  constant,
+  fail,        /* 1 only */
+  name,        /* 1 only */
+  apply,    /* 1 only */
+  cons,     /* 1 only */
+  abstract,
+  def,        /* 1 only */
+  operator,
+  builtin_op,        /* operator implemented by C function */
+  combinator
+} kind;
+
+extern inline char *tag_name(pointer p);
+extern inline kind tag_kind(pointer p);
+extern /*inline*/char tag_nargs(pointer p);
+extern inline char tag_strict(pointer p);
+extern inline char tag_needs(pointer p);
+
+extern inline int is_tag(tag t, pointer p);
+extern inline int is(kind t, pointer p);
+
+extern inline int is_struct(pointer p);
+
+extern inline int is_op(pointer p);
+extern inline int is_unary_op(pointer p);
+extern inline int is_binary_op(pointer p);
+extern inline int is_ternary_op(pointer p);
+
+/*
+ * tag_init call once to initialise taginfo - a bit like microcode load
+ */
+extern int tag_init(void);
+
+/*
+ */
+
 #define H(x)  Hd(x)
 #define T(x)  Tl(x)
 
@@ -317,6 +364,7 @@ extern int err_reduce(char *msg1);
 extern int err_reduce2(char *msg1, char *msg2b);
 extern int err_refc(char *msg1);
 extern int err_refc1(char *msg1, unsigned i);
+extern int err_refc2(char *msg1, char *msg2);
 extern pointer err_store(char *msg);
 extern int err_zone(char *msg1);
 
@@ -419,6 +467,7 @@ extern int reduce_optimise;
  */
 
 extern char *err_tag_name(tag t);
+extern char *comb_label(pointer p);
 
 extern int got_name(pointer name, pointer p);
 extern int is_same_name(pointer n1, pointer n2);
@@ -428,6 +477,9 @@ extern pointer out_debug(pointer n);
 extern pointer out_debug_limit(pointer n, int limit);
 extern pointer out_debug1(pointer n);
 extern pointer out_debug_limit1(pointer n, int limit);
+
+extern int pretty_print_const(FILE *where, pointer p);
+extern int pretty_print(FILE *where, pointer n);
 
 extern int got_name(pointer name, pointer p);
 extern int is_duplicate_name(pointer name, pointer p);
@@ -442,3 +494,4 @@ extern int list_length(pointer p);
  */
 void *new_table(size_t count, size_t size);
 void free_table(void *t);
+
