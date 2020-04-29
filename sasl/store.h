@@ -19,13 +19,13 @@ extern pointer def_any_for2(pointer names, pointer defs, pointer n);
 extern pointer *def_for(pointer def, pointer n);
 extern pointer new_name(char *s);
 extern pointer new_oper(tag oper);
-extern pointer new_comb_name(tag t, pointer name);
+extern pointer new_comb_label(tag t, pointer name);
 extern pointer new_comb(tag t);
 extern pointer new_unary_strict(char *name, pointer (*fun)(pointer p));
 extern pointer new_unary_nonstrict(char *name, pointer (*fun)(pointer p));
 
 extern void refc_delete(pointer *pp);
-//deprecated:extern pointer refc_update(pointer n, pointer new);
+extern pointer refc_update(pointer n, pointer new);
 extern pointer refc_update_to_int(pointer n, int i);
 extern pointer refc_update_to_bool(pointer n, char b);
 extern pointer refc_update_to_char(pointer n, char c);
