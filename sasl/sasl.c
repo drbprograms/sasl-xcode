@@ -109,9 +109,9 @@ static int main_init()
   loop_check        = getenv_int("loop_check", 1);      /* default ON xxx could be off when tests fininshed? */
 
   /* deep changes */
-  weak_path         = getenv_int("weak_path", 1);       /* default on = examine weakness of pointers when copying *//*XXX to be implemented*/
+  weak_path         = getenv_int("weak_path", 1);       /* default on = examine weakness of pointers when copying *//*XXX to be implemented as switchable */
 
- return store_init() || reduce_init();
+ return store_init() || tag_init() || reduce_init();
 }
 
 /* closedown */
@@ -191,13 +191,10 @@ int main(int argc, char **argv)
  
   if(debug > 1) {
     Debug1("sizeof(node) %lu\n", sizeof(node));
-    Debug1("_LastTag %d\n", _LastTag);
-    Debug1("_TagCount %d\n", _LastTag);
+    Debug1("_TagCount %d\n", TagCount);
   }
 
-  (void) main_init();
-  
-  /*
+ /*
    * error handling
    */
   err = setjmp(jmpbuffer);
@@ -223,6 +220,9 @@ int main(int argc, char **argv)
     resetting = 0;
   }
   
+  /* initialise */
+  (void) main_init(); //todo check return value
+    
   /* read file args, or else stdin */
 
   /* process command line: sasl [-p] [file..] */
