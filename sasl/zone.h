@@ -21,7 +21,8 @@ extern const refc_pair zero_refc_pair;
  *  deficit == missing pointers found only in debug nodes
  *  excess  == extra pointers found only in debug nodes
  */
-typedef struct { refc_pair total, excess, deficit;} zone_check_node_data;
+typedef enum{unknown = 0, island, strong_root, strong, weak} zone_check_node_data_status;
+typedef struct {zone_check_node_data_status status; refc_pair total, excess, deficit;} zone_check_node_data;
 
 extern zone_check_node_data zone_check_island(pointer p, unsigned depth);
 extern int zone_is_island(zone_check_node_data data);
