@@ -327,6 +327,17 @@ int is_same_name(pointer n1, pointer n2)
 
 jmp_buf jmpbuffer;	/* for longjmp() in case of errors */
 
+int err_lex(char *msg1, char *msg2)
+{
+  extern char *yytext;
+  extern int yylineno;
+  extern char *lex_filename;
+  
+  Error5("reset: reading input: %s %s \"%s\" at %s line:%d\n", msg1, msg2, yytext, lex_filename, yylineno);
+  longjmp(jmpbuffer, 1);
+  return 0; /*NOTEREACHED*/
+}
+
 int err_parse(char *f, char *msg1, char *msg2)
 {
   extern char *yytext;

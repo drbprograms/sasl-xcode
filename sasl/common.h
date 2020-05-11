@@ -355,6 +355,7 @@ extern int tag_init(void);
 #include <setjmp.h>
 extern jmp_buf jmpbuffer;
 
+extern int err_lex(char *msg1, char *msg2);
 extern int err_parse(char *f, char *msg1, char *msg2);
 extern int err_make(char *f, char *msg1, int i);
 extern int err_make1(char *f);
