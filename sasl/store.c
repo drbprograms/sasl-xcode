@@ -1573,7 +1573,7 @@ pointer /*so can be used in an expression*/ refc_update_pointerS(pointer *pp, ch
  */
 pointer refc_update_hdtl(pointer n, pointer newhd, pointer newtl)
 {
-  if (!HasPointers(n)) {
+  if (!IsStruct(n)) { /* *not* HasPointers() */
     (void) err_refc("trying to update_hdtl a constant");
     return NIL; /*NOTREACHED*/
   }
