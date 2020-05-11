@@ -112,7 +112,7 @@ NAME       [A-Za-z][A-Za-z0-9_]*
       lex_filename = "";
     }
     if (!f) {
-      Error1("unable to GET \"%s\"\n", filename);
+      err_lex("unable to GET ", filename);
     } else {
       yypush_buffer_state(yy_create_buffer(f, YY_BUF_SIZE ));
     }
@@ -276,7 +276,7 @@ TAB	{ Debug1("A special char: %s\n", yytext); lex_tc = tok_const_special_char_TA
 
 	/* Unrecognised */
 
-.		{ Error2( "Unrecognized character: \'%c\' (%u)\n", yytext[0], yytext[0] ); grow(); }
+.		{ err_lex( "Unexpected character: ", "" ); /*NOTREACHED*/ }
 
     /* end of input */
 
@@ -370,7 +370,8 @@ static void scan()
     lex_got_token = 1;
   }
   else if (lex_token == tok_offside)
-    Error("scan: got token but it's tok_offside\n");/* error */
+    err_lex("scan: got token but it's tok_offside", "");
+    /* NOTREACHED */
 }
 
 /* check if token is offside, return tok_offside, otherwise indent and return the token */
