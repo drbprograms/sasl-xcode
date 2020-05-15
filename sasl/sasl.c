@@ -25,6 +25,7 @@ int reduce_optimise;
 int debug;
 int logging;
 int no_code;
+int Y_loop;
 int prelude = 0;
 int check;
 int loop_check;
@@ -106,6 +107,7 @@ static int main_init()
   logging           = getenv_int("logging", 1);         /* default on */
   mem_dump          = getenv_int("mem_dump", 0);        /* default off */
   check             = getenv_int("check", 1);           /* default ON - should always be 1 to validate refc algorithm */
+  Y_loop            = getenv_int("Y_loop", 1);          /* default 1 - "knot-tying" implementation of Y combinator */
   loop_check        = getenv_int("loop_check", 1);      /* default ON xxx could be off when tests fininshed? */
 
   /* deep changes */

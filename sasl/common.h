@@ -452,8 +452,8 @@ extern int no_code;
 /* 
  *   commmand line options 
  */
-extern int partial_compile;
 extern int reduce_optimise;
+extern int Y_loop;
 
 
 /*
