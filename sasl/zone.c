@@ -56,7 +56,7 @@ enum zone_t_type {
 } zone_t_type;
 
 typedef struct zone_header {
-  unsigned size;  /* number of nodes available in the zone */
+  long unsigned size;  /* number of nodes available in the zone */
   unsigned used;  /* number of nodes used by new_node().  assert(used <= size) */
   node *nodes;  /* pointer to first node to be used - fixed at the time zone is created by new_zone() */
   node *check_nodes;  /* if check is set, pointer to first check node - fixed at the time zone is created by new_zone() else 0 */
@@ -73,17 +73,17 @@ typedef struct {
 zone_address zero_zone_address = {&zero_zone_header , 0};
 
 static unsigned zone_new_count = 0;  /* total number of zones created by new_zone() */
-static unsigned zone_total_size = 0; /* sum of zone->size for all zones created by new_zone() */
+static long unsigned zone_total_size = 0; /* sum of zone->size for all zones created by new_zone() */
 static unsigned zone_seq = 1; /* sequence number counting how many new zones hav been made. Acts as unique id for zone_pointer_info() */
 
 /* zone_header points to the most recently created zone */
 static zone_header *zone_current = 0;  /* zone currently being used by new_node() to create nodes */
 
-static unsigned zone_size_default = 1024;  /* to be updated elsewhere */
+static long unsigned zone_size_default = 1024L;  /* to be updated elsewhere */
 
 void zone_new_log(zone_header *z)
 {
-  Debug3("zone_new: seq: %u\tsize:\t%u\t%s\n", z->seq, z->size, z->check_nodes ? " with checking" : "") ;
+  Debug3("zone_new: seq: %u\tsize:\t%lu\t%s\n", z->seq, z->size, z->check_nodes ? " with checking" : "") ;
   return;
 }
 
@@ -256,19 +256,21 @@ char *zone_node_info(zone_check_node_data data)
  
  Always returns a valid zone, caller does not need to check (or takes err()).
  */
-zone_header *zone_new(unsigned size, struct zone_header *parent)
+zone_header *zone_new(long unsigned size, struct zone_header *parent)
 {
-  long unsigned need = sizeof(zone_header) + (size * sizeof(node)) * (check ? 2 : 1);
-  zone_header *z = malloc(need);
-
-  if (z==NULL) {
-    (void) err_zone("out of space");
-    return 0; /*NOTREACHED*/
-  }
+  // bug fixed 2020-05-16 https://tree.taiga.io/project/northgate91-project-one/issue/57
+  zone_header *z = malloc(sizeof(zone_header));
+  node *n        = calloc(size, sizeof(node));
+  node *cn = check?calloc(size, sizeof(node)) : 0;  /* cn could be in one large alloc with n, but chose not, for flexibility */
   
+  if (!z || !n || (check && !cn)) {
+    (void) err_zone("out of space");
+    return (zone_header *) 0; /*NOTREACHED*/
+  }
+
   z->size = size;
-  z->nodes = (node *) (z + sizeof(zone_header));
-  z->check_nodes = (check ? z->nodes + (size * sizeof(node)) : NULL);
+  z->nodes =  n;
+  z->check_nodes = cn;
   z->used = 0;
   z->type = zone_t_standard;
   z->seq = zone_seq++;
@@ -460,7 +462,7 @@ int refc_check_log(char *msg, int result)
   return result;
 }
 
-int refc_check_log2(char *msg, int result, int i, int j)
+int refc_check_log2(char *msg, int result, long unsigned i, long unsigned j)
 {
   Debug2(msg, i, j);
   return result;
@@ -1081,14 +1083,14 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
   /* zone check */
   {
     unsigned new_count = 0;  /* count of zones */
-    unsigned total_size = 0;  /* sum of size of zones */
+    long unsigned total_size = 0;  /* sum of size of zones */
     unsigned total_used = 0;  /* sum of used of zones */
     
     zone_header *z;
     
     /* report zone info */
     Debug2("%s\t%u\n", "zones in use", zone_new_count);
-    Debug2("%s\t%u\n", "total zone size", zone_total_size);
+    Debug2("%s\t%lu\n", "total zone size", zone_total_size);
     Debug2("%s\t%u\n", "nodes used", refc_inuse_count);
     Debug2("%s\t%u\n", "nodes free", refc_free_count);
     
@@ -1110,10 +1112,10 @@ int zone_check_do(pointer root, pointer defs, pointer freelist)
       return refc_check_log2("!!zone_new_count:%u but found %u\n", 2, zone_new_count, new_count);
     
     if (zone_total_size != total_size)
-      return refc_check_log2("!!zone_total_size:%u but found %u\n", 3, zone_total_size, total_size);
+      return refc_check_log2("!!zone_total_size:%lu but found %lu\n", 3, zone_total_size, total_size);
     
     if (refc_inuse_count > zone_total_size)
-      return refc_check_log2("!!refc_inuse_count:%u but zone total size %u\n", 4, refc_inuse_count, total_size);
+      return refc_check_log2("!!refc_inuse_count:%u but zone total size %lu\n", 4, refc_inuse_count, total_size);
     
     if ((refc_inuse_count + refc_free_count) > zone_total_size)
       return refc_check_log2("!!(refc_inuse_count + refc_free_count) > zone_total_size: %u > %u", 5, (refc_inuse_count + refc_free_count), zone_total_size);
