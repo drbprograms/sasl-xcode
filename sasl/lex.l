@@ -75,18 +75,25 @@ NAME       [A-Za-z][A-Za-z0-9_]*
 	/* off!==0 => offsideable */
 
 	/* add width of current token to lex_col, allowing for tabs */
-	static void grow()
-	{
-	  char *s;
-	  for (s = yytext; *s; s++) {
-	    if (*s == '\n')
-	      lex_col = 0;
-	    if (*s == '\t')
-	      lex_col = ((lex_col / 8) + 1) * 8;
-	    else
-	      lex_col++;
-	  }
-	}
+
+static void grow()
+{
+  char *s;
+  for (s = yytext; *s; s++) {
+    switch (*s) {
+      case '\n':
+      case '\f': // form feed in sasl source https://tree.taiga.io/project/northgate91-project-one/issue/58
+        lex_col = 0;
+        break;
+      case '\t':
+        lex_col = ((lex_col / 8) + 1) * 8;
+      break;
+      default:
+        lex_col++;
+        break;
+    }
+  }
+}
 
 	/* grow lex_col for current match and return the token */
 	static tok indent(tok t)
