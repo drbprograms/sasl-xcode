@@ -909,6 +909,9 @@ static pointer *sp = stack;
  */
 int pretty_print_const(FILE *where, pointer p)
 {
+  if (IsNil(p))
+    return 0;
+  
   if (IsNum(p))
     fprintf(where, "%d", Num(p));
   else if (IsDbl(p))
@@ -917,8 +920,10 @@ int pretty_print_const(FILE *where, pointer p)
     fprintf(where, "%c", Char(p));
   else if (IsBool(p))
     fprintf(where, "%s", Bool(p) ? "TRUE" : "FALSE");
-  else
+  else {
+    err_out("pretty_print_const: fail\n", "", "", 0);
     return 1;
+  }
   
   return 0;
 }
