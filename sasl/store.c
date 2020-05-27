@@ -1300,7 +1300,12 @@ pointer refc_copyS(pointer p, char *s)
 {
   Assert( s);
   Assert(*s);
+
   refc_copyS_log(p, s);
+
+  if (IsNil(p))
+    return p;
+
   return refc_copyS_do(p, s, 0);
 }
 
