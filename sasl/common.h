@@ -18,6 +18,12 @@ extern pointer defs;
 extern pointer builtin;
 extern const pointer NIL;
 
+/*
+ * make_stack - where sasl programs are assembled - no pointers between stack items as they are constructed independently
+ *  defined in make.c
+ */
+extern pointer make_stack[], *make_sp;
+
 /* NB numeric values here need to fit into a 'char' in tok->t below */
 /* NB changes here need to be reflected in zone.c where the printable version of the tags is made */
 typedef enum tag {
