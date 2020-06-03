@@ -624,6 +624,7 @@ pointer parse_program()
     
     if(lex_looking_at(tok_question_mark)) {
       Maker1("program<=defs ?", 14,3);
+      defs = maker_done();
       return parse_check(defs, "program<=defs ?\n");   /*xxx parse_check is NOT correct here or "the most recent"defs? */
     } else {
       parse_err("parse_program","expecting \'?\'","<program> ::= DEF <defs>?");
@@ -633,6 +634,7 @@ pointer parse_program()
     parse_expr();
     if(lex_looking_at(tok_question_mark)) {
       Maker1("program<=expr?", 14,1);
+      root = maker_done();
       return parse_check(root, "program<=expr?\n");
     }    else {
       parse_err("parse_program","expecting \'?\'","<program> ::= <expr>?");
