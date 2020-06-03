@@ -25,14 +25,14 @@ pointer make_reset(void);
 #define STACK_SIZE (10000)
 
 //static 2020-01-12 make visible to zone.c
-pointer root_stack[STACK_SIZE];
+pointer make_stack[STACK_SIZE];
 //static
-pointer *root_sp = root_stack; /* sp points to top-of-stack (note: stack[0] never used) */
+pointer *make_sp = make_stack; /* sp points to top-of-stack (note: stack[0] never used) */
 
-#define Stacked (root_sp-root_stack)    /* >=0 */
-#define Pop(n)  (Assert(Stacked >= (n)), root_sp -= (n), root_sp[n]) /* assert(sp>=base) value is previous Top of stack */
-#define Push(n) (Assert(Stacked < STACK_SIZE),root_sp[1] = (n), root_sp++) /* sequencing to ensure Push(*sp) works correctly */
-#define Top   (*root_sp)
+#define Stacked (make_sp-make_stack)    /* >=0 */
+#define Pop(n)  (Assert(Stacked >= (n)), make_sp -= (n), make_sp[n]) /* assert(sp>=base) value is previous Top of stack */
+#define Push(n) (Assert(Stacked < STACK_SIZE),make_sp[1] = (n), make_sp++) /* sequencing to ensure Push(*sp) works correctly */
+#define Top   (*make_sp)
 
 
 /* debug: make_show - display maker stack items  */
@@ -42,8 +42,8 @@ static void make_show(void)
 {
   pointer *spp;
   
-  for (spp = root_sp; spp > root_stack; spp--) {
-    Debug1("make[%ld]: ", spp - root_stack); out_debug_limit(*spp, Limit);
+  for (spp = make_sp; spp > make_stack; spp--) {
+    Debug1("make[%ld]: ", spp - make_stack); out_debug_limit(*spp, Limit);
   }
   return;
 }
@@ -84,13 +84,13 @@ pointer make_reset()
   no_code = 1; /* prevent all further code generation */
   /* todo reenable code generation at some stage? eg next '?' symbol? */
   
-  for (/**/; root_sp > root_stack; root_sp--) {
+  for (/**/; make_sp > make_stack; make_sp--) {
     if (debug)
       Debug1("make_reset[%ld]: ", Stacked); out_debug(Top);
-    refc_delete(root_sp);
+    refc_delete(make_sp);
   }
   
-  refc_delete(&root);
+  refc_delete(&root); //depracated xxx
   
   return root;
 }
@@ -635,7 +635,8 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
 //          how to arrange this?
 //
         case 2: return new_cons(n1, n2);
-        case 3: return make_name();
+       case 3: return make_name();
+//   TOBE     case 3: return n1;
         case 4: return new_cons(n1, n2);
       }
     break;
@@ -797,11 +798,8 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           pretty_print(stderr, n1);
           Debug("\n</sasl>\n");
 //xx
-
-          refc_delete(&root);
-          root = n1; /* this is the global root */
           
-          return root;
+          return n1;
         }
         case 2: return n1;
           
@@ -813,12 +811,12 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           
           /* record defs for future use*/
           if (IsNil(defs))
-            defs = new_def(new_name("<Top>"), n1);
+            n1 = new_def(new_name("<Top>"), n1);
           else
             make_err("multiple DEFs not implemented (yet)", ruledef, rule);
 //            defs = add_deflist_to_def(defs, n1);//deprecated
           
-          return defs; /* this is the global defs */
+          return n1; /* this is the global defs */
         }
           
         default:
@@ -848,18 +846,30 @@ int maker(int howmany, char *ruledef, int rule, int subrule, int info)
   if (debug > 2)
     make_show();
   
-  n = maker_do(howmany, ruledef, rule, subrule, info, root_sp);
+  n = maker_do(howmany, ruledef, rule, subrule, info, make_sp);
   
   Push(n);
   
   if(debug){
     Debug6("%s %d,%d,%d,%d (Stacked=%ld) <= ", ruledef, rule, subrule, info, howmany, Stacked);
-    out_debug_limit(root_sp[0], Limit);
+    out_debug_limit(make_sp[0], Limit);
     if (debug > 1)
       refc_check();/*!!!*/
   }
   
   return 1;
+}
+
+/*
+ * maker_done() pop and return top of stack checking it's empty
+ */
+pointer maker_done()
+{
+  if (Stacked == 1)
+    return Pop(1);
+  
+  err_make("maker stack imbalance\n", "", (int) Stacked); /* serious problem */
+  return NIL;
 }
 
 /*maker*maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker**maker*/
