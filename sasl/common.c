@@ -210,7 +210,7 @@ int tag_init()
   add_tag(cond_op,        operator, "->",    3, 1, 0);
   
   /* binary operators */
-  add_tag(colon_op,        operator,    ":",    2, 0, 1);    /* ((: a) b) => (a:b) */
+  add_tag(colon_op,        operator,    ":",    2, 0, 0);    /* ((: a) b) => (a:b) */
   add_tag(plusplus_op,        operator,    "++",    2, 3 /*XXX or 0*/, 1);    /* ++ () x => x */
   /* ++ list1 list2 =>  (hd-list1 : ((++ tl-list1) list2))  */
   // add_tag(minusminus_op,    operator,    "--",    2, 0, 0);
@@ -921,7 +921,7 @@ int pretty_print_const(FILE *where, pointer p)
   else if (IsBool(p))
     fprintf(where, "%s", Bool(p) ? "TRUE" : "FALSE");
   else {
-    err_out("pretty_print_const: fail\n", "", "", 0);
+    err_out(err_tag_name(Tag(p)), "pretty_print_const: fail", "\n", 0);
     return 1;
   }
   
