@@ -356,10 +356,12 @@ extern int tag_init(void);
 #include <string.h>
 
 /*
- * error handling - err...
+ * error handling - err_... and errno
  */
 #include <setjmp.h>
 extern jmp_buf jmpbuffer;
+
+#include <sys/errno.h>
 
 extern int err_lex(char *msg1, char *msg2);
 extern int err_parse(char *f, char *msg1, char *msg2);
