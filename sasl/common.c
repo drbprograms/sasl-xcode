@@ -498,7 +498,7 @@ static int out_out(FILE *where, pointer n)
         case free_t:
         case deleting_t:
           /* Should Never Happen - so do NOT print "being deleted" node "*/
-          return fprintf(where, "\n!!%s\n.... ", err_tag_name(Tag(n)));
+          return fprintf(where, "\n!!%s%s\n.... ", err_tag_name(Tag(n)), refc_pointer_info(n));
 
         case int_t:
           return fprintf(where, "%d",Num(n));
