@@ -64,7 +64,7 @@ static pointer parse_check_do(pointer n, char *msg)
   
   while (1) {
     
-    while (IsStruct(n)) {
+    while (IsStruct(n)) { /* *not* HasPointers() */
       Push(n);
       n = H(n);
     }
@@ -86,11 +86,11 @@ static pointer parse_check_do(pointer n, char *msg)
 /* parse_check - error if unbound names found */
 pointer parse_check(pointer n, char *msg)
 {
-  extern unsigned refc_inuse(void); /**/
+  extern unsigned zone_inuse(void); /*xx ?move to common.[ch] frmo zone? */
   
   /* Assert(is_tree(n)) - NO loops! */
   
-  stack_size = refc_inuse();
+  stack_size = zone_inuse();
   sp = stack = new_table(stack_size , sizeof(pointer));
   
   parse_check_do(n, msg);
@@ -625,7 +625,7 @@ pointer parse_program()
     if(lex_looking_at(tok_question_mark)) {
       Maker1("program<=defs ?", 14,3);
       defs = maker_done();
-      return parse_check(defs, "program<=defs ?\n");   /*xxx parse_check is NOT correct here or "the most recent"defs? */
+      return parse_check(defs, "program<=defs ?");   /*xxx parse_check is NOT correct here or "the most recent"defs? */
     } else {
       parse_err("parse_program","expecting \'?\'","<program> ::= DEF <defs>?");
       return NIL;
@@ -635,7 +635,7 @@ pointer parse_program()
     if(lex_looking_at(tok_question_mark)) {
       Maker1("program<=expr?", 14,1);
       root = maker_done();
-      return parse_check(root, "program<=expr?\n");
+      return parse_check(root, "program<=expr?");
     }    else {
       parse_err("parse_program","expecting \'?\'","<program> ::= <expr>?");
       return NIL;
