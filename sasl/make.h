@@ -1,4 +1,6 @@
 extern int maker(int howmany, char *ruledef, int rule, int subrule, int info);
+extern pointer maker_done(void);
+
 #define Maker0(def,r,s)		maker(0,(def),(r),(s),0) /* zero items on stack - push one*/
 #define Maker1(def,r,s) 	maker(1,(def),(r),(s),0) /* one item on stack - pop; push */
 #define Maker2(def,r,s) 	maker(2,(def),(r),(s),0) /* two items on stack - pop; pop; push*/
