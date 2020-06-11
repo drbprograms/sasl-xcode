@@ -793,7 +793,7 @@ static int zone_check_data(zone_address *zp, zone_check_node_data *data)
   return res;
 }
 
-static int zone_check_traverse_nodes(zone_header *z, zone_check_node_data *data, int (check(int res_i, pointer p, pointer debug_p)), int ignore_unpopulated)
+static int zone_check_traverse_nodes(zone_header *z, zone_check_node_data *data, int (check(int res_i, pointer p, pointer debug_p)), int ignore_atoms)
 {
   int res = 0;
   zone_address theZone = {z, 0}, *zp = &theZone;
@@ -804,7 +804,9 @@ static int zone_check_traverse_nodes(zone_header *z, zone_check_node_data *data,
   for (/***/; zp->off < z->size; zp->off++) {
     int res_i = 0;
     
-    if (ignore_unpopulated && z->check_nodes[zp->off].t == zero_t) /* ignore unpopulated nodes */
+    if (ignore_atoms &&
+        (z->check_nodes[zp->off].t == zero_t || ! HasPointersTag(z->check_nodes[zp->off].t))
+        ) /* ignore unpopulated nodes and nodes without pointers */
       continue;
     
     /* accumulate node data */
