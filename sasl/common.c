@@ -1026,12 +1026,39 @@ int pretty_print_formal(FILE *where, pointer n)
   return 0;
 }
 
+/* (5)  <rhs> ::= <formal>* = <expr>    * means 0 or more */
+int pretty_print_clause(FILE *where, pointer name, pointer n)
+{
+  
+  pretty_print_namelist(where, name);
+
+  return 0;
+}
+
+int pretty_print_def(FILE *where, pointer n)
+{
+  /* def_t (list of lhs) (list of rhs)    lists ought to be same (length and finite) */
+  pointer lhs, rhs;
+ fprintf(where, "|| %s\n", comb_label(n));
+  
+  for (lhs = HT(n),   rhs = TT(n);
+       !IsNil(lhs);  /* nb rhs can validly be NIL */
+       lhs = T(lhs), rhs = T(rhs)) {
+    pretty_print_clause(where, H(lhs), H(rhs));
+    fprintf(where, "; "); // Todo offside etc
+  }
+
+  return 0;
+}
+
 int pretty_print(FILE *where, pointer n)
 {
   pointer *base = sp;  /* remember Top on entry - used to calculate Stacked */
   extern char *refc_pointer_info(pointer p); /* for debugging */
   
 //  Debug2("pretty_print%s (Depth=%ld)\n", refc_pointer_info(n), Depth);
+  if (! debug)
+    return 0;
   
   if (IsNil(n))
     return fprintf(where, "()");
@@ -1055,8 +1082,6 @@ int pretty_print(FILE *where, pointer n)
 //    Debug1("pretty_print/spine%s\n", refc_pointer_info(Top));
 
   {/*start: inner loop*/
-    extern char *comb_label(pointer p); // xxx restructure to common.c
-    
     const int MAXARG = 4; /* max number of apply nodes in spine for a reduction */
     pointer arg[MAXARG+1];
     
@@ -1121,6 +1146,7 @@ int pretty_print(FILE *where, pointer n)
         case free_t:
         case deleting_t:
           /* Should Never Happen - so do NOT print "being deleted" node "*/
+          Debug1("pretty_print: should never see%s\n",refc_pointer_info(it));
           return fprintf(where, "\n!!%s\n.... ", err_tag_name(Tag(it)));
 
         case _LastTag:
@@ -1135,6 +1161,10 @@ int pretty_print(FILE *where, pointer n)
           (void) pretty_print_formal(where, H(it)); // irregular
           (void) fprintf(where, " = ");
           (void) pretty_print_formal(where, T(it)); // irregular
+          break;
+          
+        case def_t:
+          pretty_print_def(where, it);
           break;
           
           /* hd contains debug name ie orginal variable */
@@ -1184,10 +1214,16 @@ int pretty_print(FILE *where, pointer n)
         case Yc_comb:
         case Y_comb:
             (void) fprintf(where, " Where ");
-//            pretty_print(where, arg[1]);
+            pretty_print(where, arg[1]);
           break;
 
         case U_comb:
+          /* [x:NIL] E => U ([x] (K_nil E)) */
+          /* [x:y] E => U ([x] ([y] E)) */
+          /* E */
+          pretty_print(where, T(T(arg[1]))); // simplistic
+          break;
+          
         case TRYn_comb:
 //          pretty_print(where, arg[1]);
 ////////what?
@@ -1233,22 +1269,6 @@ int pretty_print(FILE *where, pointer n)
 */
 
 
-/* list_length list
-   len () = 0
-   len (a:x) = 1 + len x
-
-   NO checks made for infinite (looping) list (todo could return "infinity"?
-*/
-
-int list_length(pointer p)
-{
-  if (IsNil(p))
-    return 0;
-  
-  Assert(IsCons(p));
-
-  return 1 + list_length(Tl(p));
-}
 
 /*
  * Tables to store variable-sized objects
