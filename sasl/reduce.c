@@ -138,16 +138,16 @@ void reduce_log(pointer *base, pointer *sp)
          char tag_nargs(pointer p); /* forward reference - fix */
 //
         
+        
         Debug("\n");
-//        Debug4("reduction %d: %s (%ld/%ld Depth/Stacked)\n",  reductions, refc_pointer_info(Top), Depth, Stacked);
+        //        Debug4("reduction %d: %s (%ld/%ld Depth/Stacked)\n",  reductions, refc_pointer_info(Top), Depth, Stacked);
         Debug5("reduction %d: %s (%ld/%ld/%d Depth/Stacked/Nargs)\n",  reductions, refc_pointer_info(Top), Depth, Stacked, tag_nargs(Top));
-
+        
         indent(stderr, Depth);
         out_debug_limit1(Top, Limit); /*arbitrary limit to output */
-        Debug(" ");
         for (i=1; i < ArgLimit && i < Stacked; i++) {
+            Debug("\t");
             out_debug_limit1(Tl(sp[-i]), Limit); /*arbitrary limit to output */
-            Debug(" ");
         }
         Debug("\n");
         
@@ -441,7 +441,8 @@ pointer reduce_print(pointer *p)
     }
     else {
         pretty_print_const(stdout, *p);
-        fflush(stdout); // ?? only when interactive
+        if (fflush(stdout)) /* xxx should be only when interactive */
+            err_reduce2("problem when writing the output: ", strerror(errno));
     }
     
     return *p;
@@ -481,11 +482,10 @@ void reduce(pointer *n)
         /*NOTREACHED*/
     }
     
-    Push(*n);
+    Push(*n); /* Assert(Stacked == 1); */
     
     while (IsSet(Top) && Stacked > 0) {
         /* Within the loop, Top is set to NIL on error; also halt if nothing on stack - should never happen error */
-        int r = reductions;
         
         if (debug > 1) {
             indent(stderr, Depth); out_debug1(Top);
@@ -505,39 +505,31 @@ void reduce(pointer *n)
         
         /* Top is not apply_t, evaluate / return */
         reduce_log(base, sp);
-#define continue break
+
         {/*start:reduce inner loop*/
-            if (Stacked >= 1) {
+            int r = reductions;
+            if (Stacked > 0) {
                 const int MAXARG = 4; /* max number of apply nodes in spine for a reduction */
                 pointer *arg[MAXARG+1];
                 int i;
-                int nargs = tag_nargs(Top);
+                int nargs = tag_nargs(Top); /* leaf plus this number of apply nodes need to be found on the stack */
                 
                 tag tt = Tag(Top);
                 
                 /* locate args, numbered arg[1], arg[2], ... */
-                if (nargs > Stacked)
+                if (nargs >= Stacked)
                     err_reduce2("problem reducing ", err_tag_name(tt));
                 
                 for (i = 1; i <= nargs;  i++) {
                     Pop(1);
                     arg[i] = &Tl(Top);
                 }
-                //
-                out_debug1(sp[nargs]);
-                for (i = 1; i <= nargs; i++) {
-                    Debug(" ");
-                    out_debug_limit1(*arg[i], Limit); /*arbitrary limit to output */
-                }
-                Debug("\n");
-                //
-                //
-                if (nargs > 0){
+
+                if (debug && nargs > 0){
                     Debug1("<sasl-reduce %d> ", r);
                     indent(stderr, Depth); pretty_print(stderr, Top);
                     Debug(" </sasl-reduce>\n");
                 }
-                //
                 
                 switch (tt) {
                         
@@ -577,7 +569,8 @@ void reduce(pointer *n)
                                 reduce(pp);
                                 if (!pp || ! IsCons(*pp)) {
                                     err_reduce("applying list to a number: not enough elements in list");
-                                    return; /*NOTREACHED*/
+                                    /*NOTREACHED*/
+                                    return;
                                 }
                                 pp = &T(*pp);
                             }
@@ -598,21 +591,17 @@ void reduce(pointer *n)
                         Pop(1);
                         return;
                     case name_t:
-                        if (Stacked != 1)
-                            err_reduce2("name undefined:", Name(Top));
+                        err_reduce2("name undefined:", Name(Top));
+                        /*NOTREACHED*/
+                        return;
+                    case fail_t: /* FAIL anything ... => FAIL; FAIL = FAIL */
+                        if (Stacked > 1) {
+                            /* Note this is a short-circuit reduction: FAIL x y z => FAIL y z => FAIL z => FAIL */
+                            Pop(Stacked -1);
+                            refc_update_to_fail(Top);
+                        }
                         Pop(1);
                         return;
-                    case fail_t:  {/* FAIL anything ... => FAIL */
-                        /*WIP here to fix 99.sasl; 3.1.20 q*/
-                        //BUG xxx here not sure refc is adjusted correctly when Stacked > 0
-                        pointer p = refc_copy(Top); /* fail */
-                        Pop(Stacked);
-                        refc_delete(n);
-                        *n = p;
-                        Push(*n); Pop(1);//XXtemp
-                        return; /* return the FAIL */
-                    }
-                    case abstract_condexp_t:
                     case abstract_formals_t:
                     case abstract_where_t:
                     case abstract_defs_t:
@@ -657,7 +646,7 @@ void reduce(pointer *n)
                         /* I x => x */
                         if (Stacked > 1) {
                             /* elide (I x) y ==> x y on stack
-                             * Afterwards arg[1] is become H(Top')
+                             * Afterwards arg[1] becomes H(Top')
                              */
                             Debug("**I_comb Stacked>2 case\n");
                             Assert(!SameNode(Top, *arg[1])); /* avoid stack loops!?! */
@@ -672,7 +661,6 @@ void reduce(pointer *n)
                              * and update return value "*n" to x ie T(Top) */
                             Debug("**I_comb Stacked==2 case\n");/*XXX*/
                             Assert(n && ! IsNil(*n));   /*xxx*/
-                            Assert(SameNode(*n, Top));  /* should always be the case for Depth==1 */
                             
 #if 1
                             Top = *n = refc_update_pointerS(n, "T");
@@ -702,9 +690,20 @@ void reduce(pointer *n)
                         //stack: Y_comb: push "T"; push "."; mk_apply; update
                         break;
                     }
+//NotYet                    case Y_comb:
+//NotYet                        if (Y_loop) {
+//NotYet                            /* "knot-tying" using self-reference: Y f => f <self> */
+//NotYet                           refc_delete(&Hd(Top)); /* loose the "Y" */ /*new update(sp, T, me)*/
+//NotYet                            Hd(Top) = Tl(Top);
+//NotYet                            Tl(Top) = refc_copy_make_cyclic(Top);
+//NotYet                            //stack: Y_comb: push "T"; push "."; mk_apply; update
+//NotYet                       } else {
+//NotYet                            /* without loop: Y f => f (Y f) */
+//NotYet                            Top = refc_update_hdtl(Top, Ref("T"), new_apply(Ref("H"), Ref("T")));
+ //NotYet                       }
+ //NotYet                       break;
                         
                         /* H (a:x) => a */
-                        /* H other => FAIL */
                     case H_comb:
                         reduce(arg[1]);
                         if (IsCons(*arg[1])) {
@@ -719,7 +718,6 @@ void reduce(pointer *n)
                         //stack: push "T"; reduce; check(cons_t); pop; new_comb(I_comb); push("TT"); mk_apply)) ; update
                         
                         /* T (a:x) => x */
-                        /* T other => FAIL */
                     case T_comb:
                         reduce(arg[1]);
                         if (IsCons(*arg[1])) {
@@ -750,7 +748,7 @@ void reduce(pointer *n)
                         /* ++ list1 list2 =>  (hd-list1 : (++ tl-list1) list2)))  */
                     case plusplus_op:
                         /* check list2 is a list - no, leave it lazy */
-                        reduce(arg[1]);
+                        reduce(arg[1]);//XXXX wrong?
                         if ( ! (IsCons(*arg[1]) || IsNil(*arg[1])))
                             err_reduce("plusplus_op - non-list first arg");
                         //                                Top = refc_update_Itl(Top, make_append(Ref("HT"), Ref("T")));BUGGG
@@ -812,10 +810,11 @@ void reduce(pointer *n)
                         /* comb arg[1] arg[2] */ /*xxx shoulndt we only allow NIL here -> and be strict?*/
                     case K_nil_comb:
                         if ( ! (IsNil(*arg[2]) ||
-                                IsCons(*arg[2]) ||
-                                (IsApply(*arg[2]) &&
-                                 ((Tag(Hd(*arg[2])) == H_comb) ||
-                                  (Tag(Hd(*arg[2])) == T_comb))) /* allow "lazy" lists */
+                                IsCons(*arg[2]) ||  //xxx bug? "a:x" will never evalute to "()"
+                                (IsApply(*arg[2]) && //xxx bug?
+                                 ((Tag(Hd(*arg[2])) == H_comb) || //xxx bug?
+                                  (Tag(Hd(*arg[2])) == T_comb))//xxx bug?
+                                 ) /* allow "lazy" lists */
                                 ))
                             err_reduce("K_nil_comb - non-list second arg");
                     case K_comb:
@@ -856,7 +855,7 @@ void reduce(pointer *n)
                         //stack: cond_op: push "HHT"; reduce
                     }
                     case MATCH_comb: {
-                        /*  */
+                        /*  MATCH x E x => E; MATCH x E y => FAIL*/
                         /* ?should check arg[1] is a constant? */
                         if (reduce_is_equal(arg[1], arg[3])) {
                             refc_updateIS(&Top, "HT");
@@ -1014,10 +1013,25 @@ void reduce(pointer *n)
                         if (!IsNum(*arg[1]) || (Num(*arg[1]) < 1)) {
                             Top = refc_update_to_fail(Top);  /* err_reduce("problem with matching") */
                         } else if (Num(*arg[1]) == 1) {
+#if 1
+                            // fix for 35.2  "about to delete something which is NOT free" which then recovers ...
+                            // is the problem that "T" is used twice - if so happens all over the place ...
+                            pointer
+                            hht = refc_copyS(Top, "HHT"),
+                            t1 = refc_copyS(Top, "T"),
+                            t2 = refc_copyS(Top, "T"),
+                            ht = refc_copyS(Top, "HT") ;
+                            Top = refc_update_hdtl(Top,
+                                                   new_apply(new_comb(TRY_comb),
+                                                             new_apply(hht, t1)),
+                                                   new_apply(ht, t2));
+
+#else
                             Top = refc_update_hdtl(Top,
                                                    new_apply(new_comb(TRY_comb),
                                                              new_apply(refc_copyS(Top, "HHT"), refc_copyS(Top, "T"))),
                                                    new_apply(refc_copyS(Top, "HT"), refc_copyS(Top, "T")));
+#endif
                         } else {
                             Top = refc_update_hdtl(Top,
                                                    new_apply3(new_comb(TRYn_comb),
@@ -1060,11 +1074,12 @@ void reduce(pointer *n)
                         /*NOTREACHED*/
                 }
             }
-#undef continue
             //
-            Debug1("<sasl-reduce %d> ", r);
-            indent(stderr, Depth);Debug("=> "); pretty_print(stderr, Top);
-            Debug(" </sasl-reduce>\n");
+            if (debug) {
+                Debug1("<sasl-reduce %d> ", r);
+                indent(stderr, Depth);Debug("=> "); pretty_print(stderr, Top);
+                Debug(" </sasl-reduce>\n");
+            }
             //
         }/*end:reduce inner loop*/
         
