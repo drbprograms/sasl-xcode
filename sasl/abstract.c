@@ -244,7 +244,7 @@ static pointer reduce_abstract1(pointer name, pointer exp)
 /* [a b] E     => [a] ([b] E) */
 
 /* meta-rules */
-/* [any] ([other] E) => [other] ([any'] E)  where any' = "any - namesof(other)"  - avoid alpha-rule renaming
+/* [any] ([other] E) => [other] ([any'] E)  where any' = "any - namesof(other)"  - avoid alpha-rule renaming */
 
 /* "pattern" is deleted before returning; so every recursive use of pattern needs to be "refc_copy(pattern)" */
 
