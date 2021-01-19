@@ -30,6 +30,8 @@ int prelude = 0;
 int check;
 int loop_check;
 
+int delete;
+
 int unit_test;
 int mem_dump;
 
@@ -49,7 +51,7 @@ static int getenv_int(char *var, int def)
   if (!val || sscanf(val, "%d", &res) != 1)
     res = def;
 
-  Debug2("%s=%d\n", var, res);
+  Log2("%s=%d\n", var, res);
   return res;
 }
 #ifdef getnenv_bool
@@ -58,7 +60,7 @@ static int getenv_bool(char *var)
 {
   int res = getenv("no_reset") ? 1 : 0;
   if (res && debug)
-    Debug("%s\n", var);
+    Log1("%s\n", var);
   return res;
 }
 #endif
@@ -95,7 +97,8 @@ static int read_file(char *filename)
 /* startup */
 static int main_init()
 {
-  debug 		    = getenv_int("debug", 1);	        /* default on and low */
+  logging           = getenv_int("logging", 1);         /* default on - check this first of all so that subsequent settings can get logged */
+  debug 		    = getenv_int("debug", 1);	        /* default on and 1 - low */
   partial_compile 	= getenv_int("partial_compile", 0); /* default off */
   reduce_optimise 	= getenv_int("reduce_optimise", 0); /* default off */
   no_code		    = getenv_int("no_code", 0);         /* default off */
@@ -104,15 +107,19 @@ static int main_init()
 
   /* deep debugging */
   unit_test         = getenv_int("unit_test", 0);       /* default off */
-  logging           = getenv_int("logging", 1);         /* default on */
   mem_dump          = getenv_int("mem_dump", 0);        /* default off */
   check             = getenv_int("check", 1);           /* default ON - should always be 1 to validate refc algorithm */
   Y_loop            = getenv_int("Y_loop", 1);          /* default 1 - "knot-tying" implementation of Y combinator */
-  loop_check        = getenv_int("loop_check", 1);      /* default ON xxx could be off when tests fininshed? */
+  loop_check        = getenv_int("loop_check", 1);      /* default ON extra check of loops; no effect unless "loop" is set xxx could be off when tests fininshed? */
 
   /* deep changes */
+  delete            = getenv_int("delete", 1);  /* deletion: 1=on; 0=off references cointed but no storage freed */
   weak_path         = getenv_int("weak_path", 1);       /* default on = examine weakness of pointers when copying *//*XXX to be implemented as switchable */
 
+  /* dependencies */
+  if (loop_check)
+      check++;
+    
  return store_init() || tag_init() || reduce_init();
 }
 
