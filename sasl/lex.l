@@ -32,6 +32,11 @@ EXP	 [eE]{SIGN}?{DIGIT}+
 
 NAME       [A-Za-z][A-Za-z0-9_]*
 
+/* Filenames - printable characters, includin g'/' but excluding space
+   Unix allows more but we need to parse "READ file" as a <simple> without delimiters on the filename */
+/* \x20 is space \x7f is DEL */
+FILENAME   [\x21-\x7e]+
+
 
 	static tok lex_token;
 	static int lex_got_token = 0;	/* is lex_token ready and unconsumed? */
@@ -57,7 +62,7 @@ NAME       [A-Za-z][A-Za-z0-9_]*
 	  m++;
 	  margins[m] = lex_margin = lex_col;
 	  if (debug>1)
-	    Debug1("offside:%d\n", lex_margin);
+      Debug2("offside: margins[%d]=%d\n", m, lex_margin);
 	}
 
 	static void scan(void);
@@ -67,7 +72,7 @@ NAME       [A-Za-z][A-Za-z0-9_]*
       m--;
 	  lex_margin = margins[m];
 	  if (debug>1)
-	    Debug1("onside:%d\n", lex_margin);
+      Debug2("onside: margins[%d]=%d\n", m, lex_margin);
 	  scan();/* is a token revelealed by the new margin? */
 	}
 
@@ -76,24 +81,24 @@ NAME       [A-Za-z][A-Za-z0-9_]*
 
 	/* add width of current token to lex_col, allowing for tabs */
 
-static void grow()
-{
-  char *s;
-  for (s = yytext; *s; s++) {
-    switch (*s) {
-      case '\n':
-      case '\f': // form feed in sasl source https://tree.taiga.io/project/northgate91-project-one/issue/58
-        lex_col = 0;
-        break;
-      case '\t':
-        lex_col = ((lex_col / 8) + 1) * 8;
-      break;
-      default:
-        lex_col++;
-        break;
+    static void grow()
+    {
+      char *s;
+      for (s = yytext; *s; s++) {
+        switch (*s) {
+          case '\n':
+          case '\f': // form feed in sasl source https://tree.taiga.io/project/northgate91-project-one/issue/58
+            lex_col = 0;
+            break;
+          case '\t':
+            lex_col = ((lex_col / 8) + 1) * 8;
+          break;
+          default:
+            lex_col++;
+            break;
+        }
+      }
     }
-  }
-}
 
 	/* grow lex_col for current match and return the token */
 	static tok indent(tok t)
@@ -105,7 +110,7 @@ static void grow()
   /*
   * user commands
   */
-  /* GET file */
+  /* GET [file] - defaults to stdin */
   void lex_do_get(char* filename)
   {
     FILE *f;
@@ -214,7 +219,8 @@ TAB	{ Debug1("A special char: %s\n", yytext); lex_tc = tok_const_special_char_TA
 
 [ \t]+		{ Debug2("Whitespace \"%s\" (%lu characters)\n", yytext, strlen(yytext)); grow();  /* no need to return a token */ }
 
-\n		{ Debug("A Newline.\n"); lex_got_newline = 1; grow();  /* no need to return a token */ }
+\n    { Debug("A Newline.\n"); lex_got_newline = 1; grow();  /* no need to return a token */ }
+\f    { Debug("A Formfeed.\n"); lex_got_newline = 1; grow();  /* no need to return a token */ }
 
 	/* Operators - in order from 1 of increasing binding power */
 ":"	{ lex_oper_fix = "i"; lex_oper_assoc = 'r'; lex_oper = op_colon; return off(tok_operator); /* <<-- lhs/rhs symbol overload to be sorted in parser */ }
@@ -260,7 +266,10 @@ TAB	{ Debug1("A special char: %s\n", yytext); lex_tc = tok_const_special_char_TA
 
 
 	/* directives - for interactive use, not part of the sasl languages itself */
+    /* directives are one line only and the directive name appears starts at col 1 */
+    /* directives are exepmpt from offside rule - use grow()/indent() instead of off() */
 
+   /* TODO "interactive" user commands - yytext includes remainder of line to be analysed */ 
 ^DEF.*		{ Debug1( "DEF: %s\n", yytext); return indent(tok_def); }
 	
 ^GET" ".* { Debug1( "A GET: \"%s\"\n", yytext+4); grow(); lex_do_get(yytext+4); }
@@ -271,15 +280,29 @@ TAB	{ Debug1("A special char: %s\n", yytext); lex_tc = tok_const_special_char_TA
 ^INTERACTIVE.* |
 ^OBJECT.* |
 ^OFF.* |
-^READ.* |	/* TODO READ is a <simple> not a Command ... fix it */
-^RESET.* |
-^TO.* |
-^WRITE.*	{ Debug1( "A command: %s\n", yytext); return indent(tok_command); 	/* "interactive" user commands - yytext includes remainder of line to be analysed */ }
+^RESET.* |      /* TODO background job - print process id */
+
+TO.* { Debug1( "A command: %s\n", yytext); return indent(tok_command); }
 ^"!".*		{ Debug1( "A shell command: %s\n", yytext+1); return indent(tok_command); /* shell escape - yytext includes remainder of line to be executed */ }
 
-	 /* names */     
+  /* TODO READ file is a <simple> not a directive ... fix it */
+  /* note we insist that the whole <simple> is one source line, no linefeeds */
+READ[ \t]+{FILENAME}  {
+    char *s = yytext + 4; /* R.E.A.D.*/
+    while (*s == ' ' ||  *s == '\t')  s++;
+    Debug1( "A file read from \"%s\"\n", s); return indent(tok_command);
+  }
 
-{NAME}		{ Debug1( "A name: %s\n", yytext ); return off(tok_name); }
+WRITE[ \t]+{FILENAME}  {
+    char *s = yytext + 5; /* W.R.I.T.E.*/
+    while (*s == ' ' ||  *s == '\t')  s++;
+    Debug1( "A file xwrite to \"%s\"\n", s); return indent(tok_command);
+  }
+
+
+  /* names */
+
+{NAME}    { Debug1( "A name: %s\n", yytext ); return off(tok_name); }
 
 	/* Unrecognised */
 
