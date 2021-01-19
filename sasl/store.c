@@ -599,59 +599,45 @@ void refc_delete_post_delete_log(pointer p)
 static unsigned refc_delete_search_count = 0;  /* number of deletions causing search */
 
 /* run check from first priciples to determine is the loop is free and report accordingly */
-void refc_delete_pre_search_log(pointer p, zone_check_node_data *data_ref)
+int refc_delete_pre_search_log(pointer p)
 {
+  int  really_free = 0;
   
-  Log2("refc_delete_pre_search%s (depth=%u)\n",
+  if (loop_check)
+    really_free = !zone_check_island(p, refc_delete_depth);
+
+  Log3("refc_delete_pre_search%s (depth=%u)%s\n",
        refc_pointer_info(p),
-       refc_delete_depth
-       );
-
-  if (loop_check) {
-    *data_ref = zone_check_island(p, refc_delete_depth);
-
-    Log1(" %s\n",refc_pointer_info(p));
-  } else {
-    *data_ref = zero_data;
-    
-    Log("\n");
-  }
+       refc_delete_depth,
+       (loop_check && really_free) ? " really free" : "");
   
-  return;
+  return really_free;
 }
 
       
       
 /* run additional checks if global "loop_check" is set: loop_check==1 => check when about to delete; loop_check > 1 => always check */
-void refc_delete_post_search_log(pointer p, zone_check_node_data data)
+void refc_delete_post_search_log(pointer p, int really_free)
 {
   char *msg = 0;
   
   refc_delete_search_count++;
   
   if (loop_check) {
-    switch (data.status) {
-      case unknown:
-        msg = "<unknown status>";
-        break;
-      case strong_root:
-      case strong:
-      case weak:
-        if (Srefc(p) == 0)
-          msg = " - about to delete something which is NOT free";
-        break;
-      case island:
-        if (Srefc(p) > 0)
-          msg = " - about to NOT delete something which is free";
-        break;
-    }
+    if (really_free && Srefc(p) > 0)
+        msg = " - about to NOT delete something which is free";
+    if (!really_free && Srefc(p) == 0)
+        msg = " - about to delete something which is NOT free";
   }
 
-  Log5("%srefc_delete_post_search%s (depth=%u) %s%s\n",
-       (msg ? "!!" : ""),
+  Log4("%srefc_delete_post_search%s (depth=%u) %s\n",
+       (
+        refc_delete_depth <= 1 && // new xx
+        msg
+        )
+         ? "!!" : "",
        refc_pointer_info(p),
        refc_delete_depth,
-       (loop_check ? zone_node_info(data): ""),
        (msg ? msg : "")
        );
   
@@ -670,11 +656,11 @@ void refc_log_report(FILE *where)
   if (! logging)
     return;
   
-  new_log_report(where);
+  zone_log_report(where);
   
   fprintf(where, "%s\t%s\n", "What","count");
   
-  fprintf(where, "%s\t%u\n", "free nodes", refc_free());
+  fprintf(where, "%s\t%u\n", "free nodes", zone_free());
   
   fprintf(where, "%s\t%u\n", "NIL pointers requested to be copied", refc_copy_NILcount);
   fprintf(where, "%s\t%u\n", "strong pointers copied", refc_copy_Scount);
@@ -701,8 +687,8 @@ void refc_final_report(FILE *where)
   if (! logging)
     return;
   
-  if (refc_inuse() > 0)
-    err_refc1("!!final report but number of pointers in use==", refc_inuse());
+  if (delete && zone_inuse() > 0)
+    err_refc1("!!final report but number of pointers in use==", zone_inuse());
   if (refc_delete_depth > 0)
     err_refc1("!!final report but delete depth==", refc_delete_depth);
   else
@@ -832,19 +818,16 @@ static void refc_flip_pointer(pointer *pp)
  */
 
 /* True always for pointers */
+//UNUSED
 static inline int refc_okPointer(pointer p)
 {
   return IsNil(p) || (Srefc(p) > 0 && (HasPointers(p) || Wrefc(p) == 0) /* && !IsDeleting(p) */ );
 }
 
+//UNUSED
 static inline int inDeleting(void)
 {
   return refc_delete_depth > 0;
-}
-/* True for pointers when deleting *//*UNUSED*/
-static inline int okPointerDel(pointer p)
-{
-  return refc_okPointer(p) || (inDeleting() > 0 && ((IsDeleting(p) ? ALLrefc(p) > 0 : ALLrefc(p) == 0)));
 }
 
 /*
@@ -917,15 +900,16 @@ static void refc_delete_do(pointer *pp)
   /* 0. IsNil => return */
   if (IsNil(p))
     return;
-//Start Deprecated
-  if (IsFree(p)) {
-    Log1("refc_delete%s attempt to delete pointer to freed node - no action\n", refc_pointer_info(p));
+//Start Deprecated - ougt really to be err_store() here
+  if (IsFree(p)) { /**/
+    Log2("!!refc_delete%s attempt to delete pointer to freed node - no action (Depth=%u)\n", refc_pointer_info(p), refc_delete_depth);
     return;
   }
 //End Deprecated
   
   /* 1. erase pointer; adjust refc */
   *pp = NIL;
+  
   if (IsStrong(p)) {
     if (Srefc(p) == 0)
       err_refc("delete: pointer is strong but Srefc==0");
@@ -935,6 +919,9 @@ static void refc_delete_do(pointer *pp)
       err_refc("delete: pointer is weak but Wrefc==0");
     Wrefc(p)--;
   }
+  
+  if (!delete)
+    return;  /* not deleting sub-items */
   
   //See Deprecated above
   /* 1a (already free) => return */
@@ -957,23 +944,25 @@ static void refc_delete_do(pointer *pp)
     return;
   }
   
-  /* 4. (deleting) => return */ // move lower to allow deleting nodes to be flipped? xxxxxxxxxx????
+  /* 4. (deleting) => return */ // todo ?questionable here - ?move lower to allow deleting nodes to be flipped? xxxxxxxxxx????
   if (IsDeleting(p))
     return;
   
-  /* 5. loop: flip */
+  /* 5. loop: flip; (HasPointers => search H; search T) */
   Assert(Srefc(p) == 0); Assert(Wrefc(p) > 0);
-  refc_flip_node(p);
-
-  /* 6. search H; search T */
-  if (HasPointers(p)) {
-    zone_check_node_data data;
-    refc_delete_pre_search_log(p, &data);
-    refc_search(p, &Hd(p));
-    refc_search(p, &Tl(p));
-    refc_delete_post_search_log(p, data);
+  {
+    int i = refc_delete_pre_search_log(p);
+    
+    refc_flip_node(p);
+    
+    /* 6. search H; search T */
+    if (HasPointers(p)) {
+      refc_search(p, &Hd(p));
+      refc_search(p, &Tl(p));
+    }
+    
+    refc_delete_post_search_log(p, i);
   }
-
 
   /* 7. (Srefc > 0) => return */
   if (Srefc(p) > 0)
@@ -982,7 +971,7 @@ static void refc_delete_do(pointer *pp)
   /* 8. (HasPointers => Set deleting delete H; delete T); return  */
   Assert(HasPointers(p));
   Assert(! IsDeleting(p)); /* belt and braces*/
-  Assert(Srefc(p) == 0); Assert(Wrefc(p) > 0);
+  Assert(Srefc(p) == 0); Assert(Wrefc(p) > 0); /* belt and braces*/
   refc_change_to_deleting(p);
   refc_delete(&H(p));
   refc_delete(&T(p)); /* deletion of last pointer to p will free the node */
