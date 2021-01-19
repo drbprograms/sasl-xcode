@@ -8,10 +8,13 @@
 
 #import <XCTest/XCTest.h>
 
-#include "common.h"
-#include "store.h"
+//#include "common.h"
+//#include "store.h"
 
-#include "parse.h"
+//#include "parse.h"
+
+
+//#include "../sasl/sasl.c"
 
 @interface sasl_test : XCTestCase
 
@@ -36,10 +39,13 @@ int argc = 1;
     // This is an example of a functional test case.
     // Use XCTAssert and related functions to verify your tests produce the correct results.
     printf("hello world\n");
-    XCTAssert(IsNil(((struct pointer){0,0})));
+//    XCTAssert(IsNil(((pointer){0,0})));
 //    new_int(42);
     
     extern int main(int argc, char**argv);
+    char *argv[] =  {"testing", "1.sasl"};
+    
+    main(2,argv);
 
 //    XCTAssert(main(argc, argv) == 0);
 }

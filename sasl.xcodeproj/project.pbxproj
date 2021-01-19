@@ -18,6 +18,7 @@
 		0F7E655E201A4BFF001A6B3C /* store.c in Sources */ = {isa = PBXBuildFile; fileRef = 0F7E6554201A4BFF001A6B3C /* store.c */; };
 		0F7E6560201A4C8F001A6B3C /* lex.l in Sources */ = {isa = PBXBuildFile; fileRef = 0F7E655F201A4C8F001A6B3C /* lex.l */; };
 		0F98ED9C22844E3C002794A3 /* test.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F98ED9B22844E3C002794A3 /* test.m */; };
+		0FE58B9D23B510E200ED1658 /* reduce_new.c in Sources */ = {isa = PBXBuildFile; fileRef = 0FE58B9C23B510E200ED1658 /* reduce_new.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -55,8 +56,9 @@
 		0F7E6553201A4BFF001A6B3C /* parse.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 2; lastKnownFileType = sourcecode.c.c; path = parse.c; sourceTree = "<group>"; };
 		0F7E6554201A4BFF001A6B3C /* store.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 2; lastKnownFileType = sourcecode.c.c; path = store.c; sourceTree = "<group>"; };
 		0F7E655F201A4C8F001A6B3C /* lex.l */ = {isa = PBXFileReference; indentWidth = 2; lastKnownFileType = sourcecode.lex; name = lex.l; path = /Users/dad/Dropbox/Dev/xcode/sasl/sasl/lex.l; sourceTree = "<absolute>"; };
-		0F7E6561201B75DD001A6B3C /* ToDo.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ToDo.txt; sourceTree = "<group>"; };
 		0F98ED9B22844E3C002794A3 /* test.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = test.m; sourceTree = "<group>"; };
+		0FE58B9B23B510E200ED1658 /* reduce_new.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = reduce_new.h; path = sasl/reduce_new.h; sourceTree = "<group>"; };
+		0FE58B9C23B510E200ED1658 /* reduce_new.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = reduce_new.c; path = sasl/reduce_new.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -90,6 +92,8 @@
 		0F7E652E201A31AD001A6B3C = {
 			isa = PBXGroup;
 			children = (
+				0FE58B9B23B510E200ED1658 /* reduce_new.h */,
+				0FE58B9C23B510E200ED1658 /* reduce_new.c */,
 				0F7E6538201A31AD001A6B3C /* Products */,
 				0F7E6539201A31AD001A6B3C /* sasl */,
 				0F671196203CD54F00E9DD0B /* sasl-test */,
@@ -108,7 +112,6 @@
 		0F7E6539201A31AD001A6B3C /* sasl */ = {
 			isa = PBXGroup;
 			children = (
-				0F7E6561201B75DD001A6B3C /* ToDo.txt */,
 				0F7E6546201A4BFE001A6B3C /* abstract.c */,
 				0F7E654D201A4BFE001A6B3C /* abstract.h */,
 				0F7E6544201A4BFD001A6B3C /* common.c */,
@@ -235,6 +238,7 @@
 				0F7E655B201A4BFF001A6B3C /* sasl.c in Sources */,
 				0F7E6558201A4BFF001A6B3C /* reduce.c in Sources */,
 				0F7E655E201A4BFF001A6B3C /* store.c in Sources */,
+				0FE58B9D23B510E200ED1658 /* reduce_new.c in Sources */,
 				0F7E6557201A4BFF001A6B3C /* common.c in Sources */,
 				0F7E6555201A4BFF001A6B3C /* zone.c in Sources */,
 				0F7E655D201A4BFF001A6B3C /* parse.c in Sources */,
