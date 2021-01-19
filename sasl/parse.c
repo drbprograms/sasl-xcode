@@ -312,7 +312,7 @@ int parse_condexp()
 /*
  *	<rhs> ::= <formal><rhs> | <formal> = <expr>
  * rewritten as
- * (5)  <rhs> ::= <formal>* = <expr>    + means 0 or more
+ * (5)  <rhs> ::= <formal>* = <expr>    * means 0 or more
  *                               1
  * returns how many formals (>=0)
  */
