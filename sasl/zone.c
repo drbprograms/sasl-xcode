@@ -513,7 +513,7 @@ int zone_loop_report_do(const pointer p, const pointer start, const unsigned s_l
 }
 
 /* wrapper */
-int zone_loop_report(pointer p, unsigned s_limit)
+static int zone_loop_report(pointer p, unsigned s_limit)
 {
   unsigned strong_count = 0;
 
@@ -919,7 +919,7 @@ static int zone_check_one_root(pointer root, unsigned s_limit, zone_check_counts
  usage if (zone_check_do(root, freelist)) bad; else ok;
  
  */
-int zone_check_do(pointer root, pointer defs, pointer freelist)
+static int zone_check_do(pointer root, pointer defs, pointer freelist)
 {
 #ifdef notyet
   int free_count = 0;
