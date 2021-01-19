@@ -394,6 +394,7 @@ extern int check;
  */
 extern int logging;
 extern int loop_check;
+extern int delete;
 
 /*
  * Debug reporting macros - used for fault diagnosis - enabled for debugging only
@@ -497,7 +498,7 @@ extern int is_duplicate_name(pointer name, pointer p);
 /*
  * helper functions
  */
-extern int list_length(pointer p);
+
 
 /*
  * Tables to store variable-sized objects
