@@ -816,6 +816,14 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
             make_err("multiple DEFs not implemented (yet)", ruledef, rule);
 //            defs = add_deflist_to_def(defs, n1);//deprecated
           
+          //xx
+          Debug("<code>\n");
+          out_debug_limit1  (n1, -1);  // has side effect of setting "budget = -1" which enables pretrty_print() xxx
+          Debug("\n</code>\n");
+          Debug("<sasl>\n");
+          pretty_print(stderr, n1);
+          Debug("\n</sasl>\n");
+          //xx
           return n1; /* this is the global defs */
         }
           
@@ -854,7 +862,7 @@ int maker(int howmany, char *ruledef, int rule, int subrule, int info)
     Debug6("%s %d,%d,%d,%d (Stacked=%ld) <= ", ruledef, rule, subrule, info, howmany, Stacked);
     out_debug_limit(make_sp[0], Limit);
     if (debug > 1)
-      refc_check();/*!!!*/
+      refc_check();/*???*/
   }
   
   return 1;
