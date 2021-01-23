@@ -490,7 +490,7 @@ static int out_out(FILE *where, pointer n)
       
       char *refc_pointer_info(pointer p); /* for debugging */
 
-      if (Wrefc(n) > 0)
+      if (IsWeak(n))
         (void) fprintf(where, "@");	/* hint for weak loops */
       
       switch (Tag(n)) {	/* (tag) cast ensures compler warnings for any tags not covered */
