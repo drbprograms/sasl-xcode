@@ -624,10 +624,16 @@ void refc_delete_post_search_log(pointer p, int really_free)
   refc_delete_search_count++;
   
   if (loop_check) {
-    if (really_free && Srefc(p) > 0)
-        msg = " - about to NOT delete something which is free";
-    if (!really_free && Srefc(p) == 0)
+    if (really_free && Srefc(p) > 0) {
+      msg = " - about to NOT delete something which is free";
+      if (loop_check > 1 && !zone_check_island(p, refc_delete_depth))  /* double check */
+          err_refc("node was free, but changed to NOT free");
+    }
+    if (!really_free && Srefc(p) == 0) {
         msg = " - about to delete something which is NOT free";
+      if (loop_check > 1 &&  zone_check_island(p, refc_delete_depth))  /* double check */
+          err_refc("node was NOT free, but changed to become free");
+    }
   }
 
   Log4("%srefc_delete_post_search%s (depth=%u) %s\n",
@@ -857,6 +863,7 @@ static void refc_search(pointer start, pointer *pp)
   
   refc_search_log(start, *pp); /* don't log NIL, weak pointers, or constants */
   
+  // 2021-01-20 xxx "&& !IsDeleting(*pp)" deprecated - is it correct??  Confuses the logic...
   if (SameNode(start, *pp) || ((Srefc(*pp) > 1) && !IsDeleting(*pp)))
   {  /* make a strong pointer to a non-constant weak, end of search */
     refc_flip_pointer(pp);
