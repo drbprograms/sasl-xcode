@@ -166,7 +166,7 @@ typedef enum tag {
 #define IsFunTag(t) ((t) >= unary_strict && (t) <= unary_nonstrict)
   _LastTag      /* Never appears in a node, used to calculate size for and array-of tag values */
   
-#define TagCount (_LastTag)	/* tags are numbered from 0, _LastTag isn't a tag(!) */
+#define TagCount (_LastTag)	/* tags are numbered from 0, _LastTag isn't a tag(!) valid Assert(valid tags < TagCount) */
 } tag;
 
 typedef struct node
