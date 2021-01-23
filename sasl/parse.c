@@ -86,7 +86,7 @@ static pointer parse_check_do(pointer n, char *msg)
 /* parse_check - error if unbound names found */
 pointer parse_check(pointer n, char *msg)
 {
-  extern unsigned zone_inuse(void); /*xx ?move to common.[ch] frmo zone? */
+  extern unsigned zone_inuse(void); /*xx ?move to common.[ch] from zone? */
   
   /* Assert(is_tree(n)) - NO loops! */
   
