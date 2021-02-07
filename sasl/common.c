@@ -158,6 +158,8 @@ inline kind tag_kind (pointer p)    { return taginfo[Tag(p)].k; }
 inline char tag_strict(pointer p)   { return taginfo[Tag(p)].strict; }
 inline char tag_needs(pointer p)    { return taginfo[Tag(p)].new; }
 
+inline char is_valid_tag(tag t)   { return (t > zero_t && t < _LastTag); }
+
 inline int is_tag(tag t, pointer p)       { return IsSet(p) && t ==         Tag(p); }
 inline int is(kind t, pointer p)      { return IsSet(p) && t == taginfo[Tag(p)].k; }
 
@@ -173,9 +175,9 @@ inline int is_ternary_op(pointer p)    { return is_op(p) && tag_nargs(p) == 3; }
  */
 int tag_init()
 {
-  add_tag(zero_t,    special,    "zero_t ",    0, 0, 0);    /* Special - node not yet in use in graph nor freelist */
-  add_tag(free_t,    special,    "free_t",    0, 0, 0);    /* Special - node that is on the free list */
-  add_tag(deleting_t,    special,    "deleting_t",    0, 0, 0);    /* Special - node that is going to become free when refc_delete() has compltedrecursive deltions */
+  add_tag(zero_t,    special,    "zero_t ",    0, 0, 0);    /* Special - unset tag - should never be found */
+  add_tag(free_t,    special,    "free_t",    0, 0, 0);     /* Special - node that is on the free list */
+  add_tag(deleting_t,special,    "deleting_t",    0, 0, 0); /* Special - node that is going to become free when refc_delete() has complted recursive delEtions */
   
   
   
@@ -1221,7 +1223,8 @@ int pretty_print(FILE *where, pointer n)
           /* [x:NIL] E => U ([x] (K_nil E)) */
           /* [x:y] E => U ([x] ([y] E)) */
           /* E */
-          pretty_print(where, T(T(arg[1]))); // simplistic
+ // BUG fails with prelude-test.sasl
+//          pretty_print(where, T(T(arg[1]))); // simplistic
           break;
           
         case TRYn_comb:
