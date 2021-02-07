@@ -703,7 +703,7 @@ void reduce(pointer *n)
  //NotYet                       }
  //NotYet                       break;
                         
-                        /* H (a:x) => a */
+                        /* H (a:x) => I a */
                     case H_comb:
                         reduce(arg[1]);
                         if (IsCons(*arg[1])) {
@@ -717,7 +717,7 @@ void reduce(pointer *n)
                         //stack: push "T"; reduce; not(isCons) ? (pop;new_comb(FAIL)) : (new_comb(I_Comb); mk_rev_apply)) ; update
                         //stack: push "T"; reduce; check(cons_t); pop; new_comb(I_comb); push("TT"); mk_apply)) ; update
                         
-                        /* T (a:x) => x */
+                        /* T (a:x) => I x */
                     case T_comb:
                         reduce(arg[1]);
                         if (IsCons(*arg[1])) {
