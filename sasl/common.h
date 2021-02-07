@@ -388,12 +388,12 @@ extern int mem_dump;
  * memory checks - usually set
  */
 extern int check;
+extern int check_deletions;
 
 /*
  * logging
  */
 extern int logging;
-extern int loop_check;
 extern int delete;
 
 /*
