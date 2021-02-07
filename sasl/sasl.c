@@ -28,7 +28,7 @@ int no_code;
 int Y_loop;
 int prelude = 0;
 int check;
-int loop_check;
+int check_deletions;
 
 int delete;
 
@@ -109,15 +109,15 @@ static int main_init()
   unit_test         = getenv_int("unit_test", 0);       /* default off */
   mem_dump          = getenv_int("mem_dump", 0);        /* default off */
   check             = getenv_int("check", 1);           /* default ON - should always be 1 to validate refc algorithm */
+  check_deletions   = getenv_int("check_deletions", 1); /* default ON extra check of loops; no effect unless "loop" is set xxx could be off when tests fininshed? */
   Y_loop            = getenv_int("Y_loop", 1);          /* default 1 - "knot-tying" implementation of Y combinator */
-  loop_check        = getenv_int("loop_check", 1);      /* default ON extra check of loops; no effect unless "loop" is set xxx could be off when tests fininshed? */
 
   /* deep changes */
   delete            = getenv_int("delete", 1);  /* deletion: 1=on; 0=off references cointed but no storage freed */
   weak_path         = getenv_int("weak_path", 1);       /* default on = examine weakness of pointers when copying *//*XXX to be implemented as switchable */
 
   /* dependencies */
-  if (loop_check)
+  if (check_deletions) /* needs "check nodes" via zone.c */
       check++;
     
  return store_init() || tag_init() || reduce_init();
