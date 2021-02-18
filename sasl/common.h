@@ -376,7 +376,7 @@ extern int err_refc1(char *msg1, unsigned i);
 extern int err_refc2(char *msg1, char *msg2);
 extern pointer err_store(char *msg);
 extern int err_zone(char *msg1);
-extern int err_zone1(char *msg1, unsigned u);
+extern int err_zone1(char *msg1, char *msg2);
 
 /*
  * debugging
