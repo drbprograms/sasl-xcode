@@ -6,6 +6,7 @@
 
 #include "lex.h"
 #include "store.h"
+#include "zone.h" /* for set_hd etc to enforce HasPointers checks */
 #include "abstract.h"
 
 #include "make.h"
@@ -339,8 +340,8 @@ pointer de_dup1(pointer name, pointer old)
     return old;
 
   if (IsStruct(old)) {
-    H(old) = de_dup1(name, H(old));
-    T(old) = de_dup1(name, T(old));
+    set_hd(old,  de_dup1(name, H(old)));
+    set_tl(old,  de_dup1(name, T(old)));
     return old;
   }
   
@@ -390,7 +391,7 @@ pointer de_dup(pointer new, pointer old)
 //  Assert(IsCons(n1));
 //  Assert(IsNil(Tl(n1)));
 //
-//  Tl(n1) = new_cons(new, NIL);
+//  set_tl(n1,  new_cons(new, NIL));
 //
 //  return n;
 //}
@@ -439,9 +440,9 @@ pointer make_flatten(pointer p)
     }
   } else {
     
-    /* name */
-    H(p) = new_cons(H(p), NIL);
-    T(p) = new_cons(T(p), NIL);
+    /* name *///xx consider set_hdtl(p, new_cons(H(p), NIL), new_cons(T(p), NIL))
+    set_hd(p,  new_cons(H(p), NIL));
+    set_tl(p,  new_cons(T(p), NIL));
     
     return p;
   }
@@ -662,8 +663,8 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
 #ifdef defdef
         n1 = add_to_def(new_def(""), H(n1), T(n1));
 #else
-        H(n1) = new_cons(H(n1), NIL);
-        T(n1) = new_cons(T(n1), NIL);
+        set_hd(n1,  new_cons(H(n1), NIL));
+        set_tl(n1,  new_cons(T(n1), NIL));
 #endif
         return n1;
         
@@ -677,8 +678,8 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
 #if 1
         } else {
           /* single clause definition, so far */
-          H(n1) = new_cons(refc_copy(H(n2)), H(n1));/*new update(H(n1), H(n2), me)*/ /* Assert(IsARoot(n1) || IsARoot(n2)) */
-          T(n1) = new_cons(refc_copy(T(n2)), T(n1));/*new update(T(n1), T(n2), me)*/ /* Assert(IsARoot(n1) || IsARoot(n2)) */
+          set_hd(n1,  new_cons(refc_copy(H(n2)), H(n1)));/*new update(H(n1), H(n2), me)*/ /* Assert(IsARoot(n1) || IsARoot(n2)) */
+          set_tl(n1,  new_cons(refc_copy(T(n2)), T(n1)));/*new update(T(n1), T(n2), me)*/ /* Assert(IsARoot(n1) || IsARoot(n2)) */
         }
         
         dup = def_any_for2(TH(n1), TT(n1), H(n2)); /*search for latest name(s) in previous lists */
@@ -692,8 +693,8 @@ pointer maker_do(int howmany, char *ruledef, int rule, int subrule, int info, po
           (void) make_err2("clause: duplicate definition of the name: ", Name(H(n2)));
 
 
-        H(n1) = make_cons_at_end(H(n1), refc_copy(H(n2)));
-        T(n1) = make_cons_at_end(T(n1), refc_copy(T(n2)));
+        set_hd(n1,  make_cons_at_end(H(n1), refc_copy(H(n2))));
+        set_tl(n1,  make_cons_at_end(T(n1), refc_copy(T(n2))));
       }
 #endif
         
