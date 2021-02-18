@@ -9,6 +9,7 @@
 #include "abstract.h"
 
 #include "store.h"
+#include "zone.h" /* for set_hd set_tl */
 
 #include "reduce.h"
 
@@ -132,7 +133,7 @@ static pointer reduce_abstract_do(pointer name, pointer n, int *got)
   int hgot = 0, tgot = 0; /* counts how many occurences of x in Hd(n), Tl(n) */
   int ap; /* IsApply(n) - used to determine S vs Sp etc */
 
-  if (debug > 1) {
+  if (debug > 2) {
     Debug3("%s[%s] (got==%d) ", "reduce_abstract_do", IsNil(name)?"NIL":Name(name), *got);
     out_debug(n);
   }
@@ -154,8 +155,8 @@ static pointer reduce_abstract_do(pointer name, pointer n, int *got)
     return n;
   } else {
     /*new update(n, reduce_abstract_do(name, H, &hgot), reduce_abstract_do(name, Tl, &tgot))*/
-    Hd(n) = reduce_abstract_do(name, Hd(n), &hgot); //stack: push H; push name;new_int(hgot); reduce_abstract_do
-    Tl(n) = reduce_abstract_do(name, Tl(n), &tgot);
+    set_hd(n,  reduce_abstract_do(name, Hd(n), &hgot)); //stack: push H; push name;new_int(hgot); reduce_abstract_do
+    set_tl(n,  reduce_abstract_do(name, Tl(n), &tgot));
   }
   *got += hgot + tgot;
   
@@ -167,23 +168,23 @@ static pointer reduce_abstract_do(pointer name, pointer n, int *got)
     
     /* if we are about to apply a combinator (got!=0), n must be apply (not cons) */
     if (*got > 0)
-      Tag(n) = apply_t;
+      change_tag(n, apply_t);
   }
   
   /*new update(n, new_apply(new_comb(ap?S_comb:Sc_comb), H), T) */
   
   if (hgot) {
     if (tgot) {
-//2020-04-25      Hd(n) = new_apply(new_comb(ap ? S_comb : Sc_comb), Hd(n));  //stack: new_comb(S_comb||Sc_comb);push H; make_apply
-      Hd(n) = new_apply(new_comb_label(ap ? S_comb : Sc_comb, refc_copy(name)), Hd(n));  //stack: new_comb(S_comb||Sc_comb);push H; make_apply
+//2020-04-25      set_hd(n,  new_apply(new_comb(ap ? S_comb : Sc_comb), Hd(n)));  //stack: new_comb(S_comb||Sc_comb);push H; make_apply
+      set_hd(n,  new_apply(new_comb_label(ap ? S_comb : Sc_comb, refc_copy(name)), Hd(n)));  //stack: new_comb(S_comb||Sc_comb);push H; make_apply
     } else {
-      Hd(n) = new_apply(new_comb(ap ? C_comb : Cc_comb), Hd(n));
+      set_hd(n,  new_apply(new_comb(ap ? C_comb : Cc_comb), Hd(n)));
     }
   } else {
     if (tgot) {
       /* todo
        do[x] f0 x	=> S (K f) I	=> x */
-      Hd(n) = new_apply(new_comb(ap ? B_comb : Bc_comb), Hd(n));
+      set_hd(n,  new_apply(new_comb(ap ? B_comb : Bc_comb), Hd(n)));
     } else {
       /* do[x] f0 g0	=> S (K f)(K g)	=> f g */
       /* nop */
