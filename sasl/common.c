@@ -419,9 +419,9 @@ int err_zone(char *msg1)
   return 0; /*NOTREACHED*/
 }
 
-int err_zone1(char *msg1, unsigned u)
+int err_zone1(char *msg1, char *msg2)
 {
-  Error2("reset: zone: %s%u\n", msg1, u);
+  Error2("reset: zone: %s%s\n", msg1, msg2);
   longjmp(jmpbuffer, 5);
   return 0; /*NOTREACHED*/
 }
@@ -459,6 +459,7 @@ int out_comb_name(FILE *where, pointer n)
 static int budget = -1;
 
 #define STACK_SIZE 10000
+#define STACK_SIZE 50000 /xx
 
 //#define Stacked (sp-stack)    /* >=0 */
 #define Depth  (sp-stack)
