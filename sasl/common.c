@@ -459,7 +459,7 @@ int out_comb_name(FILE *where, pointer n)
 static int budget = -1;
 
 #define STACK_SIZE 10000
-#define STACK_SIZE 50000 /xx
+#define STACK_SIZE 50000 //xx
 
 //#define Stacked (sp-stack)    /* >=0 */
 #define Depth  (sp-stack)
