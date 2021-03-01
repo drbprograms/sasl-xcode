@@ -70,6 +70,17 @@ static void zone_new_log(zone_header *z)
   return;
 }
 
+static void zone_log(char *s, pointer p)
+{
+  if (logging)
+    Log2("%s%s\n", s, zone_pointer_info(p));
+}
+
+static void zone_log_weaken(pointer p)     { zone_log("weaken", p); }
+static void zone_log_strengthen(pointer p) { zone_log("strengthen", p); }
+static void zone_log_flip(pointer p)       { zone_log("flip", p); }
+static void zone_log_erase(pointer p)      { zone_log("erase", p); }
+
 /*
 create a new zone of storage suffcient for 'size' nodes
 return C-pointer to first node which is a zone_t node:
@@ -153,7 +164,7 @@ unsigned zone_free()
  <guaranteed> to return usable node - no need for caller to check.
  */
 //ToDo replace with bombproof new_struct_node() new_atom_node()
-pointer new_node(tag t)
+static pointer new_node(tag t)
 {
   node *n;
   pointer p;
@@ -181,6 +192,106 @@ pointer new_node(tag t)
   
   return p;
 }
+
+/*
+ * new_atom/new_hdtl return pointer to a new node
+ * contents un-initialised if atom, td tl set to hdtl (may be NIL)
+ * <guaranteed> to return a usable node - no need for caller to check
+ * error if tag is not appropriate
+ */
+pointer new_atom(tag t)
+{
+  if (HasPointersTag(t))
+    err_zone1("new atom: incorrect tag:", err_tag_name(t));
+  
+  return new_node(t);
+}
+
+pointer new_hdtl(tag t, pointer hd, pointer tl)
+{
+  pointer p;
+  
+  if (!HasPointersTag(t))
+    err_zone1("new hdtl: incorrect tag:", err_tag_name(t));
+  
+  p = new_node(t);
+  H(p) = hd;
+  T(p) = tl;
+
+  return p;
+}
+
+/*
+ * change_tag - set tag of existing node; returns p
+ * hdtl must have only NIL pointers if being made into an atom
+ * when atom is changed to hdtl, it is given NIL pointers
+ */
+
+pointer change_tag(pointer p, tag t)
+{
+  if (IsNil(p))
+    return p;
+  
+  if (HasPointers(p)) {
+    if (!HasPointersTag(t)) { /* becoming an atom */
+      if (!IsNil(H(p)))
+        err_zone("change tag: Hd isn't NIL");
+      if (!IsNil(T(p)))
+        err_zone("change tag: Tl isn't NIL");
+    }
+    Tag(p) = t;
+  } else {
+    Tag(p) = t;
+    if (HasPointersTag(t)) { /* formerly atom */
+      H(p) = T(p) = NIL;
+    }
+  }
+  return p;
+}
+
+/*
+ * set_hd/set_tl/set_hdtl
+ * WIP what checking / restructuring can be enforced here xxx
+ * eg set_hd(pointer p, pointer function pf) { Hd(p) = pf(Hd(p)) }
+ * REPLACE with update_hd/tl/=hdtl which first deletes pointers in place and adds new ones per store.c
+ */
+pointer set_hd(pointer p, pointer hd)
+{
+  if (!HasPointers(p))
+    err_zone("set_hd of atom");
+  Hd(p) = hd;
+  return p;
+}
+
+pointer set_tl(pointer p, pointer tl)
+{
+  if (!HasPointers(p))
+    err_zone("set_tl of atom");
+  Tl(p) = tl;
+  return p;
+}
+
+pointer set_hdtl(pointer p, pointer hd, pointer tl)
+{
+  if (!HasPointers(p))
+    err_zone("set_hdtl of atom");
+  Hd(p) = hd;
+  Tl(p) = tl;
+  return p;
+}
+
+/* update-in-place with use-before-loose ;-) */
+/* requires *pp is a valid Hd/Tl location - no checking */
+/* new may be NIL */
+pointer zone_update(pointer *pp, pointer new)
+{
+  extern void refc_delete(pointer *pp);
+  pointer old = *pp;
+  *pp = new;
+  refc_delete(&old);
+  return *pp;
+}
+
 
 /*
  * free_node - deallocate the node p points to, adds to front of zone_freelist
@@ -220,9 +331,9 @@ void free_node(pointer p)
   }
     
   /* add to freelist - zone_frelist is Hd linked list of strong pointers (possibly NIL) */
-  Tag(p) = free_t;  /* was cons_t; */
-  Hd(p) = NIL; // not needed
-  Tl(p) = zone_freelist;
+  change_tag(p, free_t);  /* was cons_t); */
+  set_hd(p,  NIL); // not needed
+  set_tl(p,  zone_freelist);
   
   PtrBit(p)= NodeBit(p) = PtrBit(zone_freelist);  /* link with strong pointers */
   Srefc(p) = 1;
@@ -235,8 +346,53 @@ void free_node(pointer p)
   return;
 }
 
-void zone_weaken(pointer *pp)     { if (IsSet(*pp) && IsStrong(*pp))  PtrBit(*pp) = !NodeBit(*pp); }
-void zone_strengthen(pointer *pp) { if (IsSet(*pp) && IsWeak(*pp))    PtrBit(*pp) =  NodeBit(*pp); }
+
+/* increment/decrement reference counts - works for check nodes as well */
+//XXX temp
+static unsigned Srefc_decr(pointer p) { return Srefc(p) == 0 ?   (void) Debug1("!!Srefc_decr%s\n", zone_pointer_info(p)), (void) Assert(0), err_zone("srefc_decr but Srefc==0") : Srefc(p)--; }
+static unsigned Wrefc_decr(pointer p) { return Wrefc(p) == 0 ?   (void) Assert(0), err_zone("wrefc_decr but Wrefc==0") : Wrefc(p)--; }
+static unsigned Srefc_incr(pointer p) { return Srefc(p)++; }
+static unsigned Wrefc_incr(pointer p) { return Wrefc(p)++; }
+
+void zone_weaken(pointer *pp)
+{
+  const pointer p = *pp;
+  if (IsSet(p) && IsStrong(p))  {
+    Wrefc_incr(p);
+    Srefc_decr(p);
+    PtrBit(*pp) = !NodeBit(p);
+    zone_log_weaken(*pp);
+  }
+}
+
+void zone_strengthen(pointer *pp)
+{
+  const pointer p = *pp;
+  if (IsSet(p) && IsWeak(p))  {
+    Wrefc_decr(p);
+    Srefc_incr(p);
+    PtrBit(*pp) =  NodeBit(p);
+    zone_log_strengthen(*pp);
+  }
+}
+
+
+/* flip node - reverse all strong/weak pointers to the node */
+void zone_flip(pointer p)
+{
+  unsigned s;
+  
+  if (IsNil(p)) // || ! HasPointers(p))
+     return;
+   
+  NodeBit(p) = !NodeBit(p);  /* "an essential implementation trick" */
+  s = Srefc(p);
+  Srefc(p) = Wrefc(p);    /* !!! was this done correctly in 1985? */
+  Wrefc(p) = s;      /* !!! was this done correctly in 1985? */
+
+  zone_log_flip(p);
+  return;
+}
 
 void zone_erase(pointer *pp)
 {
@@ -246,13 +402,14 @@ void zone_erase(pointer *pp)
   
   if (IsStrong(p)) {
     if (Srefc(p) == 0)
-      err_refc("delete: pointer is strong but Srefc==0");
-    Srefc(p)--;
+      err_refc("erase: pointer is strong but Srefc==0");
+    Srefc_decr(p);
   } else {
     if (Wrefc(p) == 0)
-      err_refc("delete: pointer is weak but Wrefc==0");
-    Wrefc(p)--;
+      err_refc("erase: pointer is weak but Wrefc==0");
+    Wrefc_decr(p);
   }
+  zone_log_erase(p);
   return;
 }
 
@@ -327,6 +484,12 @@ static void check_counts_add(check_counts *a, check_counts *b)
   return;
 }
 
+/* Check tags.  Here we abuse tag range of enum tag - assume C compiler does not range check. Strictly only for check nodes in zone.c */
+static const tag visited_t     = _LastTag + 1;
+static const tag fordeletion_t = _LastTag + 2;
+static const tag inuse_t       = _LastTag + 3;
+
+static const tag willfree_t    = _LastTag + 4; // deprecated
 
 /*
  zone_of_node - look-up the zone in which a given node resides - works for check nodes also
@@ -345,7 +508,8 @@ static zone_header *zone_of_node(node *n)
       return z;
     
   }
-  err_zone("can't get pointer zone info");
+//  err_zone("can't get pointer zone info");
+    Assert(0);
   /*NOTREACHED*/
   return (zone_header *)0;
 }
@@ -395,7 +559,7 @@ char *zone_address_info(zone_address z, char *suffix, int chk)
 {
   node *np;
   int c;
-
+  
   np = (chk ? z.z->check_nodes : z.z->nodes) + z.off;
   
   c = snprintf(s, MAX, "%s (s/w %u/%u) [%u.%ld] %s",
@@ -409,6 +573,14 @@ char *zone_address_info(zone_address z, char *suffix, int chk)
   
   if (!chk && debug) {
     /* debugging: add detail of pointed-to non-check nodes when debug > 0 */
+    //extra-start
+    if (check) {
+      node *np_check = z.z->check_nodes + z.off;
+      c += snprintf(s + c, MAX - c, " (s-check/w-check %u/%u)",
+                    np_check->s_refc,
+                    np_check->w_refc);
+    }
+    //extra-end
     if (HasPointersTag(np->t)) {
       zone_address z_hd = zone_pointer_address(np->val.pointers.hd);
       zone_address z_tl = zone_pointer_address(np->val.pointers.tl);
@@ -416,11 +588,11 @@ char *zone_address_info(zone_address z, char *suffix, int chk)
       snprintf(s + c, MAX - c, " [%u.%ld]%s.[%u.%ld]%s",
                z_hd.z->seq, z_hd.off, Label(np->val.pointers.hd),
                z_tl.z->seq, z_tl.off, Label(np->val.pointers.tl)
-              );
+               );
     } else {
       switch (np->t) {
         case name_t:  snprintf(s + c, MAX - c, " \"%s\"", np->val.n); break;
-        case int_t:   snprintf(s + c, MAX - c, " %u",     np->val.i); break;
+        case int_t:   snprintf(s + c, MAX - c, " %d",     np->val.i); break;
         case char_t:
           if (isprint(np->val.c))
             snprintf(s + c, MAX - c, " \'%c\'", np->val.c);
@@ -478,6 +650,82 @@ static char *zone_node_info(check_node_data data)
            data.deficit.s,  data.deficit.w,
            msg);
   return i;
+}
+
+/*
+ * strngthen/weaken/erae pointer pp, adjust check node pp_check and associated counts
+ */
+static void zone_strengthen_withcounts(pointer *pp, check_counts *counts)
+{
+  if (IsWeak(*pp)) {
+    const pointer p_check = zone_check_pointer_of(*pp);
+    Assert(Wrefc(p_check)); //xx 2021-02-19 to be sure - was causing problems
+    Wrefc(p_check)--;
+    Srefc(p_check)++;
+    counts->strong--;
+    counts->weak++;
+    zone_strengthen(pp); /* do this last so that zone_log_weaken reflects check changes */
+  }
+}
+
+static void zone_weaken_withcounts(pointer *pp, check_counts *counts)
+{
+  if (IsStrong(*pp)) {
+    pointer p_check;
+    p_check = zone_check_pointer_of(*pp);
+//xx
+//    if (!Srefc(p_check))
+//      Debug3("!!zone_weaken_withcounts%s (s_check/w_check %u/%u)\n", zone_pointer_info(*pp), Srefc(p_check), Wrefc(p_check));
+//xx
+//xx    Assert(Srefc(p_check)); //xx 2021-02-19 to be sure - was causing problems
+    Wrefc(p_check)++;
+    Srefc(p_check)--;
+    counts->strong++;
+    counts->weak--;
+    zone_weaken(pp); /* do this last so that zone_log_weaken reflects check changes */
+  }
+}
+
+static void zone_erase_withcounts(pointer *pp, check_counts *counts)
+{
+  const pointer p = *pp, p_check = zone_check_pointer_of(p);
+
+  if (IsStrong(p)) {
+    if (Srefc(p) == 0)
+      err_refc("erase: pointer is strong but Srefc==0");
+    Srefc_decr(p); Srefc(p_check)--;
+    counts->strong--;
+  } else {
+    if (Wrefc(p) == 0)
+      err_refc("erase: pointer is weak but Wrefc==0");
+    Wrefc_decr(p); Wrefc(p_check)--;
+    counts->weak--;
+  }
+  zone_erase(pp);  /* do this last so that zone_log reflects check changes */
+  return;
+}
+
+void zone_flip_withcounts(pointer n, check_counts *counts)
+{
+  unsigned s;
+  pointer n_check;
+
+  if (IsNil(n))  // || ! HasPointers(p))
+    return;
+  n_check = zone_check_pointer_of(n);
+  
+  zone_flip(n);
+
+  /* note: NodeBit(n_ check) not in use */
+  s = Srefc(n_check);
+  counts->strong += Wrefc(n_check) - s;
+  counts->weak   -= Wrefc(n_check) - s;
+
+  Srefc(n_check) = Wrefc(n_check);
+  Wrefc(n_check) = s;
+  
+
+  return;
 }
 
 
@@ -561,9 +809,10 @@ static int zone_loop_report(pointer p, unsigned s_limit)
 
 /*
  * update check info for a pointer at the pointed to node
+ * s_limit is max number of strong pointers expected - strong loop avoidance
  * returns 0 when node visited for first time, otherwise non zero.
  */
-static int check_get_pointer_counts(pointer p, unsigned s_limit, check_counts *counts)
+static int get_pointer_counts(pointer p, unsigned s_limit, check_counts *counts)
 {
   zone_header *z;
   long int node_no;  /* offset of Node(p) within the zone */
@@ -602,7 +851,7 @@ static int check_get_pointer_counts(pointer p, unsigned s_limit, check_counts *c
   node_no = Node(p) - z->nodes; /*offset within zone nodes*/
   
   Assert(z->check_nodes);
-  Assert(z->nodes[node_no].t);
+// deprecated Assert(z->nodes[node_no].t);  // see check with warning below
 
   if (IsStrong(p))
     (z->check_nodes[node_no].s_refc)++;
@@ -610,8 +859,11 @@ static int check_get_pointer_counts(pointer p, unsigned s_limit, check_counts *c
     (z->check_nodes[node_no].w_refc)++;
   
   /* after first visit, check tag will be set */
-  if (z->check_nodes[node_no].t)
+  if (z->check_nodes[node_no].t) {
+    if (mem_dump > 1)
+      Debug1("mem_dump+%s\n",zone_pointer_info(p));
     return 1;
+  }
 
   /* first visit: update "count" and check_node for node */
   /* set check tag to indicate "node have been visited" */
@@ -624,7 +876,7 @@ static int check_get_pointer_counts(pointer p, unsigned s_limit, check_counts *c
     }
   }
 
-  z->check_nodes[node_no].t = z->nodes[node_no].t;
+  z->check_nodes[node_no].t = visited_t;
 
   /* sum refc at node */
   counts->srefc += Srefc(p);
@@ -643,7 +895,7 @@ static int check_get_pointer_counts(pointer p, unsigned s_limit, check_counts *c
 }
 
 /*
- zone_check_traverse_pointers - traverse pointers, populating check_nodes with Tag/Srefc/Wrefc
+ check_traverse_pointers - traverse pointers, populating check_nodes with Tag/Srefc/Wrefc
  recursively traverse from p counting pointers and nodes and updating Error
  
  s_limit - max number of strong pointers before a loop is certain
@@ -654,57 +906,47 @@ static int check_get_pointer_counts(pointer p, unsigned s_limit, check_counts *c
  */
 // 2021-01-21 removed stop_node, instead use zero_t tag to indicate whether node already visited
 // 2021-02-05 added start node!
-/* like check_traverse_pointers_do, in addition: if a pointer to start is found, it is made weak */
-static int check_traverse_pointers_do(pointer p, unsigned s_limit,  check_counts *counts, pointer *start)
+static int check_traverse_pointers_do(pointer p, unsigned s_limit,  check_counts *counts, const pointer *localroot)
 {
   while (1) {
     while (HasPointers(p)) {
       /* pointer nodes */
-      if (check_get_pointer_counts(p, s_limit, counts))
-        break; /* not first pointer to node */
+      int seen_before = get_pointer_counts(p, s_limit, counts);
+            
+      if (seen_before)
+        break; /* not first visit to p */
       
+#define zone_weaken_withcounts(p, c) zone_weaken(p)
+      if (localroot) {
+        /* if set, weaken pointers to localroot and adjust counts */
+        if (SameNode(*localroot, Hd(p))) zone_weaken_withcounts(&Hd(p), counts);
+        if (SameNode(*localroot, Tl(p))) zone_weaken_withcounts(&Tl(p), counts);
+      }
+#undef zone_weaken_withcounts
       /* first visit: visit descendants  */
-      if (start && SameNode(*start, H(p))) zone_weaken(&H(p)); //BUG - need to check_get_pointer_counts AFTER weakening otherwise all will be wrong!
       Push(p);
       p = H(p);
     }
     
-    /* non-pointer node or already-visited H(node) */
+    /* non-pointer node - or already-visited H(node) */
     if (!HasPointers(p))
-      (void) check_get_pointer_counts(p, s_limit, counts);
+      (void) get_pointer_counts(p, s_limit, counts);
     
     if (Stacked == 0)
       return 0; /* all done */
     
     p = Pop;
     Assert(HasPointers(p));
-    if (start && SameNode(*start, T(p))) zone_weaken(&T(p));
     p = T(p);
   }
 }
 
 
-
-static int check_traverse_pointers(pointer p, unsigned s_limit, check_counts *counts)
-{
-  int res;
-  
-  /* Assert(is_tree(n)) - NO loops! */
-  
-  stack_size = s_limit;
-  sp = stack = new_table(stack_size, sizeof(pointer));
-  
-  res = check_traverse_pointers_do(p, s_limit, counts, 0 /*no start node */);
-  
-  free_table(stack);
-  
-  return res;
-}
-
 /*
- * check_search_pointers - accumulate counts for Reach*(p); at same time weaken any pointers to start
- */
-static int check_search_pointers(pointer p, unsigned s_limit, check_counts *counts, pointer start)
+* check_traverse_pointers - accumulate counts for Reach*(p); at same time weaken any pointers to localroot (optional)
+*/
+
+static int check_traverse_pointers(pointer p, unsigned s_limit, check_counts *counts, const pointer *localroot)
 {
   int res;
   
@@ -713,13 +955,12 @@ static int check_search_pointers(pointer p, unsigned s_limit, check_counts *coun
   stack_size = s_limit;
   sp = stack = new_table(stack_size, sizeof(pointer));
   
-  res = check_traverse_pointers_do(p, s_limit, counts, &start);
+  res = check_traverse_pointers_do(p, s_limit, counts, localroot);
   
   free_table(stack);
   
   return res;
 }
-
 
 
 /*
@@ -760,21 +1001,8 @@ static int check_get_node_counts(zone_address z, check_node_data *data)
   w =       np      ->w_refc,
   w_check = np_check->w_refc;
   
-  tag
-  t =       np      ->t,
-  t_check = np_check->t;
-  
   /* accumulate node data, tally mismatch in res_i (taking care not to generate "negative" unsigneds) */
   
-  /* tags */
-  if (t < zero_t || t >= _LastTag) {
-    res++;
-    Log3("!!check_node%s\tbad tag: (t/t_check %d/%d)\n", zone_address_info(z, suffix, 0), t, t_check);
-  } else if (t != t_check) {
-    res++;
-    Log2("!!check_node%s\ttag differs: check==%s\n", zone_address_info(z, suffix, 0),  err_tag_name(t_check));
-  }
-
   /* refc */
   /* excess: refc without pointer */
   /* deficit: error uncounted pointer */
@@ -838,7 +1066,7 @@ static int check_loop_do(pointer p, unsigned s_limit, unsigned strong_count)
     return 0;
   
   if ((strong_count++) > s_limit) {
-    Debug2("!!zone_loop_check_do: found loop size %u: at: %s: ", strong_count, zone_pointer_info(p));
+    Debug2("!!zone_loop_check_do: found strong loop size %u: at: %s: \n", strong_count, zone_pointer_info(p));
     zone_loop_report(p, s_limit); // NEW
     return 1;
   }
@@ -866,25 +1094,31 @@ static int check_one_root(pointer root, unsigned s_limit, check_counts *counts, 
   if (IsNil(root))
     return res;
 
-  if (debug
-//   xxx   > 1
-      )
-    Debug2("zone_check_one_root(\"%s\")%s\n", info, zone_pointer_info(root));
-  
-  if (IsWeak(root))
+  if (delete == 1 /* 1985 algorithm */ && IsWeak(root))
       Debug1("!!%s pointer is weak - unexpected\n", info);
     
-  res += check_traverse_pointers(root, s_limit, counts);
+  res += check_traverse_pointers(root, s_limit, counts, 0/*no localroot*/);
   res += check_loop(root, s_limit);
+
+  Debug2("check_one_root(\"%s\")%s", info, zone_pointer_info(root));
+  Debug6(" refc-sum:(s/w %u/%u) pointer-count:(sp/wp %u/%u) refc-excess:(s+/w+ %u/%u)",
+         counts->srefc,
+         counts->wrefc,
+         counts->strong,
+         counts->weak,
+         counts->srefc - counts->strong,
+         counts->wrefc - counts->weak
+         );
+  Debug3(" (inuse=hdtl+atom %u=%u+%u)\n",
+         counts->hdtl + counts->atom,
+         counts->hdtl,
+         counts->atom
+         );
 
   return res;
 }
 
 
-unsigned get_inuse_2021algorithm(pointer p)
-{
-  qq
-}
 /*
  zone_check_do - check storage consistency - 'root' is start of the graph; 'freelist' is the start of freelist.
  0. zone check:
@@ -1129,29 +1363,30 @@ static int check_do(pointer root, pointer defs, pointer freelist)
  *    external pointers = (b) - (c)
  
  *  re-examine x in Reach*(n) == seach from n
- *      [Assert(Tag(n_check)) not {deletion, inuse} for all Reach*(n))]
+ *      [Assert(Tag(n_check)) a priori not {deletion, inuse} for all Reach*(n))]
  *
  *  if Tag(x_check == (inuse, deletion)) done. * already visited * else
- *  if ALLRefc(x > ALLrefc(x_check) {recursively mark all y in Reach*(x): Tag(y) = inuse_t else
+ *  if ALLRefc(x > ALLrefc(x_check) {recursively mark all y in Reach*(x): change_tag(y, inuse_t) else
  *  mark fordeletion_t; continue to examine H(x), T(x)
  *
  * n_check has three "labels"
- * 1. unset
- * 2. visited and candidate for deletion
- * 3. visited and inuse
+ * 1. visited by get_pointer_counts
+ * 2. visited by check inuse and candidate for deletion
+ * 3. visited by check inuse and inuse
  *
  * Implementation - data:
- * all Reach*(n), Tag(n_check) is set to "1" by "check_one_root()"
+ * all Reach*(n), Tag(n_check) is set to "1" by "get_pointer_counts()"
  * in check_count_inuse() changes allowed are
- * 1 -> 2   unset -> fordeletion_t
- * 1 -> 3   unset -> inuse_t
+ * 1 -> 2   visited -> fordeletion_t
+ * 1 -> 3   visited -> inuse_t
  * 2 -> 3   fordeletion_t -> inuse_t
  * After check_count_inuse(), all Reach*(n) is in either 1 or 2 - reachable node are partitiioned into "free" and "inuse".
  *
- * Implementation:
- * 2 == fordeletion_t  // invalid tag not allowed (apart from check nodes) - check enforced in check_get_pointer_counts()
- * 3 == inuse_t     // special tag not allowed (apart from check nodes) - check enforced in check_get_pointer_counts()
- * 1 == <other>
+ * Implementation - check tags - only for use in checking here, not for use on non-check nodes.
+ * 1 == visited_t
+ * 2 == fordeletion_t
+ * 3 == inuse_t
+ * 4 == willdelete_t - confirmation that fordeletion will be deleted - deprecated
  *
  * Additional method - double check which nodes are to be freed
  * all Reach*(n) where Tag(n_check) == "2", set to "1" and count
@@ -1162,12 +1397,6 @@ static int check_do(pointer root, pointer defs, pointer freelist)
  * Implememtation:
  *  recursive scan from n setting fordeletion_t to willfree_t and counting total
  */
-
-/* Check tags.  Here we abuse tag range of enum tag - assume C compiler does not range check. Strictly only for zone.c */
-static const tag fordeletion_t = _LastTag + 1;
-static const tag inuse_t       = _LastTag + 2;
-static const tag willfree_t    = _LastTag + 3;
-
 
 unsigned check_set_inuse(pointer n)
 {
@@ -1192,12 +1421,40 @@ unsigned check_set_inuse(pointer n)
   }
   return inuse;
 }
-/* xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx */
 
-/* traverse pointers staring with *pp - if node already in use weaken *pp, otherwise set inuse, strengthen *pp and recurse, return: how many inuse */
-unsigned set_inuse_2021algorithm(pointer *pp)
+/* visit recursively, weakening any pointers to start; returns of pointers still to be weakened (<=todo) */
+/* todo is number of pointers required to be weakened - stop at zero */
+unsigned check_weaken_loop(pointer start, pointer *pp, check_counts *counts, unsigned todo)
 {
-  unsigned inuse;  /* count of unique nodes set to inuse in Reach*(n) (1->3 or 2->3 in "label" terminology) */
+  const pointer p = *pp;
+  if (IsNil(p)
+      || !todo
+//
+//|| IsWeak(p) //XX added to prevent inifinite loops - but does it get the job done??? NO NO NO!
+//
+      )
+    return 0;
+  
+  if (SameNode(start, p)) {
+    zone_weaken_withcounts(pp, counts);
+    return --todo;
+  }
+
+  if (HasPointers(p) &&
+      Tag(zone_check_pointer_of(p)) != inuse_t //XX added to prevent inifinite loops - but does it get the job done??? NO NO NO!
+      ) {
+    todo -= check_weaken_loop(start, &Hd(p), counts, todo);
+    if (todo)
+      todo -= check_weaken_loop(start, &Tl(p), counts, todo);
+  }
+  return todo;
+}
+
+/* xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx */
+/* traverse pointers staring with *pp - if pointed-to node already in use weaken *pp, otherwise set it inuse, strengthen *pp and recurse, return: how many inuse */
+unsigned set_inuse_2021algorithm(pointer *pp, check_counts *counts)
+{
+  unsigned inuse = 0;  /* count of unique nodes set to inuse in Reach*(n) (1->3 or 2->3 in "label" terminology) */
   pointer p_check, p = *pp;
   
   if (IsNil(p))
@@ -1206,48 +1463,77 @@ unsigned set_inuse_2021algorithm(pointer *pp)
   p_check = zone_check_pointer_of(p);
   
   if (Tag(p_check) == inuse_t) {
-    zone_weaken(pp);
+    zone_weaken_withcounts(pp, counts);
     return 0; /* reachable and already visited */
   }
   
-  Tag(p_check) = inuse_t;
-  inuse = 1; /* mark as reachable */
-  zone_strengthen(pp);
-  if (debug > 1)  Debug1("check_set_inuse_algorithm:%s\n", zone_pointer_info(*pp));
+  Tag(p_check) = inuse_t; /* mark as reachable */
+  inuse = 1;
+  zone_strengthen_withcounts(pp, counts);
+  if (debug > 1)  Debug1("set_inuse_2021algorithm:%s\n", zone_pointer_info(*pp));
 
   if (HasPointers(p)) {
-    inuse += set_inuse_2021algorithm(&Hd(p));
-    inuse += set_inuse_2021algorithm(&Tl(p));
+    inuse += set_inuse_2021algorithm(&Hd(p), counts);
+    inuse += set_inuse_2021algorithm(&Tl(p), counts);
   }
   return inuse;
 }
 
-/* traverse pointers starting with *pp - free fordeletion_t nodes by erasing *pp, recursing, then freeing the node, return: how many freed */
-unsigned free_2021algorithm(pointer *pp)
+
+unsigned free_2021algorithm(pointer *pp, tag t)
 {
   unsigned free = 0;
-//  pointer p_check;
-  pointer p = *pp;
+  pointer p = *pp, p_check;
   
   if (IsNil(p))
     return 0;
-
-//  p_check =  zone_check_pointer_of(p);
-
-//  if (Tag(p_check) != fordeletion_t)  //superfluous
-//    return 0; //superfluous
   
-  free = 1;
-//  Tag(p_check) = willfree_t; //superfluous
   zone_erase(pp);
-  if (debug > 1)  Debug1("check_free_algorithm:%s\n", zone_pointer_info(p));
+  
+  p_check = zone_check_pointer_of(p);
+  if (Tag(p_check) == t)
+    return 0;
+  
+  if (debug > 1)  Debug1("free_2021algorithm:%s\n", zone_pointer_info(p));
+  if (HasPointers(p)) {
+    free += free_2021algorithm(&Hd(p), t);
+    free += free_2021algorithm(&Tl(p), t);
+  }
+  if (ALLrefc(p) == 0) { /* erasing last pointer frees node*/
+    free++;
+    free_node(p);
+  }
+  return free;
+}
+
+
+/*
+ * zone_recycle() erase pointer pp and when tag t, recurse and free node when last pointer deleted; return number of nodes freed
+ * only to be called *after* setting check tags via set_inuse_2021algorithm() or check_set_inuse().
+ */
+unsigned zone_recycle(pointer *pp, tag t)
+{
+  pointer p = *pp, p_check;
+  unsigned free = 0;
+
+  if (IsNil(p) || Tag(p) == free_t)//*xxWHY is this needed for 99.2 etc */)
+    return 0;
+
+  zone_erase(pp);
+  
+  p_check = zone_check_pointer_of(p);
+  if (Tag(p_check) != t)
+    return 0;
   
   if (HasPointers(p)) {
-    free += free_2021algorithm(&Hd(p));
-    free += free_2021algorithm(&Tl(p));
+    free  = zone_recycle(&Hd(p), t);
+    free += zone_recycle(&Tl(p), t);
   }
-
-  free_node(*pp);
+  
+  if (ALLrefc(p) == 0 && Tag(p) != free_t) { /* last pointer and not already freed eg by a following loops */
+    free_node(p);
+    free++;
+  }
   return free;
 }
 
@@ -1255,7 +1541,7 @@ unsigned free_2021algorithm(pointer *pp)
 
 /* xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx */
 
-/* visit fordeleting_t nodes in Reach*(n) - only - setting to willfree_t (only *directly* reachable from n) */
+/* extra check - visit fordeletion_t nodes in Reach*(n) - only - setting to willfree_t (only *directly* reachable from n) */
 static unsigned check_set_willfree(pointer n)
 {
   unsigned willfree = 0;
@@ -1296,7 +1582,7 @@ static unsigned check_count_inuse(pointer n)
     case inuse_t:
       return 0;
     default:
-      Tag(n_check) = fordeletion_t;  /* may change later to inuse_t (2->3 in above terminology) */
+      Tag(n_check) = fordeletion_t;  /* can change later to inuse_t (2->3 in above terminology) */
   }
   
   if (ALLrefc(n) > ALLrefc(n_check)) { /* protected by external pointers */
@@ -1309,6 +1595,91 @@ static unsigned check_count_inuse(pointer n)
     return check_count_inuse(Hd(n)) + check_count_inuse(Tl(n));
   return 0;
 }
+
+/*
+  9. Visit Reach*(n) again,
+    1. examine noteboook for externals s
+    2. at externals s
+        1. add s to notebook inuse ‘list’. Examine pointers from s
+            1. if they point to node x already in notebook inuse weaken
+            2. if they don’t point node x already to notebook inuse, strengthen pointer and add x to noteboook inuse, recursively visit x
+*/
+static unsigned find_inuse_2021algorithm(pointer *pp, check_counts *counts)
+{
+  pointer p, p_check;
+  p = *pp;
+  if (IsNil(p))
+    return 0;
+  p_check = zone_check_pointer_of(p);
+  if (debug > 1)
+    Debug4("find_inuse_2021algorithm%s refc-excess:(s+/w+ %u/%u) %d\n", zone_pointer_info(p), Srefc(p) - Srefc(p_check), Wrefc(p) - Wrefc(p_check), Tag(p_check));
+
+  switch (Tag(p_check)) {
+    case fordeletion_t:
+    case inuse_t:
+      return 0;
+    case visited_t:
+    default:
+      Tag(p_check) = fordeletion_t;  /* may change later to inuse_t (2->3 in above terminology) */
+  }
+  if (ALLrefc(p) > ALLrefc(p_check)) { /* protected by external pointers */
+    unsigned inuse = 1;
+    Debug4("localroot-start%s refc-excess:(s+/w+ %u/%u) inuse=%u\n", zone_pointer_info(p), Srefc(p) - Srefc(p_check), Wrefc(p) - Wrefc(p_check), inuse);
+    
+    Tag(p_check) = inuse_t;
+    
+    if (HasPointers(p)) {
+      if (Srefc(p) == Srefc(p_check) /* && (Wrefc(p) > Wrefc(p_check))*/) { /* protected only by weak exxternal pointers */
+        zone_flip_withcounts(p, counts);
+      }
+      zone_weaken_withcounts(pp, counts); /* strong loop avoidance */
+      
+      inuse += set_inuse_2021algorithm(&Hd(p), counts);
+      inuse += set_inuse_2021algorithm(&Tl(p), counts);
+    }
+    Debug4("localroot-done%s refc-excess:(s+/w+ %u/%u) inuse=%u\n", zone_pointer_info(p), Srefc(p) - Srefc(p_check), Wrefc(p) - Wrefc(p_check), inuse);
+    return inuse; /* Reach*(p) inuse */
+  }
+//  if (ALLrefc(p) > ALLrefc(p_check)) { /* protected by external pointers */
+//    unsigned inuse = 1;
+//    Tag(p_check) = inuse_t;
+//    if (HasPointers(p)) {
+//      unsigned s = Srefc(p) - Srefc(p_check);
+//      unsigned w = Wrefc(p) - Wrefc(p_check);
+//      Debug3("localroot%s refc-excess:(s+/w+ %u/%u)\n", zone_pointer_info(p), s, w);
+//      //      WIP WIP-start
+//      if (s == 0) {
+//        /* >>> loop protected only by weak pointer <<< */
+//        unsigned w_check = Wrefc(p_check);
+//        Assert(w);
+//        zone_flip(p);
+//        if (w_check) { /* n has weak "internal" as well as being protected by weak "external" pointer(s) */
+//          unsigned w2;
+//          Log1("2021 algorithm - potential issue %u internal weak references\n", w_check);
+//          w2 = check_weaken_loop(p, &Hd(p), counts, w_check);
+//          w2 = check_weaken_loop(p, &Tl(p), counts, w2);
+//          if (w2)
+//            Log1("!!localroot problem %u internal weak not weakened ", w2);
+//          Log3("localroot-weak%s weakened:(w2/w_check %u/%u)\n",zone_pointer_info(p), w2, w_check);
+//        }
+//      }
+//      //      WIP WIP-end
+//      inuse += set_inuse_2021algorithm(&Hd(p), counts);
+//      inuse += set_inuse_2021algorithm(&Tl(p), counts);
+//      Debug3("localroot-done%s refc-excess:(s+/w+ %u/%u)\n", zone_pointer_info(p), Srefc(p) - Srefc(p_check), Wrefc(p) - Wrefc(p_check));
+//    }
+//    Log4("find_inuse_2021algorithm%s (s+/w+ %u/%u) inuse=%u\n", zone_pointer_info(p), Srefc(p) - Srefc(p_check),
+//         Wrefc(p) - Wrefc(p_check), inuse);
+//    return inuse; /* Reach*(p) inuse */
+//  }
+
+  
+  if (HasPointers(p))
+    return find_inuse_2021algorithm(&Hd(p), counts) + find_inuse_2021algorithm(&Tl(p), counts);
+  return 0;
+}
+
+
 
 /* +++ +++ +++ +++ +++ +++ +++ +++ +++ +++ +++ +++ +++ +++ +++ +++ +++ +++ +++ +++ +++ +++ +++ +++ +++ +++ */
 static unsigned check_count_inuse_do(pointer n)
@@ -1386,11 +1757,12 @@ unsigned zone_check_deletion(pointer n)
 
   n_check = zone_check_pointer_of(n);
   
-  /* populate check nodes in {n} U Reach(n) */
+  /* populate check nodes in Reach*(n) */
   // NB weak ptr n will generate !!error mesg in here; but should never get here with weak pointer anyway due to way algorithm works
   check_reset();
   if (check_one_root(n, zone_inuse_count*2, &theCounts, "deletion check"))
-    err_zone("zone_check_deletion: problem traversing deletion nodes");
+    Log1("deletion-check problem%s", zone_pointer_info(n));  // temporary strong look during pointer "move" update eg for I_comb stacked==2
+//    err_zone("zone_check_deletion: problem traversing deletion nodes");
   
   /* NB "n" has been counted by check_one_root() as a root pointer, which is it not, so need to offset pointer count and refc sum by 1 */
   if (IsStrong(n)) {
@@ -1408,16 +1780,19 @@ unsigned zone_check_deletion(pointer n)
          theCounts.srefc - theCounts.strong,
          theCounts.wrefc - theCounts.weak
          );
-  Debug2(" root-excess:(s+/w+ %u/%u)\n",
+  Debug5(" root-excess:(s+/w+ %u/%u) (inuse=hdtl+atom %u=%u+%u)\n",
          Srefc(n) - Srefc(n_check),
-         Wrefc(n) - Wrefc(n_check)
+         Wrefc(n) - Wrefc(n_check),
+         theCounts.hdtl + theCounts.atom,
+         theCounts.hdtl,
+         theCounts.atom
          );
   
   if (theCounts.srefc < theCounts.strong)
     err_zone("zone_check_deletion: more strong pointers than counts");
   if (theCounts.wrefc < theCounts.weak)
     err_zone("zone_check_deletion: more weak pointers than counts");
-
+  
   externals = (theCounts.srefc + theCounts.wrefc) - (theCounts.strong + theCounts.weak); /* sum of counted references - count of pointers */
   reach = (theCounts.atom  + theCounts.hdtl); /* count of nodes, including n */
 
@@ -1447,14 +1822,206 @@ unsigned zone_check_deletion(pointer n)
       Log2("!!zone_check_deletion: expected %u willfree but got %u\n", free, willfree);
   }
 
-  Log4("zone_check_deletion%s %u nodes out of %u will be freed, local root %sinuse\n",
+  Log3("zone_check_deletion%s %u nodes out of %u will be freed\n",
        zone_pointer_info(n),
        free,
-       reach,
-       Tag(n_check) == inuse_t ? "not " : "");
+       reach);
 
   return free;
 }
+
+/*
+ 
+ When last strong pointer has been deleted, but there are still weak references:
+
+ 2021 algorithm()  <<xx needs updating for reality as tested below ....>>
+ 
+ Implementation - when deletion gives Wrefc>0 Srefc=0
+ 1. Flip n making all Weak into Strong (so zero Wrefc)
+ 2. Search from n
+     1. summing refc
+     2. counting pointers
+     3. weakening pointers to n
+ 3. If n has Strong pointers, all done - they protect n and reach n.  n in use nothing else to do.
+ 4. If n has no Strong pointers, and the number of pointers found is equal to the sum of refc, then n and Reach*(n) are all free.   No need for recursive deletion, they can simply be recycled from the notebook.
+ 5. Otherwise, n has no Strong pointers and so has no external pointers, but there are external pointers, they must be elsewhere.
+ 6. Clear the notebook
+ 7. Visit Reach*(n) [this could be done as part of 2 to save visits at cost of earlier use of notebook]
+     1. in the notebook count times x is visited via Strong and via Weak local refc and status mayfree
+ 8. After Protected nodes will have refc > local refc
+ 9. Visit Reach*(n) again,
+     1. examine noteboook  for externals
+     2. at externals s - ensure at least one external is strong
+         1. add s to notebook inuse ‘list’. Examine pointers from s
+             1. if they point to node x already in notebook inuse weaken
+             2. if they don’t point node x already to notebook inuse, strengthen pointer and add x to noteboook inuse, recursively visit x
+ 10. If n has Strong pointers, n inuse and all done.
+ 11. If n has no Strong pointers, some part of Reach*(n) is free - recursively delete pointers from n recycling nodes where refc==0. Done.  No need for recusive deletion they can simply be freed.
+     1. Nodes to be recycled will be have notebook status mayfree - which may help implementation, but not necessary.
+ 12. Discard notebook
+ */
+
+void zone_delete2021(pointer n)
+{
+  //  unsigned inuse;
+  unsigned
+  reach,  /* count of nodes reachable from n, including n */
+  externals, /* sum of "external" references */
+  free,   /* count of nodes which are free */
+  inuse;  /* count of nodes which are not free - reach == free + inuse */
+  check_counts theCounts = zero_zone_check_counts; /* counts set by check_one_root() */
+  pointer n_check;
+  pointer *shortcut = 0; /* search shortcut - weakens pointers during search */
+  
+  if (Srefc(n) > 0) /* n is not free */
+    return;
+  
+  if (Wrefc(n) == 0) { /* n is free - Allrefc(p) == 0 */
+    if (HasPointers(n)) {
+      extern void refc_delete(pointer *pp);
+      refc_delete(&H(n));
+      refc_delete(&T(n));
+    }
+    free_node(n);
+    return;
+  }
+  
+  /* Srefc == 0 && Wrefc > 0 more to do */
+  /*  1. Flip n making all Weak into Strong (so zero Wrefc) */
+  zone_flip(n);  /* Now; Srefc > 0 && Wrefc == 0 */
+  
+  /* 2. Search  from n - and populate local refc
+   *   1. summing refc
+   *   2. counting pointers
+   *   3. weakening pointers to n
+   */
+    check_reset();
+  {
+    int s = IsStrong(n);
+//    PtrBit(n) = !NodeBit(n);//xx
+//    Assert(IsWeak(n));//xx
+    
+//xx    shortcut = n;//xx 2021-02-27 TEMP no weakening  in check_traverse_pointers()
+    if (check_traverse_pointers(n, zone_inuse_count*2, &theCounts, shortcut))
+      err_zone("zone_delete2021: problem traversing deletion nodes");
+    
+    /* NB "n" has been counted (but not weakened) by check_traverse_pointers() as a root pointer, which is it not, so need to offset check pointer count and check refc sum by 1 */
+    n_check = zone_check_pointer_of(n);
+    if (s) {
+      (theCounts.strong)--;
+      Srefc(n_check)--;
+    } else {
+      (theCounts.weak)--;
+      Wrefc(n_check)--;
+    }
+  }//xx sometimes root-excess is shown incorrect after this ... problem with "stale" n pointer?
+  
+  Debug7("zone_delete2021%s refc-sum:(s/w %u/%u) pointer-count:(sp/wp %u/%u) refc-excess:(s+/w+ %u/%u)",
+         zone_pointer_info(n),
+         theCounts.srefc,
+         theCounts.wrefc,
+         theCounts.strong,
+         theCounts.weak,
+         theCounts.srefc - theCounts.strong,
+         theCounts.wrefc - theCounts.weak
+         );
+  Debug5(" root-excess:(s+/w+ %u/%u) (inuse=hdtl+atom %u=%u+%u)",
+         Srefc(n) - Srefc(n_check),
+         Wrefc(n) - Wrefc(n_check),
+         theCounts.hdtl + theCounts.atom,
+         theCounts.hdtl,
+         theCounts.atom
+         );
+  Debug4("(s/w %u/%u) (s_check/w_check %u/%u)\n", Srefc(n), Wrefc(n), Srefc(n_check), Wrefc(n_check));
+  
+  if (theCounts.srefc < theCounts.strong)
+    err_zone("zone_check_deletion: more strong pointers than strong counts");
+  if (theCounts.wrefc < theCounts.weak)
+    err_zone("zone_check_deletion: more weak pointers than weak counts");
+  
+//xx  { extern unsigned refc_delete_post_search_log(pointer p, unsigned free); refc_delete_post_search_log(n , log); }//xx deprecated
+  
+  /*  3. If n has Strong pointers, all done - they protect n and reach n.  n in use nothing else to do. */
+
+  if (shortcut && Srefc(n) > 0) /* pointers-to n have been weakend, and Srefc > 0, so nothing free*/
+    return;
+  
+  /* 4. If n has no Strong pointers, and the number of pointers found is equal to the sum of refc, then n and Reach*(n) are all free.   No need for recursive deletion, they can simply be recycled. */
+  externals = (theCounts.srefc + theCounts.wrefc) - (theCounts.strong + theCounts.weak);
+  reach = (theCounts.atom  + theCounts.hdtl); /* count of nodes, including n */
+  
+  if (externals == 0) {
+    Log1("zone_delete2021%s no externals, so all free\n", zone_pointer_info(n));
+    if (HasPointers(n)) { /* recycle all visited nodes */
+      zone_recycle(&Hd(n), visited_t);
+      zone_recycle(&Tl(n), visited_t);
+    }
+    if (Tag(n) != free_t)
+      free_node(n);
+    return;
+  }
+  
+  /*  5. Otherwise, n has no Strong pointers and so has no external pointers, but there are external pointers, they must be elsewhere.
+   6. Clear the notebook
+   7. Visit Reach*(n) [this could be done as part of 2 to save visits at cost of earlier use of notebook]
+   1. in the notebook count times x is visited via Strong and via Weak local refc and status mayfree
+   8. After Protected nodes will have refc > local refc
+   9. Visit Reach*(n) again,
+   1. examine noteboook for externals s
+   2. at externals s
+   1. add s to notebook inuse ‘list’. Examine pointers from s
+   1. if they point to node x already in notebook inuse weaken
+   2. if they don’t point node x already to notebook inuse, strengthen pointer and add x to noteboook inuse, recursively visit x
+   */
+  
+  inuse  = find_inuse_2021algorithm(&n, &theCounts); /* theCounts invalidated now˚ */
+  free = reach - inuse; /* count of nodes that are free */
+  //xx start extra
+//  if (check_loop(root, zone_inuse_count*2))
+//    err_zone("delete - loop");
+//
+//  //  if (zone_check()) // destroys x_check info
+//  //    err_zone("delete - check");
+//  Debug("delete - no loop\n");
+  //xx end extra
+#if xx2021algorithm_fail
+//  /*  10. If n has Strong pointers, n inuse and all done. */ //XXX ALogorithm fail - NO
+//  if (Srefc(n) > 0) {
+//    if (inuse != reach)
+//      Debug2("delete - problem setting in use vs reach %u %u\n",  inuse, reach);
+//    //      err_zone("delete - problem setting in use");
+//    Log1("zone_delete2021%s in use - protected by localroot elsewhere\n", zone_pointer_info(n));
+//    return;
+//  }
+#endif
+  /* 10. If nothing is free, all done */
+  if (!free) {
+      if (inuse != reach)
+         Log2("!!delete - none free, problem setting in use vs reach %u %u\n",  inuse, reach);
+       //      err_zone("delete - problem setting in use");
+       Log1("zone_delete2021%s in use - protected by localroot elsewhere\n", zone_pointer_info(n));
+       return;
+  }
+
+//  /*  11. If n has no Strong pointers, some part of Reach*(n) is free - recursively delete pointers from n recycling nodes where refc==0. Done.  No need for recusive deletion they can simply be freed.
+  /*  11. If there are free, then n and some part of Reach*(n) is free - recursively delete pointers from n recycling nodes where refc==0. Done.  No need for recusive deletion they can simply be freed.
+   1. Nodes to be recycled will be have notebook status mayfree - which may help implementation, but not necessary.
+   */
+  if (HasPointers(n)) {
+    unsigned freed = 0;
+    Log2("zone_delete2021%s no local externals, %u free\n", zone_pointer_info(n), free);
+    freed += zone_recycle(&Hd(n), fordeletion_t);
+    freed += zone_recycle(&Tl(n), fordeletion_t);
+    if (freed != free)
+      Log3("!!zone_delete2021%s error freed %u out of %u free\n", zone_pointer_info(n), freed, free);
+  }
+  if (Tag(n) != free_t)
+    free_node(n);
+  
+  return;
+  /* 12. Discard notebook - nothing to do */
+}
+
 
 /* externally usable version */
 int zone_check()
