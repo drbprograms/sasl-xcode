@@ -33,7 +33,7 @@ pointer make_append(pointer list, pointer tl)
 
   /* was Assert(IsCons(list)); but wrong as that is strict */ /*?? is that right*/
   Assert(IsStruct(list));
-  T(list) = make_append(T(list), tl); /*todo: change to iterative to avoid C implementation stack overflows */
+  set_tl(list,  make_append(T(list), tl)); /*todo: change to iterative to avoid C implementation stack overflows */
   return list;
 }
 
@@ -83,44 +83,42 @@ TODO
 */
 pointer new_int(int i)
 {
-  pointer n = new_node(int_t);
+  pointer n = new_atom(int_t);
   Num(n) = i;
   store_log_new(n);
   return n;
 }
 pointer new_double(double d)
 {
-  pointer n = new_node(floating_t);
+  pointer n = new_atom(floating_t);
   Dbl(n) = d;
   store_log_new(n);
   return n;
 }
 pointer new_char(char c)
 {
-  pointer n = new_node(char_t);
+  pointer n = new_atom(char_t);
   Char(n) = c;
   store_log_new(n);
   return n;
 }
 pointer new_bool(char b)
 {
-  pointer n = new_node(bool_t);
+  pointer n = new_atom(bool_t);
   Bool(n) = b;
   store_log_new(n);
   return n;
 }
 pointer new_fail()
 {
-  pointer n = new_node(fail_t);
+  pointer n = new_atom(fail_t);
   store_log_new(n);
   return n;
 }
 
 pointer new_apply(pointer hd, pointer tl)
 {
-  pointer n = new_node(apply_t);
-  Hd(n) = hd;
-  Tl(n) = tl;
+  pointer n = new_hdtl(apply_t, hd, tl);
   store_log_new(n);
   return n;
 }
@@ -137,9 +135,7 @@ pointer new_apply4(pointer hhh, pointer thh, pointer th, pointer t)
 
 pointer new_cons(pointer hd, pointer tl)
 {
-  pointer n = new_node(cons_t);
-  Hd(n) = hd;
-  Tl(n) = tl;
+  pointer n = new_hdtl(cons_t, hd, tl);
   store_log_new(n);
   return n;
 }
@@ -153,9 +149,7 @@ pointer new_abstract(pointer name, pointer def, tag t)
     return NIL; /*NOTREACHED*/
   }
   
-  n = new_node(t);
-  Hd(n) = name;
-  Tl(n) = def;
+  n = new_hdtl(t, name, def);
   store_log_new(n);
   return n;
 }
@@ -163,9 +157,7 @@ pointer new_abstract(pointer name, pointer def, tag t)
 /* def: (defname:(listof name|namelist):(listof expr)) */
 pointer new_def(pointer name, pointer def)
 {
-  pointer n = new_node(def_t);
-  Hd(n) = name;
-  Tl(n) = def;
+  pointer n = new_hdtl(def_t, name, def);
   store_log_new(n);
   return n;
 }
@@ -369,7 +361,7 @@ pointer add_deflist_to_defNEW(pointer def, pointer deflist)
 
 pointer new_name(char *s)
 {
-  pointer n = new_node(name_t);
+  pointer n = new_atom(name_t);
   
   if (!s)
     return err_store("new_name: null string pointer");
@@ -395,14 +387,14 @@ pointer new_name(char *s)
 
 pointer new_oper(tag oper)
 {
-  pointer n = new_node(oper);	/* oper is unchecked */
+  pointer n = new_atom(oper);	/* oper is unchecked */
   store_log_new(n);
   return n;
 }
 
 static pointer new_unary(tag t, char *name, pointer (*fun)(pointer p))
 {
-  pointer n = new_node(t);
+  pointer n = new_atom(t);
   
   if (!name)
     return err_store("new_unary: null string pointer");
@@ -441,7 +433,7 @@ static pointer refc_change_to_deleting(pointer p)
   
   Assert(HasPointers(p));
   Assert(! IsFree(p));
-  Tag(p) = deleting_t;
+  change_tag(p, deleting_t);
   
   return p;
 }
@@ -463,7 +455,7 @@ static pointer refc_change_to_deleting(pointer p)
 //  }
 //  Tag(n) = t;
 //  if (HasPointers(n) {
-//    Hd(n) = Tl(n) = NIL; /* always intitalise pointers (even if previously deleted) */
+//    set_hd(n) = Tl(n,  NIL); /* always intitalise pointers (even if previously deleted) */
 //  }
 //      return n;
 //}
@@ -471,8 +463,8 @@ static pointer refc_change_to_deleting(pointer p)
 //      pointer make_comb_name(pointer n, tag t, pointer name)
 //  {
 //    n = make_node(n, t);
-//    Hd(n) = name;
-//    Tl(n) = NIL; /*WIP is this needed?*/
+//    set_hd(n,  name);
+//    set_tl(n,  NIL); /*WIP is this needed?*/
 //    store_log_new(n);
 //    return n;
 //  }
@@ -485,8 +477,8 @@ static pointer refc_change_to_deleting(pointer p)
 //      pointer make_apply(pointer n, pointer hd, pointer tl)
 //  {
 //    make_node(n, apply_t);
-//    Hd(n) = hd;
-//    Tl(n) = tl;
+//    set_hd(n,  hd);
+//    set_tl(n,  tl);
 //    store_log_new(n);
 //    return n;
 //  }
@@ -500,10 +492,8 @@ static pointer refc_change_to_deleting(pointer p)
 /* hide the sasl variable name in hd of the combinator */
 static pointer new_comb_do(tag t, pointer name)
 {
-  pointer n = new_node(t);
-  
-  Hd(n) = name;
-  Tl(n) = NIL;
+  pointer n = new_hdtl(t, name, NIL);
+
   store_log_new(n);
   return n;
 }
@@ -639,7 +629,7 @@ unsigned refc_delete_post_search_log(pointer p, unsigned free)
       if (refc_delete_depth <= 1)
          err++; /* sometime fatal */
     }
-    if (!free && Srefc(p) == 0) {
+    if (delete == 1 /* 1985 algorithm */ && !free && Srefc(p) == 0) {
       msg = " - about to delete something which is NOT free";
       err++; /* always fatal (2021-02-01) */
     }
@@ -811,28 +801,6 @@ static void refc_flip_node(pointer p)
   return;
 }
 
-/* refc_flip_pointer - make a strong pointer weak and vv, but do nothing for constants and NIL */
-static void refc_flip_pointer(pointer *pp)
-{
-  const pointer p = *pp; /* local copy for convenience */
-
-  if (IsNil(p) || ! HasPointers(p))
-    return;
-  
-  refc_flip_pointer_log(p);
-  
-  if (IsStrong(p)) {
-    Wrefc(p)++;
-    Srefc(p)--;
-  } else {
-    Srefc(p)++;
-    Wrefc(p)--;
-
-  }
-  PtrBit(*pp) = !NodeBit(p); /* Was: PtrBit(p) = !PtrBit(p); */
-  return;
-}
-
 /*
  * The general rule for all graph nodes is: "all nodes have at least one strong reference, and only non-constants have a weak reference".
  * Special nodes have one special strong reference, which is not from any onother node but is counted
@@ -865,7 +833,8 @@ static void refc_flip_pointer(pointer *pp)
  search(start, <S,hd(s)>); search(start, <S,tl(S)>)  ++ provided Srefc(S) == 1
  */
 
-static void refc_search(pointer start, pointer *pp)
+//xxx static
+  void refc_search(pointer start, pointer *pp)
 {
 
 //  2020-01-04 disabled: need to allow search to progress and weaken last pointer?
@@ -880,7 +849,7 @@ static void refc_search(pointer start, pointer *pp)
   // 2021-01-20 xxx "&& !IsDeleting(*pp)" deprecated - is it correct??  Confuses the logic...
   if (SameNode(start, *pp) || ((Srefc(*pp) > 1) && !IsDeleting(*pp)))
   {  /* make a strong pointer to a non-constant weak, end of search */
-    refc_flip_pointer(pp);
+    zone_weaken(pp);
     return;
   }
   
@@ -957,40 +926,6 @@ static void refc_delete1985(pointer p)
 
   return;
 }
-/*
- 
- When last strong pointer has been deleted, but there are still weak refernces:
- 
- run check for externals
- if none then Reach*(p) is free
- if some at p then nothing is free
- otherwise set inuse {s : Reach*(p) | hasexternals(s) . Reach*(s)}, then free (contiguous) Reach*(p) not innuse (ie willfree).
-
-  Strength: if s has no external strong - Take Care;
-    otherwise stregnthen first pointer to Reach*(s), weaken rest
- */
-void refc_delete2021(pointer p)
-{
-  unsigned inuse;
-  
-  if (Srefc(p) > 0)
-    return;
-
-  if (Wrefc(p) == 0) { /* ie Allrefc(p) == 0 */
-    if (HasPointers(p)) {
-      free_2021algorithm(&H(p));
-      free_2021algorithm(&T(p));
-    }
-    free_node(p);
-    return;
-  }
-  
-  /* Srefc == 0 && Wrefc > 0 more to do */
- todo inuse = get_inuse_2021algorithm(p);
-  
-  if (inuse == 0 )
-    return;
-}
 
 /* method - derived from 1985 algoriothm */
 
@@ -1027,9 +962,9 @@ static void refc_delete_do(pointer *pp)
   zone_erase(pp);
   
   switch (delete) {
-    case 0: return;  /* not deleting sub-items */
+    case 0: return;  /* not deleting nodes, only pointers */
     case 1: refc_delete1985(p); return;
-    case 2: refc_delete2021(p); return;
+    case 2: zone_delete2021(p); return;
     default: err_refc1("environment variable delete", delete);
   }
   return;
@@ -1079,7 +1014,7 @@ pointer refc_update_to_int(pointer n, int i)
   refc_delete(&Hd(n));
   refc_delete(&Tl(n));
   
-  Tag(n) = int_t;
+  change_tag(n, int_t);
   Num(n) = i;
   
   return n;
@@ -1095,7 +1030,7 @@ pointer refc_update_to_bool(pointer n, char b)
   refc_delete(&Hd(n));
   refc_delete(&Tl(n));
   
-  Tag(n) = bool_t;
+  change_tag(n, bool_t);
   Bool(n) = b;
   
   return n;
@@ -1110,7 +1045,7 @@ pointer refc_update_to_char(pointer n, char c)
   refc_delete(&Hd(n));
   refc_delete(&Tl(n));
   
-  Tag(n) = char_t;
+  change_tag(n, char_t);
   Char(n) = c;
   
   return n;
@@ -1126,7 +1061,7 @@ pointer refc_update_to_double(pointer n, double d)
   refc_delete(&Hd(n));
   refc_delete(&Tl(n));
   
-  Tag(n) = floating_t;
+  change_tag(n, floating_t);
   Dbl(n) = d;
   
   return n;
@@ -1143,7 +1078,7 @@ pointer refc_update_to_fail(pointer n)
   refc_delete(&Hd(n));
   refc_delete(&Tl(n));
   
-  Tag(n) = fail_t;
+  change_tag(n, fail_t);
   
   return n;
   
@@ -1161,22 +1096,6 @@ pointer refc_update_to_fail(pointer n)
  * refc_copy - original COPY(R,<S,T>,isweak(<S,T)) written as a function to be used "R = COPY(<S,T>)"
  *  Copy a pointer, NOT creating a loop.
  */
-#ifdef old
-pointer refc_copy(pointer p)
-{
-  refc_copy_log(p);
-  
-  if (IsNil(p))
-    return NIL;
-  
-  if (IsStrong(p))
-    Srefc(p)++;
-  else
-    Wrefc(p)++;
-  
-  return p;
-}
-#endif
 /* copy a pointer n times */
 static pointer refc_copyN(pointer p, int n)
 {
@@ -1195,71 +1114,20 @@ static pointer refc_copyN(pointer p, int n)
 
 pointer refc_copy(pointer p)
 {
-  return refc_copyN(p, 1);
-}
-
-#ifdef deprecated
-/* copy the H of a pointer, propagating weakness
- * result is strong if p is strong and H(p) is strong, otherwise weak
- */
-pointer refc_copyH(pointer p)
-{
-  pointer c;
-  
-  refc_copyN_log(p, -1/**/);
+  refc_copyN_log(p, 1);
   
   if (IsNil(p))
-    return NIL;
+    return p;
   
-  c = H(p);
+  if (IsStrong(p))
+    Srefc(p) += 1;
+  else
+    Wrefc(p) += 1;
   
-  if (IsNil(c))
-    return NIL;
-  
-  /* IsStrong(p) && IsStrong(c) => Strong */
-  /* IsWeak(p)   && IsWeak(c)   => IsWeak */
-  /* IsStrong(p) && IsWeak(c)   => IsWeak */
-  /* IsWeak(p) && IsWeak(c)     => IsWeak */
-  
-  if (IsStrong(p) && IsStrong(c)) {
-    Srefc(c) += 1;
-  } else {
-    PtrBit(c) = !NodeBit(c); /* make weak, might be already */
-    Wrefc(c) += 1;
-  }
-  
-  return c;
+  return p;
 }
 
-pointer refc_copyT(pointer p)
-{
-  pointer c;
-  
-  refc_copyN_log(p, -2/**/);
-  
-  if (IsNil(p))
-    return NIL;
-  
-  c = T(p);
-  
-  if (IsNil(c))
-    return NIL;
-  
-  /* IsStrong(p) && IsStrong(c) => Strong */
-  /* IsWeak(p)   && IsWeak(c)   => IsWeak */
-  /* IsStrong(p) && IsWeak(c)   => IsWeak */
-  /* IsWeak(p) && IsWeak(c)     => IsWeak */
-  
-  if (IsStrong(p) && IsStrong(c)) {
-    Srefc(c) += 1;
-  } else {
-    PtrBit(c) = !NodeBit(c); /* make weak */
-    Wrefc(c) += 1;
-  }
-  
-  return c;
-}
-#endif
+
 /*
  * refc_make_copy() copy a pointer, making sure that there are never weak pointers to constants
  * "weak" is the number >=0, of "intermediate" weak pointers which have been visited before "p"
@@ -1410,13 +1278,14 @@ pointer refc_copy_make_cyclic(pointer p)
 {
   refc_copy_make_cyclic_log(p); /* log original state of p strong/weak */
   
-  if (IsNil(p))
-    return NIL;
-  
-  PtrBit(p) = !NodeBit(p);  /* assert IsWeak(p) */
-  Wrefc(p)++;
-  
-  return p;
+  return refc_make_copy(p, 1/*weak*/);
+//  if (IsNil(p))
+//    return NIL;
+//
+//  PtrBit(p) = !NodeBit(p);  /* assert IsWeak(p) */
+//  Wrefc(p)++;
+//
+//  return p;
 }
 
 #ifdef deprecated
@@ -1434,7 +1303,7 @@ pointer refc_copy_make_cyclic(pointer p)
         Val(n) = Val(new);
         
         if (HasPointers(new)) {
-          Hd(new) = Tl(new) = NIL;
+          set_hd(new) = Tl(new,  NIL);
         }
         
 //        refc_delete(&new);
@@ -1448,83 +1317,78 @@ pointer refc_copy_make_cyclic(pointer p)
  * NB old contents are deleted before installing new, so refc are incremented to be correct!
  * If new value is NIL, delete and return NIL.
  */
-pointer refc_update(pointer n, pointer new)
-{
-  tag t;
-  
-  Assert (!IsNil(n));
-  
-  if (!HasPointers(n)) {
-    (void) err_refc("trying to update a constant");
-    return NIL; /*NOTREACHED*/
-  }
-  
-  if (IsNil(new)) {
-    refc_delete(&n);
-    Assert(IsNil(n));
-    return n;
-  }
-  
-  t = Tag(new);
-  
-  if (HasPointers(new)) {
-    n = refc_update_hdtl(n, refc_copy(H(new)), refc_copy(T(new)));
-  } else {
-    union val v = Val(new);
-    n = refc_update_hdtl(n, NIL, NIL);
-    Val(n) = v;
-  }
-  
-  Tag(n) = t;
-  
-  return n;
-}
 
 /* insert new contents in an apply node, free old, new node can be any kind */
-/* copy hd, tl from new into old; delete hd to */
+
+/* update-in-place - with checks */
+pointer refc_update_hd(pointer p, pointer hd)
+{
+  if (!HasPointers(p))
+    err_zone("update_hd of atom");
+  (void) zone_update(&Hd(p), hd);
+  return p;
+}
+
+pointer refc_update_tl(pointer p, pointer tl)
+{
+  if (!HasPointers(p))
+    err_zone("update_tl of atom");
+  (void) zone_update(&Tl(p), tl);
+  return p;
+}
+
+pointer refc_update_hdtl(pointer p, pointer hd, pointer tl)
+{
+  if (!HasPointers(p))
+    err_zone("update_hdtl of atom");
+  (void) zone_update(&Tl(p), tl);
+  (void) zone_update(&Hd(p), hd);
+  return p;
+}
+
 
 /*
  * refc_update_hd
  *  replace the hd pointer of a node, with a new pointer (if different), deleting the old hd
  */
-static pointer refc_update_hd(pointer n, pointer new)
-{
-  if (!HasPointers(n)) {
-    (void) err_refc("trying to update_hd a constant");
-    return NIL; /*NOTREACHED*/
-  }
-  /*was
-   if (!EqPtr(Hd(n), new)) {
-   refc_delete(&Hd(n));
-   Hd(n) = new;
-   }
-   */
-  
-  refc_delete(&Hd(n));
-  Hd(n) = new;
-  
-  return n;
-}
+//static pointer refc_update_hd(pointer n, pointer new)
+//{
+//  if (!HasPointers(n)) {
+//    (void) err_refc("trying to update_hd a constant");
+//    return NIL; /*NOTREACHED*/
+//  }
+//  /*was
+//   if (!EqPtr(Hd(n), new)) {
+//   refc_delete(&Hd(n));
+//   set_hd(n,  new);
+//   }
+//   */
+//
+//  refc_delete(&Hd(n));
+//  set_hd(n,  new);
+//
+//  return n;
+//}
 /*
  * refc_update_tl
  *  replace the tl pointer of a node, with a new pointer (if different), deleting the old tl
  */
-static pointer refc_update_tl(pointer n, pointer new)
-{
-  if (!HasPointers(n)) {
-    (void) err_refc("trying to update_tl a constant");
-    return NIL; /*NOTREACHED*/
-  }
-  
-  /*was
-   if (!EqPtr(Tl(n), new)) {
-   refc_delete(&Tl(n));
-   Tl(n) = new;
-   }
-   */
-  
-  return n;
-}
+//static pointer refc_update_tl(pointer n, pointer new)
+//{
+//  if (!HasPointers(n)) {
+//    (void) err_refc("trying to update_tl a constant");
+//    return NIL; /*NOTREACHED*/
+//  }
+//
+//  /*was
+//   if (!EqPtr(Tl(n), new)) {
+//   refc_delete(&Tl(n));
+//   set_tl(n,  new);
+//   }
+//   */
+//
+//  return n;
+//}
 
 /*
  * refc_updateSS - update hd and tl to nodes pointed-to by selectors
@@ -1587,12 +1451,16 @@ pointer /*so can be used in an expression*/ refc_update_pointerS(pointer *pp, ch
 //  if (!pp)
 //  refc_err("updating nothing",NIL);
 
-
-  {
-    pointer newp = refc_copy_pointerS(*pp, s);
-    refc_delete(pp);
-    *pp = newp;
+#if 0
+    zone_update(pp, refc_copy_pointerS(*pp, s))
+#else
+  { // 2021-02-21 update-before-delete otherwise copied pointer not treated correctly by 2021 algorith (and others?)
+    /* use-before-loooe */
+    pointer oldp = *pp;
+    *pp = refc_copy_pointerS(*pp, s);
+    refc_delete(&oldp);
   }
+#endif
 //  2020-01-29 below makes strong pointer loops ?as does above!
 //  {
 //    pointer oldp = *pp;
@@ -1602,31 +1470,34 @@ pointer /*so can be used in an expression*/ refc_update_pointerS(pointer *pp, ch
 // 2020-01-29 ends
   return *pp;
 }
-/*
- * refc_update_hdtl
- *  update in place - replace hd and tl with new contents; requires n to be a pointer node already; content of n are deleted
- *  does *not* modify tag (cons/apply).
- */
-pointer refc_update_hdtl(pointer n, pointer newhd, pointer newtl)
-{
-  if (!IsStruct(n)) { /* *not* HasPointers() */
-    (void) err_refc("trying to update_hdtl a constant");
-    return NIL; /*NOTREACHED*/
-  }
-  
-  refc_delete(&Hd(n));
-  Hd(n) = newhd;
-  
-  refc_delete(&Tl(n));
-  Tl(n) = newtl;
-  
-//  /* */
-//  if (!HasPointers(n) && Wrefc(n) > 0)
-//    Debug("refc_update: making constant with Wrefc>0: %s\n", zone_pointer_info(n));
-  
-  return n;
-  
-}
+///*
+// * refc_update_hdtl
+// *  update in place - replace hd and tl with new contents; requires n to be a pointer node already; content of n are deleted
+// *  does *not* modify tag (cons/apply).
+// */
+//pointer refc_update_hdtl(pointer n, pointer newhd, pointer newtl)
+//{
+//  if (!IsStruct(n)) { /* *not* HasPointers() */
+//    (void) err_refc("trying to update_hdtl a constant");
+//    return NIL; /*NOTREACHED*/
+//  }
+//
+//  {
+//    pointer oldhd = Hd(n), oldtl = Tl(n);
+//    set_hd(n,  newhd);
+//    refc_delete(&oldhd);
+//
+//    set_tl(n,  newtl);
+//    refc_delete(&oldtl);
+//  }
+//
+////  /* */
+////  if (!HasPointers(n) && Wrefc(n) > 0)
+////    Debug("refc_update: making constant with Wrefc>0: %s\n", zone_pointer_info(n));
+//
+//  return n;
+//
+//}
 
 /*
  * startup/closedown
