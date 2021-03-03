@@ -251,7 +251,7 @@ int tag_init()
   add_tag(unary_minus_op,    operator,        "-",    1, 1, 0);
   
   // add_tag(range_unbounded_op,    operator,    "...",    1, 1, 0);
-  // add_tag(unary_count_op,    operator,    "#",    1, 1, 0);
+  add_tag(unary_count_op,    operator,    "#",    1, 1, 0);
   
   /* Combinators - tl contains first argument.  Optionally hd points to name_t name of variable being abstracted,    for debugging purposes */
   add_tag(I_comb,        combinator,"I_comb",    1, 0, 0);
