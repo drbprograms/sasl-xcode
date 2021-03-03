@@ -71,6 +71,7 @@ static pointer parse_check_do(pointer n, char *msg)
     
     if (IsName(n)) {
       parse_check_log();
+      Debug1("undefined name \"%s\"\n", Name(n));
       parse_err("undefined name", Name(n), msg);
     }
     
