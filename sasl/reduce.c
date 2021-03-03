@@ -3,6 +3,7 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <math.h>
 
 
@@ -800,14 +801,37 @@ void reduce(pointer *n)
                         /* todo floating point */
                     case much_less_op:
                         err_reduce("much_less op not expected");
+                        
                     case divide_op:
-                        err_reduce("divide op not expected");
+                        Top = refc_update_to_int(Top, div(reduce_int(arg[1]), reduce_int(arg[2])).quot); break;
                     case rem_op:
-                        err_reduce("rem op not expected");
+                        Top = refc_update_to_int(Top, div(reduce_int(arg[1]), reduce_int(arg[2])).rem); break;
                     case power_op:
-                        err_reduce("power op not expected");
+                        Top = refc_update_to_int(Top, pow(reduce_int(arg[1]), reduce_int(arg[2]))); break;
                         break;
                         
+                        /* # list => number of items in list */
+                        /* # () = 0 */
+                        /* # (a:x) = 1 + (# x) */
+                        /* # other = fail */
+                        /* todo loop avoidance for infinite lists / or at least set max value for "uu" as MAXINT-1 */
+                        /* # (Y cons) -> infinity/NaN */
+                    case unary_count_op: {
+                        unsigned uu;
+                        pointer *pp = arg[1];
+                        reduce(pp);
+                        for (uu = 0; IsCons(*pp); uu++) {
+                            pp = &Tl(*pp);
+                            reduce(pp);
+                        }
+                        if (IsNil(*pp)) {
+                            change_tag(Top, apply_t); /* only apply nodes can be updated (presently) */
+                            refc_update_to_int(Top, uu);
+                        }
+                        else
+                            err_reduce("\'#\" getting length of a non-list");
+                    }
+                        break;
                         /* comb arg[1] arg[2] */ /*xxx shoulndt we only allow NIL here -> and be strict?*/
                     case K_nil_comb:
                         if ( ! (IsNil(*arg[2]) ||
