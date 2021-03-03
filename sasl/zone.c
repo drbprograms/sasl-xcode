@@ -916,13 +916,11 @@ static int check_traverse_pointers_do(pointer p, unsigned s_limit,  check_counts
       if (seen_before)
         break; /* not first visit to p */
       
-#define zone_weaken_withcounts(p, c) zone_weaken(p)
       if (localroot) {
         /* if set, weaken pointers to localroot and adjust counts */
         if (SameNode(*localroot, Hd(p))) zone_weaken_withcounts(&Hd(p), counts);
         if (SameNode(*localroot, Tl(p))) zone_weaken_withcounts(&Tl(p), counts);
       }
-#undef zone_weaken_withcounts
       /* first visit: visit descendants  */
       Push(p);
       p = H(p);
@@ -1077,6 +1075,9 @@ static int check_loop_do(pointer p, unsigned s_limit, unsigned strong_count)
 }
 
 /* wrapper */
+
+//xx needs to be iterative
+
 #define Limit 24 /* restrict output to this level, unless debug>1 */
 static int check_loop(pointer p, unsigned s_limit)
 {
@@ -1855,9 +1856,9 @@ unsigned zone_check_deletion(pointer n)
          1. add s to notebook inuse ‘list’. Examine pointers from s
              1. if they point to node x already in notebook inuse weaken
              2. if they don’t point node x already to notebook inuse, strengthen pointer and add x to noteboook inuse, recursively visit x
- 10. If n has Strong pointers, n inuse and all done.
- 11. If n has no Strong pointers, some part of Reach*(n) is free - recursively delete pointers from n recycling nodes where refc==0. Done.  No need for recusive deletion they can simply be freed.
-     1. Nodes to be recycled will be have notebook status mayfree - which may help implementation, but not necessary.
+ 10. If nothing is free, all done
+ 11. If there are free, then n and some part of Reach*(n) is free - recursively delete pointers from n recycling nodes where refc==0. Done.  No need for recusive deletion they can simply be freed.
+     1. Nodes to be recycled will be have notebook status mayfree
  12. Discard notebook
  */
 
@@ -1895,26 +1896,20 @@ void zone_delete2021(pointer n)
    *   2. counting pointers
    *   3. weakening pointers to n
    */
-    check_reset();
-  {
-    int s = IsStrong(n);
-//    PtrBit(n) = !NodeBit(n);//xx
-//    Assert(IsWeak(n));//xx
-    
-//xx    shortcut = n;//xx 2021-02-27 TEMP no weakening  in check_traverse_pointers()
-    if (check_traverse_pointers(n, zone_inuse_count*2, &theCounts, shortcut))
-      err_zone("zone_delete2021: problem traversing deletion nodes");
-    
-    /* NB "n" has been counted (but not weakened) by check_traverse_pointers() as a root pointer, which is it not, so need to offset check pointer count and check refc sum by 1 */
-    n_check = zone_check_pointer_of(n);
-    if (s) {
-      (theCounts.strong)--;
-      Srefc(n_check)--;
-    } else {
-      (theCounts.weak)--;
-      Wrefc(n_check)--;
-    }
-  }//xx sometimes root-excess is shown incorrect after this ... problem with "stale" n pointer?
+  check_reset();
+  shortcut = &n;//xx 2021-02-27 TEMP no weakening  in check_traverse_pointers()
+  if (check_traverse_pointers(n, zone_inuse_count*2, &theCounts, shortcut))
+    err_zone("zone_delete2021: problem traversing deletion nodes");
+  
+  /* NB "n" has been counted (but not weakened) by check_traverse_pointers() as a root pointer, which is it not, so need to offset check pointer count and check refc sum by 1 */
+  n_check = zone_check_pointer_of(n);
+  if (IsStrong(n)) {
+    (theCounts.strong)--;
+    Srefc(n_check)--;
+  } else {
+    (theCounts.weak)--;
+    Wrefc(n_check)--;
+  }
   
   Debug7("zone_delete2021%s refc-sum:(s/w %u/%u) pointer-count:(sp/wp %u/%u) refc-excess:(s+/w+ %u/%u)",
          zone_pointer_info(n),
@@ -1935,29 +1930,29 @@ void zone_delete2021(pointer n)
   Debug4("(s/w %u/%u) (s_check/w_check %u/%u)\n", Srefc(n), Wrefc(n), Srefc(n_check), Wrefc(n_check));
   
   if (theCounts.srefc < theCounts.strong)
-    err_zone("zone_check_deletion: more strong pointers than strong counts");
+    err_zone("zone_delete2021: more strong pointers than strong counts");
   if (theCounts.wrefc < theCounts.weak)
-    err_zone("zone_check_deletion: more weak pointers than weak counts");
-  
-//xx  { extern unsigned refc_delete_post_search_log(pointer p, unsigned free); refc_delete_post_search_log(n , log); }//xx deprecated
+    err_zone("zone_delete2021: more weak pointers than weak counts");
   
   /*  3. If n has Strong pointers, all done - they protect n and reach n.  n in use nothing else to do. */
 
-  if (shortcut && Srefc(n) > 0) /* pointers-to n have been weakend, and Srefc > 0, so nothing free*/
+  if (shortcut && Srefc(n) > 0) { /* pointers-to n have been weakend, and Srefc > 0, so nothing free*/
+    Log1("zone_delete2021%s shortcut, external strong, so all in use\n", zone_pointer_info(n));
     return;
+  }
   
   /* 4. If n has no Strong pointers, and the number of pointers found is equal to the sum of refc, then n and Reach*(n) are all free.   No need for recursive deletion, they can simply be recycled. */
   externals = (theCounts.srefc + theCounts.wrefc) - (theCounts.strong + theCounts.weak);
   reach = (theCounts.atom  + theCounts.hdtl); /* count of nodes, including n */
   
-  if (externals == 0) {
+  if (!externals) {
     Log1("zone_delete2021%s no externals, so all free\n", zone_pointer_info(n));
+    Assert(Tag(n_check) == visited_t);
     if (HasPointers(n)) { /* recycle all visited nodes */
       zone_recycle(&Hd(n), visited_t);
       zone_recycle(&Tl(n), visited_t);
     }
-    if (Tag(n) != free_t)
-      free_node(n);
+    zone_recycle(&n, visited_t);
     return;
   }
   
@@ -1974,49 +1969,34 @@ void zone_delete2021(pointer n)
    2. if they don’t point node x already to notebook inuse, strengthen pointer and add x to noteboook inuse, recursively visit x
    */
   
-  inuse  = find_inuse_2021algorithm(&n, &theCounts); /* theCounts invalidated now˚ */
-  free = reach - inuse; /* count of nodes that are free */
-  //xx start extra
-//  if (check_loop(root, zone_inuse_count*2))
-//    err_zone("delete - loop");
-//
-//  //  if (zone_check()) // destroys x_check info
-//  //    err_zone("delete - check");
-//  Debug("delete - no loop\n");
-  //xx end extra
-#if xx2021algorithm_fail
-//  /*  10. If n has Strong pointers, n inuse and all done. */ //XXX ALogorithm fail - NO
-//  if (Srefc(n) > 0) {
-//    if (inuse != reach)
-//      Debug2("delete - problem setting in use vs reach %u %u\n",  inuse, reach);
-//    //      err_zone("delete - problem setting in use");
-//    Log1("zone_delete2021%s in use - protected by localroot elsewhere\n", zone_pointer_info(n));
-//    return;
-//  }
-#endif
+  inuse = find_inuse_2021algorithm(&n, &theCounts); /* theCounts invalidated now˚ */
+  free  = reach - inuse; /* count of nodes that are free */
+
   /* 10. If nothing is free, all done */
   if (!free) {
-      if (inuse != reach)
-         Log2("!!delete - none free, problem setting in use vs reach %u %u\n",  inuse, reach);
-       //      err_zone("delete - problem setting in use");
-       Log1("zone_delete2021%s in use - protected by localroot elsewhere\n", zone_pointer_info(n));
-       return;
+    Assert(Tag(n_check) == inuse_t);
+    if (inuse != reach)
+      Log2("!!delete - none free, problem setting in use vs reach %u %u\n",  inuse, reach);
+    //      err_zone("delete - problem setting in use");
+    Log1("zone_delete2021%s in use - protected by localroot elsewhere\n", zone_pointer_info(n));
+    return;
   }
-
-//  /*  11. If n has no Strong pointers, some part of Reach*(n) is free - recursively delete pointers from n recycling nodes where refc==0. Done.  No need for recusive deletion they can simply be freed.
+  
   /*  11. If there are free, then n and some part of Reach*(n) is free - recursively delete pointers from n recycling nodes where refc==0. Done.  No need for recusive deletion they can simply be freed.
-   1. Nodes to be recycled will be have notebook status mayfree - which may help implementation, but not necessary.
+          1. Nodes to be recycled will be have notebook status mayfree - which may help implementation, but not necessary.
    */
+  Assert(Tag(n_check) == fordeletion_t);
   if (HasPointers(n)) {
     unsigned freed = 0;
     Log2("zone_delete2021%s no local externals, %u free\n", zone_pointer_info(n), free);
     freed += zone_recycle(&Hd(n), fordeletion_t);
     freed += zone_recycle(&Tl(n), fordeletion_t);
-    if (freed != free)
+    if (freed != free) {
       Log3("!!zone_delete2021%s error freed %u out of %u free\n", zone_pointer_info(n), freed, free);
+      err_zone("zone error freeing");
+    }
   }
-  if (Tag(n) != free_t)
-    free_node(n);
+  zone_recycle(&n, fordeletion_t);
   
   return;
   /* 12. Discard notebook - nothing to do */
