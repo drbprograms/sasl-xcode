@@ -924,7 +924,7 @@ int pretty_print_const(FILE *where, pointer p)
   else if (IsBool(p))
     fprintf(where, "%s", Bool(p) ? "TRUE" : "FALSE");
   else {
-    err_out(err_tag_name(Tag(p)), "pretty_print_const: fail", "\n", 0);
+    err_out(err_tag_name(Tag(p)), "pretty_print_const: fail", "", 0);
     return 1;
   }
   

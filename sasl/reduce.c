@@ -129,32 +129,32 @@ static void indent(FILE *where, long int n)
 
 #define Limit 16
 #define ArgLimit 6
-void reduce_log(pointer *base, pointer *sp)
+static void reduce_log_stack(pointer *base, pointer *sp)
+{
+    int i = 0;
+    indent(stderr, Depth);
+    out_debug_limit1(Top, Limit); /*arbitrary limit to output */
+    for (i=1; i < ArgLimit && i < Stacked; i++) {
+        Debug("\t");
+        out_debug_limit1(Tl(sp[-i]), Limit); /*arbitrary limit to output */
+    }
+    Debug("\n");
+    return;
+}
+
+
+
+static void reduce_log(pointer *base, pointer *sp)
 {
     reductions++;
     tag_reductions[Tag(*sp)]++;
     
     if (debug) {
-        int i = 0;
-//
-         char tag_nargs(pointer p); /* forward reference - fix */
-//
-        
-        
         Debug("\n");
         //        Debug4("reduction %d: %s (%ld/%ld Depth/Stacked)\n",  reductions, refc_pointer_info(Top), Depth, Stacked);
         Debug5("reduction %d: %s (%ld/%ld/%d Depth/Stacked/Nargs)\n",  reductions, refc_pointer_info(Top), Depth, Stacked, tag_nargs(Top));
-        
-        indent(stderr, Depth);
-        out_debug_limit1(Top, Limit); /*arbitrary limit to output */
-        for (i=1; i < ArgLimit && i < Stacked; i++) {
-            Debug("\t");
-            out_debug_limit1(Tl(sp[-i]), Limit); /*arbitrary limit to output */
-        }
-        Debug("\n");
-        
+        reduce_log_stack(base, sp);
         (void) refc_check();
-        
         Debug("\n");
     }
     
@@ -519,8 +519,11 @@ void reduce(pointer *n)
                 tag tt = Tag(Top);
                 
                 /* locate args, numbered arg[1], arg[2], ... */
-                if (nargs >= Stacked)
-                    err_reduce2("problem reducing ", err_tag_name(tt));
+                if (nargs >= Stacked) {
+                    Debug2("reduce: short circuit (%ld) %s\n", Stacked - nargs, err_tag_name(tt));
+                    Pop(Stacked);  /* cause while() exit */
+                    break;
+                }
                 
                 for (i = 1; i <= nargs;  i++) {
                     Pop(1);
@@ -1089,12 +1092,8 @@ void reduce(pointer *n)
                         
                     default:
                         /* nothing found */
-                        if (debug) {
-                            int i=0;
-                            Debug2("unimplemented tag: Stacked %ld:%s\n", Stacked, err_tag_name(tt));
-                            
-                            do {Debug1("Stack[%d]: ",i--); out_debug(sp[i]); } while (-i < Stacked);
-                        }
+                        Debug2("unimplemented tag: Stacked %ld:%s\n", Stacked, err_tag_name(tt));
+                        reduce_log_stack(base, sp);
                         err_reduce("unimplemented tag");
                         /*NOTREACHED*/
                 }
@@ -1108,20 +1107,13 @@ void reduce(pointer *n)
                 indent(stderr, Depth);Debug("=> "); out_debug(Top);//xx  pretty_print(stderr, Top);
                 Debug(" </sasl-reduce>\n");
             }
-            //
         }/*end:reduce inner loop*/
         
     }
     
     /* THN - this never happens? */
-    if (debug) {
-        int i=0;
-        Debug1("reduce done Stacked=%ld\n",  Stacked);/*XXX*/
-        
-        out_debug(Top);
-        
-        do {Debug1("Stack[%d]: ",i--); out_debug(sp[i]); } while (-i < Stacked);
-    }
+    Debug1("reduce done Stacked=%ld\n",  Stacked);/*XXX*/
+    reduce_log_stack(base, sp);
     //      xxx  Assert(Stacked == 1 || IsCons(Top));
     Pop(Stacked);
     return;
